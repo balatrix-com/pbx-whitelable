@@ -1,0 +1,45 @@
+name: Deploy Application
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Sync Code to Production Directory
+        run: |
+          echo "Syncing latest code to /opt/balatrix-production"
+          # Added --delete to remove files in destination that are no longer in source
+          rsync -av --delete --exclude 'node_modules' --exclude 'dist' --exclude '.git' --exclude 'actions-runner' ./ /opt/balatrix-production/
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Build and Deploy Frontend
+        run: |
+          echo "Cleaning and Deploying Frontend..."
+          cd /opt/balatrix-production/frontend
+          rm -rf dist
+          npm install
+          npm run build
+          
+      - name: Build and Deploy Backend
+        run: |
+          echo "Cleaning and Deploying Backend..."
+          cd /opt/balatrix-production/backend
+          rm -rf dist
+          # npm prune removes any packages that are no longer in package.json
+          npm install
+          npm prune
+          npx prisma generate
+          npm run build
+          pm2 restart all || echo "Note: PM2 might not be running yet."

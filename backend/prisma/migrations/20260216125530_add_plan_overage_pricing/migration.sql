@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "plans" ADD COLUMN     "extraDidPrice" DECIMAL(65,30) NOT NULL DEFAULT 1.00,
+ADD COLUMN     "extraExtensionPrice" DECIMAL(65,30) NOT NULL DEFAULT 5.00,
+ADD COLUMN     "extraTfnPrice" DECIMAL(65,30) NOT NULL DEFAULT 2.00;

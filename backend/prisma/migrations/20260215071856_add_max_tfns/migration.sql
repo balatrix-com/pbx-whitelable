@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "plans" ADD COLUMN     "maxTFNs" INTEGER NOT NULL DEFAULT 0;
