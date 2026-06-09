@@ -1,8 +1,11 @@
-import { Controller, Get, Param, UseGuards, Post, Body, Put, Delete, Req } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards, Post, Body, Put, Delete, Req, UseInterceptors, UploadedFile, HttpException, HttpStatus } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -188,5 +191,25 @@ export class AdminController {
     @Roles('SUPER_ADMIN')
     async deletePartner(@Param('id') id: string) {
         return this.adminService.deletePartner(id);
+    }
+
+    @Post('branding/upload')
+    @Roles('SUPER_ADMIN')
+    @UseInterceptors(FileInterceptor('file', {
+        storage: diskStorage({
+            destination: './uploads',
+            filename: (req, file, cb) => {
+                const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+                cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+            }
+        })
+    }))
+    async uploadLogo(@UploadedFile() file: any) {
+        if (!file) {
+            throw new HttpException('No file uploaded', HttpStatus.BAD_REQUEST);
+        }
+        return {
+            url: `/api/uploads/${file.filename}`
+        };
     }
 }

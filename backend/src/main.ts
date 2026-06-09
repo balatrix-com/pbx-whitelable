@@ -5,8 +5,16 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TraceMiddleware } from './common/trace.middleware';
 import compression from 'compression';
 import helmet from 'helmet';
+import * as fs from 'fs';
+import * as path from 'path';
 
 async function bootstrap() {
+  // Ensure uploads directory exists
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+
   const app = await NestFactory.create(AppModule, {
     bodyParser: false, // Disable default body parser
   });
@@ -14,11 +22,14 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // Hardening
-  app.use(helmet());
+  app.use(helmet({
+    contentSecurityPolicy: false, // Disable CSP to allow custom logos/favicons from other sources if needed
+  }));
   app.use(compression());
 
   // Configure body parsers with raw body for webhook
   const express = require('express');
+  app.use('/api/uploads', express.static(uploadsDir));
   app.use(express.json({
     verify: (req: any, res: any, buf: any, encoding: any) => {
       if (req.url === '/billing/webhook') {

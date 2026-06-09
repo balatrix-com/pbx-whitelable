@@ -12,6 +12,19 @@
     --color-bg: #f7f9fc;
     --color-text: #2e2e2e;
 
+    /* Primary color scale fallbacks */
+    --color-primary-50: #f0f4ff;
+    --color-primary-100: #e1e7fe;
+    --color-primary-200: #c8d3fd;
+    --color-primary-300: #a4b6fa;
+    --color-primary-400: #7a90f5;
+    --color-primary-500: #3d52a0;
+    --color-primary-600: #314283;
+    --color-primary-700: #263367;
+    --color-primary-800: #1c244c;
+    --color-primary-900: #121633;
+    --color-primary-950: #0a0c1f;
+
     --color-success: #10b981;
     --color-warning: #f59e0b;
     --color-error: #ef4444;

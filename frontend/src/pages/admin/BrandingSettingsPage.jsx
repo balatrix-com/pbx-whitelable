@@ -18,7 +18,8 @@ import {
     Layout, 
     Loader2, 
     Settings,
-    HelpCircle
+    HelpCircle,
+    Upload
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -44,6 +45,9 @@ const BrandingSettingsPage = () => {
     const [savingCurrent, setSavingCurrent] = useState(false);
     const [currentDomain, setCurrentDomain] = useState(window.location.hostname);
     
+    // Upload state tracking
+    const [uploadingField, setUploadingField] = useState(null); // 'logoMain' | 'logoSidebar' | 'favicon' etc.
+
     // States for partner list
     const [partners, setPartners] = useState([]);
     const [loadingPartners, setLoadingPartners] = useState(false);
@@ -108,6 +112,47 @@ const BrandingSettingsPage = () => {
             console.error('Failed to fetch partners:', error);
         } finally {
             setLoadingPartners(false);
+        }
+    };
+
+    const handleFileUpload = async (e, fieldKey, target = 'current') => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) {
+            alert('File size exceeds the 5MB limit.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            setUploadingField(fieldKey);
+            const response = await api.post('/admin/branding/upload', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+
+            if (response.data && response.data.url) {
+                if (target === 'current') {
+                    setCurrentBranding(prev => ({
+                        ...prev,
+                        [fieldKey]: response.data.url
+                    }));
+                } else {
+                    setPartnerForm(prev => ({
+                        ...prev,
+                        [fieldKey]: response.data.url
+                    }));
+                }
+            }
+        } catch (err) {
+            console.error('File upload failed:', err);
+            alert('File upload failed: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setUploadingField(null);
         }
     };
 
@@ -282,38 +327,89 @@ const BrandingSettingsPage = () => {
 
                                     {/* Favicon */}
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Favicon Path/URL</label>
-                                        <input
-                                            type="text"
-                                            value={currentBranding.favicon}
-                                            onChange={(e) => setCurrentBranding({...currentBranding, favicon: e.target.value})}
-                                            placeholder="/svg logo/favicon.svg"
-                                            className="w-full rounded-xl border-gray-200 focus:border-primary-500 focus:ring-primary-500 text-sm font-medium bg-gray-50/50"
-                                        />
+                                        <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Favicon</label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={currentBranding.favicon}
+                                                onChange={(e) => setCurrentBranding({...currentBranding, favicon: e.target.value})}
+                                                placeholder="/svg logo/favicon.svg"
+                                                className="flex-1 rounded-xl border-gray-200 focus:border-primary-500 focus:ring-primary-500 text-sm font-medium bg-gray-50/50"
+                                            />
+                                            <label className="relative flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm hover:bg-gray-50 cursor-pointer transition-all">
+                                                {uploadingField === 'favicon' ? (
+                                                    <Loader2 size={16} className="animate-spin text-gray-500" />
+                                                ) : (
+                                                    <Upload size={16} className="text-gray-500" />
+                                                )}
+                                                <span>Upload</span>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*,.ico"
+                                                    onChange={(e) => handleFileUpload(e, 'favicon', 'current')}
+                                                    className="sr-only"
+                                                    disabled={uploadingField !== null}
+                                                />
+                                            </label>
+                                        </div>
                                     </div>
 
                                     {/* Logo Main */}
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Main Logo URL</label>
-                                        <input
-                                            type="text"
-                                            value={currentBranding.logoMain}
-                                            onChange={(e) => setCurrentBranding({...currentBranding, logoMain: e.target.value})}
-                                            placeholder="/svg logo/logo-main.svg"
-                                            className="w-full rounded-xl border-gray-200 focus:border-primary-500 focus:ring-primary-500 text-sm font-medium bg-gray-50/50"
-                                        />
+                                        <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Main Logo</label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={currentBranding.logoMain}
+                                                onChange={(e) => setCurrentBranding({...currentBranding, logoMain: e.target.value})}
+                                                placeholder="/svg logo/logo-main.svg"
+                                                className="flex-1 rounded-xl border-gray-200 focus:border-primary-500 focus:ring-primary-500 text-sm font-medium bg-gray-50/50"
+                                            />
+                                            <label className="relative flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm hover:bg-gray-50 cursor-pointer transition-all">
+                                                {uploadingField === 'logoMain' ? (
+                                                    <Loader2 size={16} className="animate-spin text-gray-500" />
+                                                ) : (
+                                                    <Upload size={16} className="text-gray-500" />
+                                                )}
+                                                <span>Upload</span>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*,.svg"
+                                                    onChange={(e) => handleFileUpload(e, 'logoMain', 'current')}
+                                                    className="sr-only"
+                                                    disabled={uploadingField !== null}
+                                                />
+                                            </label>
+                                        </div>
                                     </div>
 
                                     {/* Logo Sidebar */}
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Sidebar Logo URL</label>
-                                        <input
-                                            type="text"
-                                            value={currentBranding.logoSidebar}
-                                            onChange={(e) => setCurrentBranding({...currentBranding, logoSidebar: e.target.value})}
-                                            placeholder="/svg logo/logo-main.svg"
-                                            className="w-full rounded-xl border-gray-200 focus:border-primary-500 focus:ring-primary-500 text-sm font-medium bg-gray-50/50"
-                                        />
+                                        <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Sidebar Logo</label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={currentBranding.logoSidebar}
+                                                onChange={(e) => setCurrentBranding({...currentBranding, logoSidebar: e.target.value})}
+                                                placeholder="/svg logo/logo-main.svg"
+                                                className="flex-1 rounded-xl border-gray-200 focus:border-primary-500 focus:ring-primary-500 text-sm font-medium bg-gray-50/50"
+                                            />
+                                            <label className="relative flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm hover:bg-gray-50 cursor-pointer transition-all">
+                                                {uploadingField === 'logoSidebar' ? (
+                                                    <Loader2 size={16} className="animate-spin text-gray-500" />
+                                                ) : (
+                                                    <Upload size={16} className="text-gray-500" />
+                                                )}
+                                                <span>Upload</span>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*,.svg"
+                                                    onChange={(e) => handleFileUpload(e, 'logoSidebar', 'current')}
+                                                    className="sr-only"
+                                                    disabled={uploadingField !== null}
+                                                />
+                                            </label>
+                                        </div>
                                     </div>
 
                                     {/* Primary Color */}
@@ -625,37 +721,88 @@ const BrandingSettingsPage = () => {
                             {/* Logos */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-1">
-                                    <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">Main Logo URL</label>
-                                    <input
-                                        type="text"
-                                        value={partnerForm.logoMain}
-                                        onChange={(e) => setPartnerForm({...partnerForm, logoMain: e.target.value})}
-                                        placeholder="/svg logo/logo-main.svg"
-                                        className="w-full rounded-xl border-gray-200 text-xs bg-gray-50"
-                                    />
+                                    <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">Main Logo</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={partnerForm.logoMain}
+                                            onChange={(e) => setPartnerForm({...partnerForm, logoMain: e.target.value})}
+                                            placeholder="/svg logo/logo-main.svg"
+                                            className="flex-1 rounded-xl border-gray-200 text-xs bg-gray-50"
+                                        />
+                                        <label className="relative flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-1.5 text-xs font-bold text-gray-700 shadow-sm hover:bg-gray-50 cursor-pointer transition-all">
+                                            {uploadingField === 'logoMain' ? (
+                                                <Loader2 size={14} className="animate-spin text-gray-500" />
+                                            ) : (
+                                                <Upload size={14} className="text-gray-500" />
+                                            )}
+                                            <span>Upload</span>
+                                            <input
+                                                type="file"
+                                                accept="image/*,.svg"
+                                                onChange={(e) => handleFileUpload(e, 'logoMain', 'partner')}
+                                                className="sr-only"
+                                                disabled={uploadingField !== null}
+                                            />
+                                        </label>
+                                    </div>
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">Sidebar Logo URL</label>
-                                    <input
-                                        type="text"
-                                        value={partnerForm.logoSidebar}
-                                        onChange={(e) => setPartnerForm({...partnerForm, logoSidebar: e.target.value})}
-                                        placeholder="/svg logo/logo-main.svg"
-                                        className="w-full rounded-xl border-gray-200 text-xs bg-gray-50"
-                                    />
+                                    <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">Sidebar Logo</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={partnerForm.logoSidebar}
+                                            onChange={(e) => setPartnerForm({...partnerForm, logoSidebar: e.target.value})}
+                                            placeholder="/svg logo/logo-main.svg"
+                                            className="flex-1 rounded-xl border-gray-200 text-xs bg-gray-50"
+                                        />
+                                        <label className="relative flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-1.5 text-xs font-bold text-gray-700 shadow-sm hover:bg-gray-50 cursor-pointer transition-all">
+                                            {uploadingField === 'logoSidebar' ? (
+                                                <Loader2 size={14} className="animate-spin text-gray-500" />
+                                            ) : (
+                                                <Upload size={14} className="text-gray-500" />
+                                            )}
+                                            <span>Upload</span>
+                                            <input
+                                                type="file"
+                                                accept="image/*,.svg"
+                                                onChange={(e) => handleFileUpload(e, 'logoSidebar', 'partner')}
+                                                className="sr-only"
+                                                disabled={uploadingField !== null}
+                                            />
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Favicon */}
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">Favicon Path/URL</label>
-                                <input
-                                    type="text"
-                                    value={partnerForm.favicon}
-                                    onChange={(e) => setPartnerForm({...partnerForm, favicon: e.target.value})}
-                                    placeholder="/svg logo/favicon.svg"
-                                    className="w-full rounded-xl border-gray-200 text-xs bg-gray-50"
-                                />
+                                <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">Favicon</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={partnerForm.favicon}
+                                        onChange={(e) => setPartnerForm({...partnerForm, favicon: e.target.value})}
+                                        placeholder="/svg logo/favicon.svg"
+                                        className="flex-1 rounded-xl border-gray-200 text-xs bg-gray-50"
+                                    />
+                                    <label className="relative flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-1.5 text-xs font-bold text-gray-700 shadow-sm hover:bg-gray-50 cursor-pointer transition-all">
+                                        {uploadingField === 'favicon' ? (
+                                            <Loader2 size={14} className="animate-spin text-gray-500" />
+                                        ) : (
+                                            <Upload size={14} className="text-gray-500" />
+                                        )}
+                                        <span>Upload</span>
+                                        <input
+                                            type="file"
+                                            accept="image/*,.ico"
+                                            onChange={(e) => handleFileUpload(e, 'favicon', 'partner')}
+                                            className="sr-only"
+                                            disabled={uploadingField !== null}
+                                        />
+                                    </label>
+                                </div>
                             </div>
 
                             {/* Support contact info */}
