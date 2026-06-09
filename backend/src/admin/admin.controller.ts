@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards, Post, Body, Put, Delete } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards, Post, Body, Put, Delete, Req } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -149,5 +149,44 @@ export class AdminController {
     @Roles('SUPER_ADMIN')
     deleteNumber(@Body() data: { type: 'TFN' | 'DID'; id: string }) {
         return this.adminService.deleteNumber(data.type, data.id);
+    }
+
+    /**
+     * White-label Branding & Partners Management (SUPER_ADMIN only)
+     */
+    @Get('branding/current')
+    @Roles('SUPER_ADMIN')
+    async getCurrentBranding(@Req() req: any) {
+        return this.adminService.getCurrentBranding(req);
+    }
+
+    @Put('branding/current')
+    @Roles('SUPER_ADMIN')
+    async updateCurrentBranding(@Req() req: any, @Body() data: any) {
+        return this.adminService.updateCurrentBranding(req, data);
+    }
+
+    @Get('partners')
+    @Roles('SUPER_ADMIN')
+    async getAllPartners() {
+        return this.adminService.getAllPartners();
+    }
+
+    @Post('partners')
+    @Roles('SUPER_ADMIN')
+    async createPartner(@Body() data: any) {
+        return this.adminService.createPartner(data);
+    }
+
+    @Put('partners/:id')
+    @Roles('SUPER_ADMIN')
+    async updatePartner(@Param('id') id: string, @Body() data: any) {
+        return this.adminService.updatePartner(id, data);
+    }
+
+    @Delete('partners/:id')
+    @Roles('SUPER_ADMIN')
+    async deletePartner(@Param('id') id: string) {
+        return this.adminService.deletePartner(id);
     }
 }

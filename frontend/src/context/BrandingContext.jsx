@@ -65,7 +65,7 @@ export const BrandingProvider = ({ children }) => {
     }, []);
 
     return (
-        <BrandingContext.Provider value={{ branding, loading }}>
+        <BrandingContext.Provider value={{ branding, loading, refreshBranding: fetchBranding }}>
             {!loading && children}
         </BrandingContext.Provider>
     );

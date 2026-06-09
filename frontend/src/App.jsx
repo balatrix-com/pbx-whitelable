@@ -40,6 +40,7 @@ import RateCardsPage from './pages/admin/RateCardsPage';
 import NumbersManagement from './pages/admin/NumbersManagement';
 import PackagesPage from './pages/admin/PackagesPage';
 import CarriersGatewaysPage from './pages/admin/CarriersGatewaysPage';
+import BrandingSettingsPage from './pages/admin/BrandingSettingsPage';
 import OnboardingLayout from './pages/onboarding/OnboardingLayout';
 import TfnOnboardingPage from './pages/onboarding/TfnOnboardingPage';
 import PrivateLayout from './components/layout/PrivateLayout';
@@ -144,7 +145,7 @@ function App() {
                                     {/* Admin Only */}
                                     <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']} />}>
                                         <Route path="/users" element={<UserManagement />} />
-                                        <Route path="/settings" element={<div className="p-8">System Settings</div>} />
+                                        <Route path="/settings" element={<BrandingSettingsPage />} />
                                     </Route>
 
 
