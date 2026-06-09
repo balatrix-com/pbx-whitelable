@@ -16,51 +16,52 @@ export const BrandingProvider = ({ children }) => {
     });
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchBranding = async () => {
-            try {
-                const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-                const domain = window.location.hostname;
-                const response = await axios.get(`${apiBaseUrl}/branding`, {
-                    params: { domain }
-                });
+    const fetchBranding = async () => {
+        try {
+            setLoading(true);
+            const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+            const domain = window.location.hostname;
+            const response = await axios.get(`${apiBaseUrl}/branding`, {
+                params: { domain }
+            });
 
-                if (response.data) {
-                    const data = response.data;
-                    setBranding(data);
+            if (response.data) {
+                const data = response.data;
+                setBranding(data);
 
-                    // Inject CSS custom variables into root element
-                    const root = document.documentElement;
-                    if (data.primaryColor) {
-                        root.style.setProperty('--color-primary', data.primaryColor);
-                    }
-                    if (data.accentColor) {
-                        root.style.setProperty('--color-accent', data.accentColor);
-                        // Map secondary to accent for design compatibility
-                        root.style.setProperty('--color-secondary', data.accentColor);
-                    }
-
-                    // Dynamically set title and favicon
-                    if (data.name) {
-                        document.title = data.name;
-                    }
-                    if (data.favicon) {
-                        let link = document.querySelector("link[rel~='icon']");
-                        if (!link) {
-                            link = document.createElement('link');
-                            link.rel = 'icon';
-                            document.getElementsByTagName('head')[0].appendChild(link);
-                        }
-                        link.href = data.favicon;
-                    }
+                // Inject CSS custom variables into root element
+                const root = document.documentElement;
+                if (data.primaryColor) {
+                    root.style.setProperty('--color-primary', data.primaryColor);
                 }
-            } catch (error) {
-                console.error('Failed to load branding:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
+                if (data.accentColor) {
+                    root.style.setProperty('--color-accent', data.accentColor);
+                    // Map secondary to accent for design compatibility
+                    root.style.setProperty('--color-secondary', data.accentColor);
+                }
 
+                // Dynamically set title and favicon
+                if (data.name) {
+                    document.title = data.name;
+                }
+                if (data.favicon) {
+                    let link = document.querySelector("link[rel~='icon']");
+                    if (!link) {
+                        link = document.createElement('link');
+                        link.rel = 'icon';
+                        document.getElementsByTagName('head')[0].appendChild(link);
+                    }
+                    link.href = data.favicon;
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load branding:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchBranding();
     }, []);
 
