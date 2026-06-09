@@ -25,7 +25,7 @@ export class KamailioDBService {
     }
 
     private async callKamailioRpc(method: string, params: any[] = []): Promise<void> {
-        const rpcUrl = process.env.KAMAILIO_RPC_URL || 'http://localhost:8080/rpc';
+        const rpcUrl = process.env.KAMAILIO_RPC_URL || 'http://10.30.0.61:8080/rpc';
         try {
             const response = await fetch(rpcUrl, {
                 method: 'POST',
@@ -57,6 +57,34 @@ export class KamailioDBService {
             await client.connect();
             await client.query(text, params);
         } catch (error) {
+            throw error;
+        } finally {
+            try {
+                await client.end();
+            } catch (e) {
+                // Ignore end errors
+            }
+        }
+    }
+
+    /**
+     * Helper to execute multiple queries in a transaction with a short-lived connection
+     */
+    private async executeQueries(queries: { text: string; params: any[] }[]): Promise<void> {
+        const client = this.getClient();
+        try {
+            await client.connect();
+            await client.query('BEGIN');
+            for (const q of queries) {
+                await client.query(q.text, q.params);
+            }
+            await client.query('COMMIT');
+        } catch (error) {
+            try {
+                await client.query('ROLLBACK');
+            } catch (rollbackError) {
+                // Ignore rollback errors
+            }
             throw error;
         } finally {
             try {
@@ -114,17 +142,11 @@ export class KamailioDBService {
      * Add Carrier IP to Kamailio address table
      */
     async addCarrierIP(ip: string, port: number, tag: string): Promise<void> {
-        const query = `
-            INSERT INTO address (grp, ip_addr, mask, port, tag)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (ip_addr, port)
-            DO UPDATE SET
-                grp = EXCLUDED.grp,
-                mask = EXCLUDED.mask,
-                tag = EXCLUDED.tag
-        `;
         try {
-            await this.executeQuery(query, [1, ip, 32, port, tag]);
+            await this.executeQueries([
+                { text: 'DELETE FROM address WHERE ip_addr = $1 AND port = $2', params: [ip, port] },
+                { text: 'INSERT INTO address (grp, ip_addr, mask, port, tag) VALUES ($1, $2, $3, $4, $5)', params: [1, ip, 32, port, tag] }
+            ]);
             this.logger.log(`Added Carrier IP to Kamailio: ${ip}:${port} (${tag})`);
             await this.callKamailioRpc('permissions.addressReload');
         } catch (error) {
@@ -143,6 +165,36 @@ export class KamailioDBService {
             await this.callKamailioRpc('permissions.addressReload');
         } catch (error) {
             this.logger.error(`Failed to remove Carrier IP ${ip}:${port}:`, error);
+        }
+    }
+
+    /**
+     * Add Inbound Carrier IP to Kamailio address table
+     */
+    async addInboundIP(ip: string, port: number, tag: string): Promise<void> {
+        try {
+            await this.executeQueries([
+                { text: 'DELETE FROM address WHERE ip_addr = $1 AND port = $2', params: [ip, port] },
+                { text: 'INSERT INTO address (grp, ip_addr, mask, port, tag) VALUES ($1, $2, $3, $4, $5)', params: [1, ip, 32, port, tag] }
+            ]);
+            this.logger.log(`Added Inbound IP to Kamailio: ${ip}:${port} (${tag})`);
+            await this.callKamailioRpc('permissions.addressReload');
+        } catch (error) {
+            this.logger.error(`Failed to add Inbound IP ${ip}:${port}:`, error);
+        }
+    }
+
+    /**
+     * Remove Inbound Carrier IP from Kamailio address table
+     */
+    async removeInboundIP(ip: string, port: number): Promise<void> {
+        const query = `DELETE FROM address WHERE ip_addr = $1 AND port = $2`;
+        try {
+            await this.executeQuery(query, [ip, port]);
+            this.logger.log(`Removed Inbound IP from Kamailio: ${ip}:${port}`);
+            await this.callKamailioRpc('permissions.addressReload');
+        } catch (error) {
+            this.logger.error(`Failed to remove Inbound IP ${ip}:${port}:`, error);
         }
     }
 }

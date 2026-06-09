@@ -650,3 +650,14 @@ model OutboundEndpoint {
   @@unique([carrierId, name])
   @@map("outbound_endpoints")
 }
+
+model InboundWhitelist {
+  id        Int      @id @default(autoincrement())
+  ipAddress String   @unique // The carrier source IP to whitelist
+  port      Int      @default(5060)
+  tag       String   // Description/Label (e.g., "Telnyx Inbound")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("inbound_whitelist")
+}
