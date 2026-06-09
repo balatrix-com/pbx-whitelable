@@ -1,5 +1,5 @@
 
-import { Controller, Get, Post, Delete, Body, Patch, Param, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Patch, Param, UseGuards, Query, Put } from '@nestjs/common';
 import { TenantsService } from './tenants.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -81,6 +81,21 @@ export class TenantsController {
     @Roles(Role.SUPER_ADMIN)
     deleteTenant(@Param('id') id: string) {
         return this.tenantsService.deleteTenant(id);
+    }
+
+    @Put(':id/outbound-endpoint')
+    @Roles(Role.SUPER_ADMIN)
+    assignOutboundEndpoint(
+        @Param('id') id: string,
+        @Body() body: { endpointId: number }
+    ) {
+        return this.tenantsService.assignOutboundEndpoint(id, body.endpointId);
+    }
+
+    @Delete(':id/outbound-endpoint')
+    @Roles(Role.SUPER_ADMIN)
+    removeOutboundEndpoint(@Param('id') id: string) {
+        return this.tenantsService.removeOutboundEndpoint(id);
     }
 
     @Post()

@@ -13,7 +13,7 @@ export class MailService {
         this.frontendUrl = this.configService.get<string>('frontendUrl') || 'http://localhost:5173';
     }
 
-    async sendPasswordResetEmail(email: string, name: string, token: string, companyName: string = 'Balatrix') {
+    async sendPasswordResetEmail(email: string, name: string, token: string, companyName: string = 'Cloud PBX') {
         if (!this.apiKey) {
             this.logger.warn('ZeptoMail API key not configured. Skipping email send.');
             return;
@@ -29,8 +29,8 @@ export class MailService {
         const payload = {
             mail_template_key: "pass-reset",
             from: {
-                address: "no-reply@balatrix.ca",
-                name: "Balatrix Portal"
+                address: "no-reply@telecom-platform.com",
+                name: "Cloud PBX Portal"
             },
             to: [
                 {
@@ -42,10 +42,10 @@ export class MailService {
             ],
             merge_info: {
                 user_name: name || "User",
-                company_name: "Balatrix",
+                company_name: "Cloud PBX",
                 reset_url: resetUrl,
                 expiry_minutes: "10",
-                support_email: "support@balatrix.com",
+                support_email: "support@telecom-platform.com",
                 year: yearString,
                 date: dateString
             }
@@ -85,8 +85,8 @@ export class MailService {
         const payload = {
             mail_template_key: "sup-user-inv",
             from: {
-                address: "no-reply@balatrix.ca",
-                name: "Balatrix Portal"
+                address: "no-reply@telecom-platform.com",
+                name: "Cloud PBX Portal"
             },
             to: [{
                 email_address: {
@@ -146,8 +146,8 @@ export class MailService {
         const payload = {
             mail_template_key: "ob-post-payment",
             from: {
-                address: "no-reply@balatrix.ca",
-                name: "Balatrix Portal"
+                address: "no-reply@telecom-platform.com",
+                name: "Cloud PBX Portal"
             },
             to: [{
                 email_address: {

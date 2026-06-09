@@ -76,7 +76,7 @@ export const GlobalMetricsProvider = ({ children }) => {
             const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/api\/?$/, '');
             const socketUrl = `${baseUrl.replace(/\/$/, '')}/monitor`;
             
-            const socketPath = import.meta.env.MODE === 'production' || baseUrl.includes('balatrix.com')
+            const socketPath = import.meta.env.MODE === 'production' || !baseUrl.includes('localhost')
                 ? '/api/socket.io'
                 : '/socket.io';
 

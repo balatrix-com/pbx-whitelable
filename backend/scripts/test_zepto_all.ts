@@ -19,7 +19,7 @@ async function testAllPbxTemplates() {
             testEmail,
             testName,
             'test-reset-token-999',
-            'Balatrix'
+            'Cloud PBX'
         );
         console.log('Successfully triggered Password Reset Email.');
     } catch (error) {

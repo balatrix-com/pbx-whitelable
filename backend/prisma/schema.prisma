@@ -32,7 +32,6 @@ model Tenant {
   notifications        Notification[]
   operationalSchedules OperationalSchedule[]
   paymentMethods       PaymentMethod[]
-  quotes               Quote[]
   ringGroups           RingGroup[]
   subscriptions        Subscription[]
   tfns                 TFN[]
@@ -42,6 +41,8 @@ model Tenant {
   tenantFeatures       TenantFeature?
   partnerId            String?
   partner              Partner?              @relation(fields: [partnerId], references: [id])
+  outboundEndpointId   Int?
+  outboundEndpoint     OutboundEndpoint?     @relation(fields: [outboundEndpointId], references: [id], onDelete: SetNull)
 
   @@map("tenants")
 }
@@ -231,7 +232,6 @@ model Plan {
   extraDidPrice       Decimal        @default(1.00)
   extraExtensionPrice Decimal        @default(5.00)
   extraTfnPrice       Decimal        @default(2.00)
-  quotes              Quote[]
   subscriptions       Subscription[]
 
   @@map("plans")
@@ -431,36 +431,7 @@ model AuditLog {
   @@map("audit_logs")
 }
 
-model Quote {
-  id               String            @id @default(uuid())
-  status           QuoteStatus       @default(DRAFT)
-  customerName     String
-  customerEmail    String
-  customerCompany  String?
-  planId           String?
-  blueprintId      String?
-  customPrice      Decimal?
-  telecomDetails   Json
-  pricingSnapshot  Json?
-  assetSnapshot    Json?
-  dealValue        Decimal?
-  commission       Decimal?
-  commissionRate   Decimal?
-  salesRepId       String?
-  stripeCustomerId String?
-  tenantId         String?
-  token            String            @unique @default(uuid())
-  expiresAt        DateTime
-  createdBy        String?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  invoices         Invoice[]
-  blueprint        PricingBlueprint? @relation(fields: [blueprintId], references: [id])
-  plan             Plan?             @relation(fields: [planId], references: [id])
-  tenant           Tenant?           @relation(fields: [tenantId], references: [id])
 
-  @@map("quotes")
-}
 
 model IdempotencyKey {
   key      String   @id
@@ -473,17 +444,7 @@ model IdempotencyKey {
   @@map("idempotency_keys")
 }
 
-model PricingBlueprint {
-  id         String   @id @default(uuid())
-  name       String
-  components Json
-  rules      Json
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  quotes     Quote[]
 
-  @@map("pricing_blueprints")
-}
 
 model Invoice {
   id             String              @id @default(uuid())
@@ -495,9 +456,7 @@ model Invoice {
   idempotencyKey String?             @unique
   createdAt      DateTime            @default(now())
   paidAt         DateTime?
-  quoteId        String?
   adjustments    InvoiceAdjustment[]
-  quote          Quote?              @relation(fields: [quoteId], references: [id])
 
   @@map("invoices")
 }
@@ -548,7 +507,6 @@ enum Role {
   SUPER_ADMIN
   ADMIN
   SUPPORT
-  SALES
 }
 
 enum UserStatus {
@@ -611,13 +569,7 @@ enum UserAuditAction {
   END_IMPERSONATION
 }
 
-enum QuoteStatus {
-  DRAFT
-  SENT
-  PAID
-  EXPIRED
-  CONVERTED
-}
+
 
 enum InvoiceStatus {
   DRAFT
@@ -668,3 +620,33 @@ model Partner {
   @@map("partners")
 }
 
+model OutboundCarrier {
+  id        Int                @id @default(autoincrement())
+  name      String             @unique // e.g., "Telnyx", "Twilio"
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  endpoints OutboundEndpoint[]
+
+  @@map("outbound_carriers")
+}
+
+model OutboundEndpoint {
+  id              Int              @id @default(autoincrement())
+  carrierId       Int
+  name            String           // e.g., "US-East Gateway", "Backup Gateway"
+  sipHost         String           // e.g., "sip.telnyx.com" or "64.227.10.111"
+  sipPort         Int              @default(5060)
+  transport       String           @default("udp") // udp, tcp, tls
+  prefix          String           @default("")    // e.g. "011"
+  stripPlus       Boolean          @default(false) // strip leading + from dialed number
+  callerIdMode    String           @default("extension") // 'extension' or 'override'
+  callerIdNumber  String?          // Override caller ID number if mode is 'override'
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  carrier         OutboundCarrier  @relation(fields: [carrierId], references: [id], onDelete: Cascade)
+  tenants         Tenant[]
+
+  @@unique([carrierId, name])
+  @@map("outbound_endpoints")
+}

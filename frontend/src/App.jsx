@@ -39,11 +39,8 @@ import TenantsPage from './pages/admin/Tenants/TenantsPage';
 import RateCardsPage from './pages/admin/RateCardsPage';
 import NumbersManagement from './pages/admin/NumbersManagement';
 import PackagesPage from './pages/admin/PackagesPage';
+import CarriersGatewaysPage from './pages/admin/CarriersGatewaysPage';
 import OnboardingLayout from './pages/onboarding/OnboardingLayout';
-import QuoteReview from './pages/onboarding/QuoteReview';
-import PaymentSetup from './pages/onboarding/PaymentSetup';
-import QuotePayment from './pages/onboarding/QuotePayment';
-import OnboardingWizard from './pages/onboarding/OnboardingWizard';
 import TfnOnboardingPage from './pages/onboarding/TfnOnboardingPage';
 import PrivateLayout from './components/layout/PrivateLayout';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -91,13 +88,8 @@ function App() {
                                 <Route path="/invite/accept" element={<AcceptInvitePage />} />
                                 <Route path="/impersonate" element={<ImpersonateLoader />} />
                                 <Route path="/auth/change-password" element={<ChangePasswordPage />} />
-                                <Route path="/pay/:id" element={<QuotePayment />} />
-
-                                {/* Onboarding Routes */}
+                                 {/* Onboarding Routes */}
                                 <Route element={<OnboardingLayout />}>
-                                    <Route path="/onboarding/:token" element={<QuoteReview />} />
-                                    <Route path="/onboarding/:token/payment" element={<PaymentSetup />} />
-                                    <Route path="/onboarding/:token/success" element={<OnboardingWizard />} />
                                     <Route path="/onboarding/select-tfn" element={<TfnOnboardingPage />} />
                                 </Route>
 
@@ -165,6 +157,7 @@ function App() {
                                         <Route path="/super-admin/rate-cards" element={<RateCardsPage />} />
                                         <Route path="/super-admin/numbers" element={<NumbersManagement />} />
                                         <Route path="/super-admin/packages" element={<PackagesPage />} />
+                                        <Route path="/super-admin/carriers" element={<CarriersGatewaysPage />} />
                                         <Route path="/tenants" element={<TenantsPage />} />
                                         <Route path="/revenue" element={<div className="p-8">Revenue Analytics</div>} />
                                     </Route>

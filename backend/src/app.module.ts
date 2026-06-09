@@ -23,7 +23,6 @@ import { TenantsModule } from './tenants/tenants.module';
 import { UsersModule } from './users/users.module';
 import { FreeswitchModule } from './freeswitch/freeswitch.module';
 import { AuditModule } from './audit/audit.module';
-import { SalesModule } from './sales/sales.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { IdempotencyModule } from './common/idempotency/idempotency.module';
 import { PaymentsModule } from './payments/payments.module';
@@ -34,6 +33,7 @@ import { MailModule } from './mail/mail.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { LookupRedisModule } from './redis/lookup-redis.module';
 import { DemoModule } from './demo/demo.module';
+import { CarriersModule } from './carriers/carriers.module';
 
 @Module({
   imports: [
@@ -62,7 +62,6 @@ import { DemoModule } from './demo/demo.module';
     TenantsModule, // Register JwtModule globally or locally for middleware
     FreeswitchModule,
     AuditModule,
-    SalesModule,
     OnboardingModule,
     IdempotencyModule,
     PaymentsModule,
@@ -72,6 +71,7 @@ import { DemoModule } from './demo/demo.module';
     NotificationsModule,
     LookupRedisModule,
     DemoModule,
+    CarriersModule,
   ],
   controllers: [AppController],
   providers: [

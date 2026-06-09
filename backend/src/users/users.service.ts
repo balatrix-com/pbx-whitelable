@@ -241,40 +241,7 @@ export class UsersService {
         };
     }
 
-    async createSalesUser(adminId: string, dto: { email: string; password: string; name?: string }) {
-        const admin = await this.prisma.user.findUnique({ where: { id: adminId } });
-        if (!admin || admin.role !== Role.SUPER_ADMIN) {
-            throw new ForbiddenException('Only Super Admin can create Sales users');
-        }
 
-        const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
-        if (existing) throw new BadRequestException('Email already in use');
-
-        const hashedPassword = await bcrypt.hash(dto.password, 10);
-
-        const salesUser = await this.prisma.user.create({
-            data: {
-                email: dto.email,
-                password: hashedPassword,
-                name: dto.name,
-                role: Role.SALES,
-                status: UserStatus.ACTIVE,
-                tenantId: admin.tenantId // Sales users belong to Platform Tenant
-            }
-        });
-
-        await this.createAuditLog(adminId, salesUser.id, UserAuditAction.CREATE_USER, {
-            email: dto.email,
-            role: Role.SALES
-        });
-
-        return {
-            id: salesUser.id,
-            email: salesUser.email,
-            role: salesUser.role,
-            status: salesUser.status
-        };
-    }
 
     async updateUserStatus(actorId: string, targetUserId: string, status: UserStatus) {
         const canManage = await this.canManageUser(actorId, targetUserId);

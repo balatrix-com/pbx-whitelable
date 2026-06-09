@@ -21,7 +21,7 @@ async function testEmails() {
         testName,
         'test-token-123',
         'Admin Sahil',
-        'Balatrix Demo Corp'
+        'Cloud PBX Demo Corp'
     );
 
     // 2. Test Onboarding Completion

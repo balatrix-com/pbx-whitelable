@@ -11,7 +11,7 @@ import * as crypto from 'crypto';
 @Injectable()
 export class KamailioDBService {
     private readonly logger = new Logger(KamailioDBService.name);
-    private readonly realm = 'sip.balatrix.com'; // Hardcoded as per requirement
+    private readonly realm = process.env.SIP_REALM || 'sip.telecom-platform.com';
 
     private getClient(): Client {
         return new Client({
@@ -22,6 +22,30 @@ export class KamailioDBService {
             password: process.env.FS_DB_PASSWORD,
             connectionTimeoutMillis: 5000,
         });
+    }
+
+    private async callKamailioRpc(method: string, params: any[] = []): Promise<void> {
+        const rpcUrl = process.env.KAMAILIO_RPC_URL || 'http://localhost:8080/rpc';
+        try {
+            const response = await fetch(rpcUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    method,
+                    id: 1,
+                    params
+                })
+            });
+            const data = await response.json();
+            if (data.error) {
+                this.logger.error(`Kamailio RPC Error [${method}]:`, data.error);
+            } else {
+                this.logger.log(`Kamailio RPC Success [${method}]`);
+            }
+        } catch (error) {
+            this.logger.error(`Kamailio RPC Request Failed [${method}]:`, error);
+        }
     }
 
     /**
@@ -83,6 +107,42 @@ export class KamailioDBService {
             this.logger.log(`Deleted Kamailio subscriber: ${username}@${this.realm}`);
         } catch (error) {
             this.logger.error(`Failed to delete Kamailio subscriber ${username}:`, error);
+        }
+    }
+
+    /**
+     * Add Carrier IP to Kamailio address table
+     */
+    async addCarrierIP(ip: string, port: number, tag: string): Promise<void> {
+        const query = `
+            INSERT INTO address (grp, ip_addr, mask, port, tag)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (ip_addr, port)
+            DO UPDATE SET
+                grp = EXCLUDED.grp,
+                mask = EXCLUDED.mask,
+                tag = EXCLUDED.tag
+        `;
+        try {
+            await this.executeQuery(query, [1, ip, 32, port, tag]);
+            this.logger.log(`Added Carrier IP to Kamailio: ${ip}:${port} (${tag})`);
+            await this.callKamailioRpc('permissions.addressReload');
+        } catch (error) {
+            this.logger.error(`Failed to add Carrier IP ${ip}:${port}:`, error);
+        }
+    }
+
+    /**
+     * Remove Carrier IP from Kamailio address table
+     */
+    async removeCarrierIP(ip: string, port: number): Promise<void> {
+        const query = `DELETE FROM address WHERE ip_addr = $1 AND port = $2`;
+        try {
+            await this.executeQuery(query, [ip, port]);
+            this.logger.log(`Removed Carrier IP from Kamailio: ${ip}:${port}`);
+            await this.callKamailioRpc('permissions.addressReload');
+        } catch (error) {
+            this.logger.error(`Failed to remove Carrier IP ${ip}:${port}:`, error);
         }
     }
 }

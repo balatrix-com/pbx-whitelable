@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role, UserStatus } from '@prisma/client';
+import { Role, UserStatus, SubscriptionStatus } from '@prisma/client';
 
 export enum ServiceState {
     WALLET_ZERO = 'WALLET_ZERO',
@@ -25,17 +25,26 @@ export class EnforcementService {
         const tenant = await this.prisma.tenant.findUnique({
             where: { id: tenantId },
             include: {
-                wallet: true
+                wallet: true,
+                subscriptions: {
+                    where: { status: SubscriptionStatus.ACTIVE }
+                }
             }
         });
 
         if (!tenant) return ServiceState.PLAN_EXPIRED;
 
+        // 1. Check active subscription free minutes
+        const activeSub = tenant.subscriptions[0];
+        const hasFreeMinutes = activeSub && Number(activeSub.remainingFreeMinutes || 0) > 0;
+
         // 2. Check Wallet
         const balance = Number(tenant.wallet?.balance || 0);
 
         if (balance < 0) return ServiceState.WALLET_NEGATIVE;
-        if (balance === 0) return ServiceState.WALLET_ZERO;
+        if (balance === 0) {
+            return hasFreeMinutes ? ServiceState.SERVICE_ACTIVE : ServiceState.WALLET_ZERO;
+        }
 
         return ServiceState.SERVICE_ACTIVE;
     }
@@ -66,8 +75,8 @@ export class EnforcementService {
             };
         }
 
-        // 0. Super Admin & Sales Bypass
-        if (user.role === Role.SUPER_ADMIN || user.role === Role.SALES) {
+        // 0. Super Admin Bypass
+        if (user.role === Role.SUPER_ADMIN) {
             return {
                 isBlocked: false,
                 blockReason: null,

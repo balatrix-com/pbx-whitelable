@@ -20,12 +20,35 @@ const TenantWizard = ({ onClose, onSuccess }) => {
 
     // Step 1: Basic Info
     const [basicInfo, setBasicInfo] = useState({
+        customerType: 'company',
+        firstName: '',
+        lastName: '',
         companyName: '',
-        adminName: '',
+        companyTaxId: '',
         adminEmail: '',
         adminPassword: '',
-        confirmPassword: ''
+        confirmPassword: '',
+        planId: '',
+        phone: '',
+        address: '',
+        city: '',
+        state: '',
+        country: 'USA'
     });
+
+    const [packages, setPackages] = useState([]);
+
+    useEffect(() => {
+        const fetchPackages = async () => {
+            try {
+                const res = await api.get('/admin/packages');
+                setPackages(res.data?.data || (Array.isArray(res.data) ? res.data : []));
+            } catch (err) {
+                console.error('Failed to fetch packages:', err);
+            }
+        };
+        fetchPackages();
+    }, []);
 
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -47,9 +70,67 @@ const TenantWizard = ({ onClose, onSuccess }) => {
 
     // --- Step Actions ---
 
+    const isStep1Valid = () => {
+        if (!basicInfo.firstName || !basicInfo.lastName || !basicInfo.adminEmail || !basicInfo.adminPassword || !basicInfo.confirmPassword || !basicInfo.planId || !basicInfo.phone || !basicInfo.address || basicInfo.address.length < 10 || !basicInfo.city || !basicInfo.state || !basicInfo.country) {
+            return false;
+        }
+        if (basicInfo.customerType === 'company') {
+            if (!basicInfo.companyName || !basicInfo.companyTaxId) {
+                return false;
+            }
+        }
+        return true;
+    };
+
     const handleCreateTenant = async () => {
         if (basicInfo.adminPassword !== basicInfo.confirmPassword) {
             setError('Passwords do not match');
+            return;
+        }
+
+        if (!basicInfo.planId) {
+            setError('Please select a billing plan');
+            return;
+        }
+
+        if (basicInfo.customerType === 'company') {
+            if (!basicInfo.companyName) {
+                setError('Company Name is required');
+                return;
+            }
+            if (!basicInfo.companyTaxId) {
+                setError('Company Tax ID is required');
+                return;
+            }
+        }
+
+        if (!basicInfo.firstName) {
+            setError('First Name is required');
+            return;
+        }
+
+        if (!basicInfo.lastName) {
+            setError('Last Name is required');
+            return;
+        }
+
+        if (!basicInfo.address || basicInfo.address.length < 10) {
+            setError('Address is required and must be at least 10 characters');
+            return;
+        }
+
+        if (!basicInfo.city) {
+            setError('City is required');
+            return;
+        }
+
+        if (!basicInfo.state) {
+            setError('State is required');
+            return;
+        }
+
+        if (!basicInfo.country) {
+            setError('Country is required');
             return;
         }
 
@@ -57,6 +138,10 @@ const TenantWizard = ({ onClose, onSuccess }) => {
         setError(null);
         try {
             const { confirmPassword, ...data } = basicInfo;
+            if (data.customerType === 'individual') {
+                delete data.companyName;
+                delete data.companyTaxId;
+            }
             const res = await api.post('/tenants', data);
             setCreatedTenantId(res.data.tenant.id);
             setTenantName(res.data.tenant.name);
@@ -176,25 +261,54 @@ const TenantWizard = ({ onClose, onSuccess }) => {
 
     const renderStep1 = () => (
         <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-900">Company & Admin Details</h3>
+            <h3 className="text-lg font-medium text-gray-900">Tenant & Admin Details</h3>
             <div className="space-y-3">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700">Company Name</label>
-                    <input type="text" className="w-full border rounded p-2" value={basicInfo.companyName} onChange={e => setBasicInfo({ ...basicInfo, companyName: e.target.value })} placeholder="Acme Inc" />
-                </div>
-                <div className="pt-2 border-t">
-                    <p className="text-xs text-gray-500 font-semibold uppercase mb-2">Admin User</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Full Name</label>
-                        <input type="text" className="w-full border rounded p-2" value={basicInfo.adminName} onChange={e => setBasicInfo({ ...basicInfo, adminName: e.target.value })} placeholder="Admin User" />
+                        <label className="block text-sm font-medium text-gray-700 font-semibold">Tenant Type *</label>
+                        <select
+                            className="w-full border rounded p-2 bg-gray-50 focus:bg-white"
+                            value={basicInfo.customerType}
+                            onChange={e => setBasicInfo({ ...basicInfo, customerType: e.target.value })}
+                        >
+                            <option value="company">Company</option>
+                            <option value="individual">Individual</option>
+                        </select>
+                    </div>
+                </div>
+
+                {basicInfo.customerType === 'company' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Company Name *</label>
+                            <input type="text" className="w-full border rounded p-2" value={basicInfo.companyName} onChange={e => setBasicInfo({ ...basicInfo, companyName: e.target.value })} placeholder="Acme Inc" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Company Tax ID *</label>
+                            <input type="text" className="w-full border rounded p-2" value={basicInfo.companyTaxId} onChange={e => setBasicInfo({ ...basicInfo, companyTaxId: e.target.value })} placeholder="TAX-123456" />
+                        </div>
+                    </div>
+                )}
+
+                <div className="pt-2 border-t">
+                    <p className="text-xs text-gray-500 font-semibold uppercase mb-2">Personal Details</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">First Name *</label>
+                            <input type="text" className="w-full border rounded p-2" value={basicInfo.firstName} onChange={e => setBasicInfo({ ...basicInfo, firstName: e.target.value })} placeholder="First Name" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Last Name *</label>
+                            <input type="text" className="w-full border rounded p-2" value={basicInfo.lastName} onChange={e => setBasicInfo({ ...basicInfo, lastName: e.target.value })} placeholder="Last Name" />
+                        </div>
                     </div>
                     <div className="mt-2">
-                        <label className="block text-sm font-medium text-gray-700">Email</label>
-                        <input type="email" className="w-full border rounded p-2" value={basicInfo.adminEmail} onChange={e => setBasicInfo({ ...basicInfo, adminEmail: e.target.value })} placeholder="admin@acme.com" />
+                        <label className="block text-sm font-medium text-gray-700">Email *</label>
+                        <input type="email" className="w-full border rounded p-2" value={basicInfo.adminEmail} onChange={e => setBasicInfo({ ...basicInfo, adminEmail: e.target.value })} placeholder="admin@domain.com" />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Password</label>
+                            <label className="block text-sm font-medium text-gray-700">Password *</label>
                             <div className="relative">
                                 <input
                                     type={showPassword ? "text" : "password"}
@@ -213,7 +327,7 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Confirm Password</label>
+                            <label className="block text-sm font-medium text-gray-700">Confirm Password *</label>
                             <div className="relative">
                                 <input
                                     type={showConfirmPassword ? "text" : "password"}
@@ -233,11 +347,65 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                         </div>
                     </div>
                 </div>
+                <div className="pt-2 border-t">
+                    <p className="text-xs text-gray-500 font-semibold uppercase mb-2">Billing & Subscription</p>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 font-semibold">Billing Plan *</label>
+                        <select 
+                            className="w-full border rounded p-2" 
+                            value={basicInfo.planId} 
+                            onChange={e => setBasicInfo({ ...basicInfo, planId: e.target.value })}
+                        >
+                            <option value="">Select Plan</option>
+                            {packages.map(pkg => (
+                                <option key={pkg.plan_id} value={pkg.plan_id}>
+                                    {pkg.name} (${parseFloat(pkg.amount).toFixed(2)})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    {basicInfo.planId && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Phone *</label>
+                                <input type="tel" className="w-full border rounded p-2" value={basicInfo.phone} onChange={e => setBasicInfo({ ...basicInfo, phone: e.target.value })} placeholder="1234567890" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Country *</label>
+                                <select 
+                                    className="w-full border rounded p-2" 
+                                    value={basicInfo.country} 
+                                    onChange={e => setBasicInfo({ ...basicInfo, country: e.target.value })}
+                                >
+                                    <option value="USA">USA</option>
+                                    <option value="CAD">Canada</option>
+                                    <option value="IND">India</option>
+                                    <option value="PAK">Pakistan</option>
+                                    <option value="PHI">Philippines</option>
+                                    <option value="BNG">Bangladesh</option>
+                                    <option value="OTHER">Other</option>
+                                </select>
+                            </div>
+                            <div className="sm:col-span-2">
+                                <label className="block text-sm font-medium text-gray-700">Address (min 10 chars) *</label>
+                                <input type="text" className="w-full border rounded p-2" value={basicInfo.address} onChange={e => setBasicInfo({ ...basicInfo, address: e.target.value })} placeholder="123 Main St, Suite 100" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">City *</label>
+                                <input type="text" className="w-full border rounded p-2" value={basicInfo.city} onChange={e => setBasicInfo({ ...basicInfo, city: e.target.value })} placeholder="San Francisco" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">State *</label>
+                                <input type="text" className="w-full border rounded p-2" value={basicInfo.state} onChange={e => setBasicInfo({ ...basicInfo, state: e.target.value })} placeholder="CA" />
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
             <div className="flex justify-end pt-4">
                 <button
                     onClick={handleCreateTenant}
-                    disabled={!basicInfo.companyName || !basicInfo.adminEmail || !basicInfo.adminPassword || !basicInfo.confirmPassword || loading}
+                    disabled={!isStep1Valid() || loading}
                     className="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700 disabled:opacity-50 flex items-center shadow-sm transition-colors"
                 >
                     {loading ? <Loader className="animate-spin mr-2" size={16} /> : null} Create & Continue

@@ -218,6 +218,17 @@ export class WalletService {
         return { success: true };
     }
 
+    async checkCustomerExists(customerId: string): Promise<boolean> {
+        try {
+            const response = await firstValueFrom(
+                this.httpService.get(`${this.subBillingUrl}/customers/${customerId}`)
+            );
+            return !!(response.status === 200 && response.data && response.data.success);
+        } catch (error) {
+            return false;
+        }
+    }
+
     async createSubBillingCustomer(customerId: string, email: string, name: string) {
         try {
             // First check if the customer already exists in sub-billing
@@ -257,6 +268,133 @@ export class WalletService {
             const errorMsg = error.response?.data?.message || error.message;
             this.logger.error(`Failed to create customer ${customerId} in sub-billing: ${errorMsg}`);
             throw new BadRequestException(`Failed to create sub-billing customer: ${errorMsg}`);
+        }
+    }
+
+    async createSubBillingCustomerExtended(data: {
+        customerId: string;
+        customerType: 'individual' | 'company';
+        firstName: string;
+        lastName: string;
+        companyName?: string;
+        companyTaxId?: string;
+        email: string;
+        phone: string;
+        address: string;
+        city: string;
+        state: string;
+        country: string;
+    }) {
+        try {
+            // Strict Validation - Throw error immediately instead of using placeholders
+            if (!data.customerId) throw new BadRequestException('customerId is required');
+            if (!data.customerType || !['individual', 'company'].includes(data.customerType)) {
+                throw new BadRequestException('customerType is required and must be either individual or company');
+            }
+            if (!data.firstName) throw new BadRequestException('firstName is required');
+            if (!data.lastName) throw new BadRequestException('lastName is required');
+            if (!data.email) throw new BadRequestException('email is required');
+            if (!data.phone) throw new BadRequestException('phone is required');
+            if (!data.address || data.address.length < 10) {
+                throw new BadRequestException('address is required and must be at least 10 characters');
+            }
+            if (!data.city) throw new BadRequestException('city is required');
+            if (!data.state) throw new BadRequestException('state is required');
+            if (!data.country) throw new BadRequestException('country is required');
+
+            if (data.customerType === 'company') {
+                if (!data.companyName) throw new BadRequestException('companyName is required for company type');
+                if (!data.companyTaxId) throw new BadRequestException('companyTaxId is required for company type');
+            }
+
+            this.logger.log(`Creating customer ${data.customerId} in sub-billing: ${data.email}`);
+            
+            let mappedCountry = data.country.toUpperCase();
+            const allowedCountries = ['IND', 'USA', 'CAD', 'PAK', 'PHI', 'BNG', 'OTHER'];
+            if (!allowedCountries.includes(mappedCountry)) {
+                if (mappedCountry === 'INDIA') mappedCountry = 'IND';
+                else if (mappedCountry === 'CANADA') mappedCountry = 'CAD';
+                else if (mappedCountry === 'PAKISTAN') mappedCountry = 'PAK';
+                else if (mappedCountry === 'PHILIPPINES') mappedCountry = 'PHI';
+                else if (mappedCountry === 'BANGLADESH') mappedCountry = 'BNG';
+                else throw new BadRequestException(`Invalid country code: ${data.country}`);
+            }
+
+            const response = await firstValueFrom(
+                this.httpService.post(`${this.subBillingUrl}/customers`, {
+                    customer_id: data.customerId,
+                    fr_cusid: data.customerId,
+                    customer_type: data.customerType,
+                    company_name: data.customerType === 'company' ? data.companyName : null,
+                    company_tax_id: data.customerType === 'company' ? data.companyTaxId : null,
+                    first_name: data.firstName,
+                    last_name: data.lastName,
+                    admin_email: data.email,
+                    phone: data.phone,
+                    address_st: data.address,
+                    city: data.city,
+                    state: data.state,
+                    country: mappedCountry
+                })
+            );
+            if (response.data && response.data.success) {
+                return response.data.data;
+            }
+            throw new Error(response.data?.message || 'Unknown error');
+        } catch (error) {
+            const errorMsg = error.response?.data?.message || error.message;
+            this.logger.error(`Failed to create customer in sub-billing: ${errorMsg}`);
+            throw new BadRequestException(`Failed to create sub-billing customer: ${errorMsg}`);
+        }
+    }
+
+    async createSubBillingSubscription(customerId: string, planId: string) {
+        try {
+            this.logger.log(`Creating subscription in sub-billing for customer ${customerId} to plan ${planId}`);
+            const response = await firstValueFrom(
+                this.httpService.post(`${this.subBillingUrl}/subscriptions`, {
+                    customer_id: customerId,
+                    plan_id: planId,
+                    status: 'active',
+                    override_balance_check: true
+                })
+            );
+            if (response.data && response.data.success) {
+                return response.data.data;
+            }
+            throw new Error(response.data?.message || 'Unknown error');
+        } catch (error) {
+            const errorMsg = error.response?.data?.message || error.message;
+            this.logger.error(`Failed to create sub-billing subscription: ${errorMsg}`);
+            throw new BadRequestException(`Failed to create sub-billing subscription: ${errorMsg}`);
+        }
+    }
+
+    async getSubBillingPlan(planId: string) {
+        try {
+            const response = await firstValueFrom(
+                this.httpService.get(`${this.subBillingUrl}/plans/${planId}`)
+            );
+            if (response.data && response.data.success) {
+                return response.data.data;
+            }
+            return response.data;
+        } catch (error) {
+            this.logger.error(`Failed to fetch plan from sub-billing: ${error.message}`);
+            return null;
+        }
+    }
+
+    async getAssets(tenantId: string) {
+        const customerId = await this.getSubBillingCustomerId(tenantId);
+        try {
+            const response = await firstValueFrom(
+                this.httpService.get(`${this.subBillingUrl}/pbx/assets/${customerId}`)
+            );
+            return response.data;
+        } catch (error) {
+            this.logger.error(`Failed to fetch assets from sub-billing for ${customerId}: ${error.message}`);
+            return { tfns: [], dids: [], extensions: [], totals: { tfns: 0, dids: 0, extensions: 0 } };
         }
     }
 }

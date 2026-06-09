@@ -11,11 +11,7 @@ import { Role } from '@prisma/client';
 export class InvoiceController {
     constructor(private readonly invoiceService: InvoiceService) { }
 
-    @Post('from-quote/:quoteId')
-    @Roles(Role.SALES, Role.SUPER_ADMIN)
-    createFromQuote(@Param('quoteId') quoteId: string) {
-        return this.invoiceService.createInvoiceFromQuote(quoteId);
-    }
+
 
     @Get()
     @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.SUPPORT)
@@ -24,19 +20,19 @@ export class InvoiceController {
     }
 
     @Get(':id')
-    @Roles(Role.SALES, Role.SUPER_ADMIN, Role.ADMIN)
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
     findOne(@Param('id') id: string) {
         return this.invoiceService.getInvoice(id);
     }
 
     @Post(':id/adjustments')
-    @Roles(Role.SALES, Role.SUPER_ADMIN)
+    @Roles(Role.SUPER_ADMIN)
     addAdjustment(@Param('id') id: string, @Body() body: { reason: string, amount: number, authorizedBy: string }) {
         return this.invoiceService.addAdjustment(id, body);
     }
 
     @Post(':id/finalize')
-    @Roles(Role.SALES, Role.SUPER_ADMIN)
+    @Roles(Role.SUPER_ADMIN)
     finalize(@Param('id') id: string) {
         return this.invoiceService.finalizeInvoice(id);
     }

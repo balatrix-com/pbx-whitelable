@@ -73,25 +73,6 @@ async function main() {
     }
 
 
-    // 4. Seed Sales User
-    const salesEmail = 'sales@example.com';
-    const existingSales = await prisma.user.findUnique({
-        where: { email: salesEmail }
-    });
-
-    if (!existingSales) {
-        const hashedPassword = await bcrypt.hash('SalesUser123!', 10);
-        await prisma.user.create({
-            data: {
-                email: salesEmail,
-                password: hashedPassword,
-                role: 'SALES',
-                status: 'ACTIVE',
-                name: 'Sales User'
-            }
-        });
-        console.log('Seeded Sales user');
-    }
 
     console.log('Seeding complete.');
 }

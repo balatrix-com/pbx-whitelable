@@ -2,7 +2,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BillingService } from './billing.service'; // Assuming integration later
-import { InvoiceStatus, QuoteStatus, Prisma } from '@prisma/client';
+import { InvoiceStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class InvoiceService {
@@ -11,45 +11,7 @@ export class InvoiceService {
         private billingService: BillingService
     ) { }
 
-    async createInvoiceFromQuote(quoteId: string) {
-        const quote = await this.prisma.quote.findUnique({
-            where: { id: quoteId },
-            include: { tenant: true } // If tenant exists
-        });
 
-        if (!quote) throw new NotFoundException('Quote not found');
-        if (quote.status === 'CONVERTED' || quote.status === 'PAID') {
-            // Depending on business logic, maybe allow re-invoicing?
-            // For now, let's allow it but warn or check if invoice exists.
-        }
-
-        // Check if invoice already exists for this quote?
-        const existingInfo = await this.prisma.invoice.findFirst({
-            where: { quoteId }
-        });
-        if (existingInfo) {
-            throw new BadRequestException(`Invoice already exists for this quote: ${existingInfo.id}`);
-        }
-
-        // Calculate Total from Snapshot
-        // pricingSnapshot: { subtotal: 29.99, items: [...] }
-        const snapshot = quote.pricingSnapshot as any;
-        const total = snapshot?.subtotal || 0;
-
-        // Create Invoice
-        const invoice = await this.prisma.invoice.create({
-            data: {
-                quoteId,
-                tenantId: quote.tenantId,
-                total: total,
-                balanceDue: total,
-                status: InvoiceStatus.DRAFT,
-                stripeId: null // Not generated yet
-            }
-        });
-
-        return invoice;
-    }
 
     async addAdjustment(invoiceId: string, adjustmentCtx: { reason: string, amount: number, authorizedBy: string }) {
         const invoice = await this.prisma.invoice.findUnique({ where: { id: invoiceId } });
@@ -122,7 +84,7 @@ export class InvoiceService {
     async getInvoice(id: string) {
         return this.prisma.invoice.findUnique({
             where: { id },
-            include: { adjustments: true, quote: true }
+            include: { adjustments: true }
         });
     }
 

@@ -186,7 +186,7 @@ const SuperAdminUsers = () => {
     if (!isSuperAdmin) return <div className="p-8 font-bold text-red-500">Access Denied</div>;
 
     const admins = users.filter(u => u.role === 'ADMIN' || u.role === 'SUPER_ADMIN');
-    const supportUsers = users.filter(u => u.role === 'SUPPORT' || u.role === 'SALES');
+    const supportUsers = users.filter(u => u.role === 'SUPPORT');
 
     return (
         <div className="max-w-[1600px] mx-auto h-[calc(100vh-120px)] flex flex-col gap-6 px-4 sm:px-6 lg:px-8">

@@ -18,7 +18,7 @@ function ExtensionsPage() {
     const [selectedMonitoringUser, setSelectedMonitoringUser] = useState(null);
 
     const { role, user: currentUser } = useAuth(); // Assuming currentUser has tenantId
-    const canManageExtensions = role === 'SUPER_ADMIN' || role === 'SALES';
+    const canManageExtensions = role === 'SUPER_ADMIN';
 
     useEffect(() => {
         fetchData();

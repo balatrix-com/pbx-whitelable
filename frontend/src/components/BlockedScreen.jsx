@@ -1,11 +1,13 @@
 import React, { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useBranding } from '../context/BrandingContext';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, LogOut } from 'lucide-react';
 import './BlockedScreen.css';
 
 const BlockedScreen = () => {
     const { enforcement, logout } = useAuth();
+    const { branding } = useBranding();
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -79,7 +81,7 @@ const BlockedScreen = () => {
                 </button>
 
                 <div className="blocked-footer">
-                    <p>Need help? Contact support at support@balatrix.com</p>
+                    <p>Need help? Contact support at {branding.supportEmail || 'support@telecom-platform.com'}</p>
                 </div>
             </div>
         </div>

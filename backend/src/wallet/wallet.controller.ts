@@ -69,6 +69,12 @@ export class WalletController {
         return this.walletService.getAllBalances();
     }
 
+    @Get('assets')
+    getAssets(@GetUser() user: User) {
+        if (!user.tenantId) return { tfns: [], dids: [], extensions: [], totals: { tfns: 0, dids: 0, extensions: 0 } };
+        return this.walletService.getAssets(user.tenantId);
+    }
+
     // Admin Internal Adjustment
     @Post('internal-adjust')
     @Roles(Role.SUPER_ADMIN)

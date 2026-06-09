@@ -21,7 +21,8 @@ import {
     User,
     PhoneForwarded,
     ScrollText,
-    Building2
+    Building2,
+    Server
 } from 'lucide-react';
 import { Menu, Transition } from '@headlessui/react';
 import { Fragment, useState } from 'react';
@@ -54,6 +55,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { name: 'Rate Cards', href: '/super-admin/rate-cards', icon: CreditCard },
                     { name: 'Packages', href: '/super-admin/packages', icon: Briefcase },
                     { name: 'Manage Numbers', href: '/super-admin/numbers', icon: Phone },
+                    { name: 'Carriers & Gateways', href: '/super-admin/carriers', icon: Server },
                     { name: 'User Management', href: '/super-admin/users', icon: Users },
                     { name: 'System Settings', href: '/settings', icon: Settings },
                 ];
@@ -76,11 +78,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { name: 'User Management', href: '/users', icon: Settings },
                 ];
                 break;
-            case 'SALES':
-                items = [
-                    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-                ];
-                break;
+
             case 'SUPPORT':
                 items = [
                     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },

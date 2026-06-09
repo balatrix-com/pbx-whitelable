@@ -26,8 +26,8 @@ export class FeatureGuard implements CanActivate {
             return false;
         }
 
-        // Super admins and support/sales platform staff bypass all tenant feature restrictions
-        if (user.role === 'SUPER_ADMIN' || user.role === 'SUPPORT' || user.role === 'SALES') {
+        // Super admins and support platform staff bypass all tenant feature restrictions
+        if (user.role === 'SUPER_ADMIN' || user.role === 'SUPPORT') {
             // Wait, does tenant-level SUPPORT role bypass? 
             // Actually, if a user has tenantId, and they are SUPPORT, it depends.
             // If they are SUPER_ADMIN or SALES, they are definitely global staff.

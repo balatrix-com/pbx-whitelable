@@ -41,9 +41,9 @@ export class ExtensionsController {
      * Get next available extension number
      */
     @Get('next-number')
-    @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.SALES)
+    @Roles(Role.ADMIN, Role.SUPER_ADMIN)
     async getNextNumber(@GetUser() user: any, @Query('tenantId') tenantId?: string) {
-        const targetTenantId = (user.role === Role.SUPER_ADMIN || user.role === Role.SALES) && tenantId
+        const targetTenantId = (user.role === Role.SUPER_ADMIN) && tenantId
             ? tenantId
             : user.tenantId;
         const nextNum = await this.extensionsService.getNextExtensionNumber(targetTenantId);
@@ -67,9 +67,9 @@ export class ExtensionsController {
      * Accessible by: SUPER_ADMIN, SALES, SUPPORT
      */
     @Post()
-    @Roles(Role.SUPER_ADMIN, Role.SALES, Role.SUPPORT)
+    @Roles(Role.SUPER_ADMIN, Role.SUPPORT)
     create(@GetUser() user: any, @Body() dto: CreateExtensionDto & { targetTenantId?: string }) {
-        const tenantId = (user.role === Role.SUPER_ADMIN || user.role === Role.SALES || user.role === Role.SUPPORT) && dto.targetTenantId
+        const tenantId = (user.role === Role.SUPER_ADMIN || user.role === Role.SUPPORT) && dto.targetTenantId
             ? dto.targetTenantId
             : user.tenantId;
         return this.extensionsService.create(tenantId, dto);
@@ -81,7 +81,7 @@ export class ExtensionsController {
      * Accessible by: ADMIN, SUPER_ADMIN, SALES, SUPPORT
      */
     @Put(':id')
-    @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.SALES, Role.SUPPORT)
+    @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.SUPPORT)
     update(
         @GetUser() user: any,
         @Param('id') id: string,
@@ -96,9 +96,9 @@ export class ExtensionsController {
      * Accessible by: SUPER_ADMIN, SALES, SUPPORT
      */
     @Delete(':id')
-    @Roles(Role.SUPER_ADMIN, Role.SALES, Role.SUPPORT)
+    @Roles(Role.SUPER_ADMIN, Role.SUPPORT)
     remove(@GetUser() user: any, @Param('id') id: string, @Query('tenantId') tenantId?: string) {
-        const targetTenantId = (user.role === Role.SUPER_ADMIN || user.role === Role.SALES || user.role === Role.SUPPORT) && tenantId
+        const targetTenantId = (user.role === Role.SUPER_ADMIN || user.role === Role.SUPPORT) && tenantId
             ? tenantId
             : user.tenantId;
         return this.extensionsService.remove(targetTenantId, id);

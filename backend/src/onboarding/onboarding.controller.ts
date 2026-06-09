@@ -12,14 +12,7 @@ export class OnboardingController {
         private readonly freeSwitchSync: FreeSwitchSyncService
     ) { }
     
-    @Post('sync-quote')
-    async syncQuote(@Body() data: any, @Headers('x-sync-token') syncToken: string) {
-        const expectedToken = process.env.PBX_SYNC_TOKEN || 'your-super-secret-jwt-key-change-this-in-production';
-        if (syncToken !== expectedToken) {
-            throw new UnauthorizedException('Invalid sync token');
-        }
-        return this.onboardingService.syncQuote(data);
-    }
+
 
     @Get('auth/status')
     @UseGuards(JwtAuthGuard)
@@ -39,37 +32,7 @@ export class OnboardingController {
         return this.onboardingService.selectTfnForAuthenticatedUser(user.tenantId, tfnId);
     }
 
-    @Get(':token')
-    getQuote(@Param('token') token: string) {
-        return this.onboardingService.getQuoteByToken(token);
-    }
 
-    @Post(':token/checkout')
-    async checkout(@Param('token') token: string) {
-        return this.onboardingService.createCheckoutSession(token);
-    }
-
-    @Get(':token/available-tfns')
-    getAvailableTFNs(@Param('token') token: string) {
-        return this.onboardingService.getAvailableTFNs(token);
-    }
-
-    @Post(':token/complete')
-    async complete(
-        @Param('token') token: string,
-        @Body() body: { adminPassword: string, extensionNames: string[], sessionId: string, selectedTfnId?: string }
-    ) {
-        const { result, extensionIdsToSync } = await this.onboardingService.completeOnboarding(token, body);
-
-        // Sync extensions
-        if (extensionIdsToSync && extensionIdsToSync.length > 0) {
-            for (const id of extensionIdsToSync) {
-                await this.freeSwitchSync.syncExtension(id);
-            }
-        }
-
-        return result;
-    }
 
     @Post('provision-tenant')
     async provisionTenant(@Body() data: ProvisionTenantDto, @Req() req: any) {

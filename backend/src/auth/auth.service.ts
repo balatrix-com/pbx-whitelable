@@ -86,7 +86,7 @@ export class AuthService {
                 tenantId: tenant.id,
                 userId: user.id,
                 type: 'system',
-                title: 'Welcome to Balatrix!',
+                title: 'Welcome to Cloud PBX!',
                 message: 'Your telecom infrastructure dashboard is ready. Explore the features and start commanding your network.',
             });
 
@@ -402,7 +402,7 @@ export class AuthService {
         });
 
         // Send Email
-        await this.mailService.sendPasswordResetEmail(user.email, user.name || '', token, user.tenant?.name || 'Balatrix');
+        await this.mailService.sendPasswordResetEmail(user.email, user.name || '', token, user.tenant?.name || 'Cloud PBX');
 
         return { message: 'A password reset link has been sent to your registered email address.' };
     }

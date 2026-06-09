@@ -18,7 +18,7 @@ export class PlansController {
     }
 
     @Post()
-    @Roles(Role.SALES, Role.ADMIN, Role.SUPER_ADMIN)
+    @Roles(Role.ADMIN, Role.SUPER_ADMIN)
     @UseGuards(RolesGuard)
     async createCustom(@Body() data: any, @GetUser() user: User) {
         return this.plansService.createCustom(data, user.id);

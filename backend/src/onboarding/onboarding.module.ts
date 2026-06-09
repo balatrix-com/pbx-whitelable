@@ -3,7 +3,6 @@ import { Module } from '@nestjs/common';
 import { OnboardingController } from './onboarding.controller';
 import { OnboardingService } from './onboarding.service';
 import { PrismaModule } from '../prisma/prisma.module';
-import { SalesModule } from '../sales/sales.module';
 import { BillingModule } from '../billing/billing.module';
 import { FreeswitchModule } from '../freeswitch/freeswitch.module';
 import { JwtModule } from '@nestjs/jwt';
@@ -18,7 +17,6 @@ import { MailModule } from '../mail/mail.module';
 @Module({
     imports: [
         PrismaModule,
-        SalesModule,
         BillingModule,
         ConfigModule,
         HttpModule,

@@ -5,13 +5,13 @@ const BrandingContext = createContext(null);
 
 export const BrandingProvider = ({ children }) => {
     const [branding, setBranding] = useState({
-        name: 'Balatrix',
-        logoMain: '/svg logo/Balatrix final logo 1.svg',
-        logoSidebar: '/svg logo/Balatrix final logo 1.svg',
-        favicon: '/svg logo/Balatrix final logo 5.svg',
+        name: 'Cloud PBX',
+        logoMain: '/svg logo/logo-main.svg',
+        logoSidebar: '/svg logo/logo-main.svg',
+        favicon: '/svg logo/favicon.svg',
         primaryColor: '#3d52a0',
         accentColor: '#ed8f55',
-        supportEmail: 'support@balatrix.com',
+        supportEmail: 'support@telecom-platform.com',
         supportPhone: '+1-800-555-0199',
     });
     const [loading, setLoading] = useState(true);

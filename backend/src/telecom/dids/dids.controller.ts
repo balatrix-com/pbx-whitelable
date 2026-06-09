@@ -53,7 +53,7 @@ export class DIDsController {
     @Post()
     @Roles(Role.SUPER_ADMIN)
     create(@GetUser() user: any, @Body() dto: CreateDIDDto & { targetTenantId?: string }) {
-        const tenantId = (user.role === Role.SUPER_ADMIN || user.role === Role.SALES) && dto.targetTenantId
+        const tenantId = (user.role === Role.SUPER_ADMIN) && dto.targetTenantId
             ? dto.targetTenantId
             : user.tenantId;
 

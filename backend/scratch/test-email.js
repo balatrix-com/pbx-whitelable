@@ -7,12 +7,12 @@ async function testEmail() {
     const payload = {
         mail_template_key: "sip-ob",
         from: {
-            address: "no-reply@balatrix.ca",
-            name: "Balatrix Portal"
+            address: "no-reply@telecom-platform.com",
+            name: "Cloud PBX Portal"
         },
         to: [{
             email_address: {
-                address: "sahil@balatrix.com", // testing with user email
+                address: "sahil@example.com", // testing with user email
                 name: "Sahil",
             }
         }],
@@ -20,7 +20,7 @@ async function testEmail() {
             customer_name: "Sahil Test",
             customer_code: "TEST-001",
             phone_num: "1234567890",
-            login_url: "https://subdev.balatrix.com/login",
+            login_url: "https://subdev.telecom-platform.com/login",
             extension_list: "<li>Ext 101</li>"
         }
     };

@@ -43,7 +43,7 @@ const MonitoringPage = () => {
         const socketUrl = `${baseUrl.replace(/\/$/, '')}/monitor`;
         
         // In production, we need to go through the /api path for proxy routing
-        const socketPath = import.meta.env.MODE === 'production' || baseUrl.includes('balatrix.com')
+        const socketPath = import.meta.env.MODE === 'production' || !baseUrl.includes('localhost')
             ? '/api/socket.io'
             : '/socket.io';
 

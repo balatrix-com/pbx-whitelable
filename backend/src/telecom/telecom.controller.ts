@@ -28,10 +28,10 @@ export class TelecomController {
     }
 
     @Post('tfns/purchase')
-    @Roles(Role.SUPER_ADMIN, Role.SALES)
+    @Roles(Role.SUPER_ADMIN)
     @UseGuards(RolesGuard)
     purchaseTFN(@GetUser() user: User, @Body() body: PurchaseTFNDto & { targetTenantId?: string }) {
-        const tenantId = (user.role === Role.SUPER_ADMIN || user.role === Role.SALES) && body.targetTenantId
+        const tenantId = (user.role === Role.SUPER_ADMIN) && body.targetTenantId
             ? body.targetTenantId
             : user.tenantId!;
 

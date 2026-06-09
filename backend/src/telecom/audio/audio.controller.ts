@@ -90,6 +90,9 @@ export class AudioController {
     @Get('list')
     @Roles(Role.ADMIN, Role.SUPPORT, Role.SUPER_ADMIN)
     async listAudioFiles(@GetUser() user: any) {
+        if (!user.tenantId) {
+            return { files: [] };
+        }
         const files = await this.prisma.audioFile.findMany({
             where: { tenantId: user.tenantId },
             orderBy: { createdAt: 'desc' },

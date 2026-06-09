@@ -92,7 +92,7 @@ const AdminDashboard = () => {
 
             {/* Premium Hero Section */}
             <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-900 to-primary-800 px-8 py-12 shadow-2xl sm:px-12 lg:px-16">
-                <div className="absolute inset-0 bg-[url('/svg logo/Balatrix final logo 1.svg')] opacity-5 bg-no-repeat bg-center bg-cover mix-blend-overlay"></div>
+                <div className="absolute inset-0 bg-[url('/svg logo/logo-main.svg')] opacity-5 bg-no-repeat bg-center bg-cover mix-blend-overlay"></div>
                 <div className="relative z-10 md:flex md:items-center md:justify-between">
                     <div>
                         <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl mb-2">

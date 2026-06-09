@@ -37,11 +37,7 @@ export class UsersController {
         return this.usersService.createSupportUser(user.id, dto);
     }
 
-    @Post('sales')
-    @Roles(Role.SUPER_ADMIN)
-    createSalesUser(@GetUser() user: User, @Body() dto: CreateSupportUserDto) {
-        return this.usersService.createSalesUser(user.id, dto);
-    }
+
 
     @Patch(':id/status')
     @Roles(Role.ADMIN, Role.SUPER_ADMIN)

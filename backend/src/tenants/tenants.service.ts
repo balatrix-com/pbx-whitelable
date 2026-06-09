@@ -298,13 +298,87 @@ export class TenantsService {
         });
     }
 
+    async assignOutboundEndpoint(tenantId: string, endpointId: number) {
+        const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+        if (!tenant) throw new NotFoundException('Tenant not found');
+
+        const updated = await this.prisma.tenant.update({
+            where: { id: tenantId },
+            data: { outboundEndpointId: endpointId }
+        });
+
+        await this.invalidateT2002Cache(tenant.customerCode);
+        return updated;
+    }
+
+    async removeOutboundEndpoint(tenantId: string) {
+        const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+        if (!tenant) throw new NotFoundException('Tenant not found');
+
+        const updated = await this.prisma.tenant.update({
+            where: { id: tenantId },
+            data: { outboundEndpointId: null }
+        });
+
+        await this.invalidateT2002Cache(tenant.customerCode);
+        return updated;
+    }
+
+    private async invalidateT2002Cache(customerCode: string | null) {
+        if (!customerCode) return;
+        const host = process.env.T_2002_HOST || 'localhost';
+        const url = `http://${host}:8000/admin/cache/flush/carrier?customer=${customerCode}`;
+        
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-Cache-Token': 'PBX_FLUSH_2026_acaJOOAJjasojoa'
+                }
+            });
+            if (!response.ok) {
+                console.error(`Failed to flush t_2002 cache for ${customerCode}: ${response.statusText}`);
+            }
+        } catch (error) {
+            console.error(`Error flushing t_2002 cache for ${customerCode}:`, error);
+        }
+    }
+
 
     async createTenant(data: {
-        companyName: string;
+        customerType: 'individual' | 'company';
+        firstName: string;
+        lastName: string;
+        companyName?: string;
+        companyTaxId?: string;
         adminEmail: string;
-        adminName: string;
         adminPassword: string;
+        planId?: string;
+        phone: string;
+        address: string;
+        city: string;
+        state: string;
+        country: string;
     }) {
+        // Validation - Throw errors immediately (no defaults/placeholders!)
+        if (!data.customerType || !['individual', 'company'].includes(data.customerType)) {
+            throw new Error('customerType is required and must be either individual or company');
+        }
+        if (!data.firstName) throw new Error('firstName is required');
+        if (!data.lastName) throw new Error('lastName is required');
+        if (!data.adminEmail) throw new Error('adminEmail is required');
+        if (!data.adminPassword) throw new Error('adminPassword is required');
+        if (!data.phone) throw new Error('phone is required');
+        if (!data.address || data.address.length < 10) throw new Error('address is required and must be at least 10 characters');
+        if (!data.city) throw new Error('city is required');
+        if (!data.state) throw new Error('state is required');
+        if (!data.country) throw new Error('country is required');
+
+        if (data.customerType === 'company') {
+            if (!data.companyName) throw new Error('companyName is required for company type');
+            if (!data.companyTaxId) throw new Error('companyTaxId is required for company type');
+        }
+
         const existingUser = await this.prisma.user.findUnique({
             where: { email: data.adminEmail.toLowerCase() }
         });
@@ -313,9 +387,10 @@ export class TenantsService {
             throw new Error('User with this email already exists');
         }
 
-        if (existingUser) {
-            throw new Error('User with this email already exists');
-        }
+        let subBillingCustomerId: string | null = null;
+        let subBillingSubscriptionId: string | null = null;
+        let localPlanId: string | null = null;
+        let freeMinutes = 0;
 
         // Generate Customer Code (Sequential starting from 1001)
         // This ensures extensions start at 100101, 100201, etc.
@@ -343,27 +418,84 @@ export class TenantsService {
         let isUnique = false;
         let retries = 0;
 
-        while (!isUnique && retries < 5) {
+        while (!isUnique && retries < 50) {
             const exists = await this.prisma.tenant.findUnique({ where: { customerCode } });
-            if (!exists) {
-                isUnique = true;
-            } else {
+            if (exists) {
                 nextCode++;
                 customerCode = nextCode.toString();
                 retries++;
+                continue;
             }
+
+            const existsInSubBilling = await this.walletService.checkCustomerExists(customerCode);
+            if (existsInSubBilling) {
+                nextCode++;
+                customerCode = nextCode.toString();
+                retries++;
+                continue;
+            }
+
+            isUnique = true;
         }
 
         if (!isUnique) throw new Error('Failed to generate unique customer code');
+
+        if (data.planId) {
+            // 1. Fetch sub-billing plan details to verify & get name
+            const subBillingPlan = await this.walletService.getSubBillingPlan(data.planId);
+            if (!subBillingPlan) {
+                throw new Error(`Plan ${data.planId} not found in Sub-billing`);
+            }
+
+            const planNameQuery = subBillingPlan.name.split('(')[0].trim();
+            const pbxPlan = await this.prisma.plan.findFirst({
+                where: {
+                    name: { contains: planNameQuery, mode: 'insensitive' }
+                }
+            });
+
+            if (!pbxPlan) {
+                throw new Error(`Selected plan "${subBillingPlan.name}" is not synchronized on the PBX platform`);
+            }
+
+            localPlanId = pbxPlan.id;
+            freeMinutes = pbxPlan.freeMinutes;
+
+            // 2. Create customer in sub-billing
+            const subCustomer = await this.walletService.createSubBillingCustomerExtended({
+                customerId: customerCode,
+                customerType: data.customerType,
+                firstName: data.firstName,
+                lastName: data.lastName,
+                companyName: data.companyName,
+                companyTaxId: data.companyTaxId,
+                email: data.adminEmail,
+                phone: data.phone,
+                address: data.address,
+                city: data.city,
+                state: data.state,
+                country: data.country
+            });
+            subBillingCustomerId = subCustomer.customer_id;
+
+            // 3. Create subscription in sub-billing
+            const subSubscription = await this.walletService.createSubBillingSubscription(
+                subBillingCustomerId!,
+                data.planId
+            );
+            subBillingSubscriptionId = subSubscription.subscription_id || subSubscription.id;
+        }
 
         // Transactional creation
         return this.prisma.$transaction(async (prisma) => {
             // 1. Create Tenant
             const tenant = await prisma.tenant.create({
                 data: {
-                    name: data.companyName,
+                    id: subBillingCustomerId || undefined, // Use subBillingCustomerId as primary key if available
+                    name: data.customerType === 'company' ? data.companyName! : `${data.firstName} ${data.lastName}`,
                     serviceBlocked: false,
                     customerCode,
+                    subBillingCustomerId: subBillingCustomerId || null,
                 }
             });
 
@@ -397,16 +529,33 @@ export class TenantsService {
                 data: {
                     email: data.adminEmail.toLowerCase(),
                     password: hashedPassword,
-                    name: data.adminName,
+                    name: `${data.firstName} ${data.lastName}`,
                     role: 'ADMIN',
                     tenantId: tenant.id,
                     status: 'ACTIVE',
-                    monitoringEnabled: data.companyName.startsWith('Demo')
+                    monitoringEnabled: data.customerType === 'company' ? data.companyName!.startsWith('Demo') : false
                 }
             });
 
+            // 5. Create local subscription if plan matched
+            if (localPlanId) {
+                const endDate = new Date();
+                endDate.setFullYear(endDate.getFullYear() + 1); // Default to 1 year
 
-            // 5. Initialize Redis Lookup
+                await prisma.subscription.create({
+                    data: {
+                        tenantId: tenant.id,
+                        planId: localPlanId,
+                        subBillingSubscriptionId: subBillingSubscriptionId,
+                        status: 'ACTIVE',
+                        startDate: new Date(),
+                        endDate: endDate,
+                        remainingFreeMinutes: freeMinutes
+                    }
+                });
+            }
+
+            // 6. Initialize Redis Lookup
             await this.lookupRedis.updateExtensionLookup('', tenant.id);
 
             return {
@@ -493,11 +642,7 @@ export class TenantsService {
 
             await prisma.monitoringAddOn.deleteMany({ where: { tenantId: id } });
 
-            // 5. Unlink Quotes
-            await prisma.quote.updateMany({
-                where: { tenantId: id },
-                data: { tenantId: null, status: 'DRAFT' } // Or keep as CONVERTED but unlinked?
-            });
+
 
             // 6. Delete Users & Support Profiles
             // Support Profiles have explicit relation to User.

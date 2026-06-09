@@ -111,6 +111,26 @@ export class DemoService {
             const endDate = new Date();
             endDate.setMonth(endDate.getMonth() + 1);
             
+            // Resolve plan ID dynamically to avoid foreign key violation
+            let resolvedPlanId = planId;
+            const planExists = await tx.plan.findUnique({ where: { id: planId } });
+            if (!planExists) {
+                const standardPlan = await tx.plan.findFirst({
+                    where: {
+                        tier: 'STANDARD',
+                        billingCycle: 'MONTHLY'
+                    }
+                });
+                if (standardPlan) {
+                    resolvedPlanId = standardPlan.id;
+                } else {
+                    const fallbackPlan = await tx.plan.findFirst();
+                    if (fallbackPlan) {
+                        resolvedPlanId = fallbackPlan.id;
+                    }
+                }
+            }
+
             const existingSub = await tx.subscription.findFirst({
                 where: { tenantId: tenant.id, status: SubscriptionStatus.ACTIVE }
             });
@@ -119,7 +139,7 @@ export class DemoService {
                 await tx.subscription.update({
                     where: { id: existingSub.id },
                     data: {
-                        planId: planId,
+                        planId: resolvedPlanId,
                         endDate: endDate,
                         remainingFreeMinutes: freeMinutes
                     }
@@ -128,7 +148,7 @@ export class DemoService {
                 await tx.subscription.create({
                     data: {
                         tenantId: tenant.id,
-                        planId: planId,
+                        planId: resolvedPlanId,
                         status: SubscriptionStatus.ACTIVE,
                         startDate: new Date(),
                         endDate: endDate,
@@ -338,7 +358,7 @@ export class DemoService {
             customerName: t.users[0]?.name || null,
             customerEmail: t.users[0]?.email || null,
             assignedTfn: t.tfns[0]?.number || null,
-            salesUser: { name: 'Balatrix Sales' } // Placeholder for now
+            salesUser: { name: 'Sales Agent' } // Placeholder for now
         }));
     }
 

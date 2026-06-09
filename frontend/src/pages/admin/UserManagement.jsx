@@ -467,7 +467,7 @@ const InviteModal = ({ onClose, onInvite }) => {
                                         onChange={e => setEmail(e.target.value)}
                                         required
                                         className="w-full pl-12 pr-4 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-primary-600 font-bold transition-all"
-                                        placeholder="user@balatrix.com"
+                                        placeholder="user@domain.com"
                                     />
                                 </div>
                             </div>

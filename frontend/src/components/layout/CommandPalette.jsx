@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Search, X, Command, User, Building, Phone,
-    Settings, FileText, LayoutDashboard, LogOut, ArrowRight
+    Settings, FileText, LayoutDashboard, LogOut, ArrowRight, Server
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
@@ -96,6 +96,7 @@ const CommandPalette = () => {
             { id: 'nav-dashboard', type: 'navigation', label: 'Go to Dashboard', icon: LayoutDashboard, path: '/platform' },
             { id: 'nav-users', type: 'navigation', label: 'Go to Users', icon: User, path: isSuperAdmin ? '/admin/users' : '/users' },
             { id: 'nav-audit', type: 'navigation', label: 'Go to Audit Logs', icon: FileText, path: '/admin/audit-logs', requiredRole: 'SUPER_ADMIN' },
+            { id: 'nav-carriers', type: 'navigation', label: 'Go to Carriers & Gateways', icon: Server, path: '/super-admin/carriers', requiredRole: 'SUPER_ADMIN' },
             { id: 'nav-profile', type: 'navigation', label: 'Profile Settings', icon: Settings, path: '/profile' },
             { id: 'nav-logout', type: 'action', label: 'Logout', icon: LogOut, action: () => logout() },
         ].filter(item => {
