@@ -33,8 +33,11 @@ const NotificationPanel = () => {
         try {
             const data = await notificationService.getNotifications(50);
 
+            // Backend returns { notifications: [...] }
+            const list = Array.isArray(data?.notifications) ? data.notifications : [];
+
             // Format timestamps for display
-            const formattedData = data.notifications.map(n => ({
+            const formattedData = list.map(n => ({
                 ...n,
                 time: n.createdAt ? formatDistanceToNow(new Date(n.createdAt), { addSuffix: true }) : 'Just now'
             }));

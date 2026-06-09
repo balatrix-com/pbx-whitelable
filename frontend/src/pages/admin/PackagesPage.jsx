@@ -42,9 +42,16 @@ const PackagesPage = () => {
         try {
             setLoading(true);
             const response = await api.get('/admin/packages');
-            setPackages(response.data || []);
+            // Sub-billing /plans returns { success: true, data: [...] }
+            // The NestJS proxy passes this through as-is, so response.data is the wrapper.
+            const raw = response.data;
+            const list = Array.isArray(raw) ? raw
+                : Array.isArray(raw?.data) ? raw.data
+                : [];
+            setPackages(list);
         } catch (error) {
             console.error('Failed to fetch packages:', error);
+            setPackages([]);
         } finally {
             setLoading(false);
         }
