@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 /**
  * System Audio Paths
@@ -16,6 +17,13 @@ const AUDIO_NOINPUT = '/opt/ivr_audio/system/ivr_no_input.wav';
 @Injectable()
 export class DialplanGeneratorService {
   private readonly logger = new Logger(DialplanGeneratorService.name);
+  private readonly sipServer: string;
+  private readonly outboundGateway: string;
+
+  constructor(private readonly configService?: ConfigService) {
+    this.sipServer = this.configService?.get<string>('SIP_SERVER') || process.env.SIP_SERVER || 'localhost';
+    this.outboundGateway = this.configService?.get<string>('OUTBOUND_GATEWAY') || process.env.OUTBOUND_GATEWAY || 'localhost:5060';
+  }
 
   /**
    * Generate recording variables XML block
@@ -34,10 +42,11 @@ export class DialplanGeneratorService {
   generateSimpleExtensionXML(
     dialplanKey: string,
     extensionNumber: string,
-    sipServer: string = 'localhost',
+    sipServer?: string,
     enableRecording: boolean = false,
     customerCode: string = ''
   ): string {
+    const server = sipServer || this.sipServer;
     const recordingVariables = enableRecording && customerCode ? this.getRecordingVariablesBlock() : '';
     const executeOnAnswer = enableRecording && customerCode
       ? `,execute_on_answer='record_session /mnt/freeswitch-recordings/recordings/${customerCode}/\${uuid}.mp3'`
@@ -52,7 +61,7 @@ export class DialplanGeneratorService {
           <action application="set" data="continue_on_fail=true"/>
           <action application="set" data="call_timeout=20"/>
           <action application="set" data="ignore_early_media=true"/>${recordingVariables}
-          <action application="bridge" data="{ignore_early_media=true${executeOnAnswer}}sofia/internal/${extensionNumber}@${sipServer}"/>
+          <action application="bridge" data="{ignore_early_media=true${executeOnAnswer}}sofia/internal/${extensionNumber}@${server}"/>
           <action application="answer"/>
           <action application="sleep" data="200"/>
           <action application="playback" data="${AUDIO_UNAVAILABLE}"/>
@@ -73,10 +82,11 @@ export class DialplanGeneratorService {
     extensionNumber: string,
     forwardDestination: string,
     timeout: number = 20,
-    sipServer: string = 'localhost',
+    sipServer?: string,
     enableRecording: boolean = false,
     customerCode: string = ''
   ): string {
+    const server = sipServer || this.sipServer;
     const recordingVariables = enableRecording && customerCode ? this.getRecordingVariablesBlock() : '';
     const executeOnAnswerString = enableRecording && customerCode
       ? `,execute_on_answer='record_session /mnt/freeswitch-recordings/recordings/${customerCode}/\${uuid}.mp3'`
@@ -92,7 +102,7 @@ export class DialplanGeneratorService {
           <action application="set" data="call_timeout=${timeout}"/>
           <action application="set" data="ignore_early_media=true"/>${recordingVariables}
           <!-- Primary bridge -->
-          <action application="bridge" data="{ignore_early_media=true${executeOnAnswerString}}sofia/internal/${extensionNumber}@${sipServer}"/>
+          <action application="bridge" data="{ignore_early_media=true${executeOnAnswerString}}sofia/internal/${extensionNumber}@${server}"/>
           <!-- Forward on No Answer -->
           <action application="answer"/>
           <action application="sleep" data="200"/>
@@ -117,7 +127,7 @@ export class DialplanGeneratorService {
   generateExtensionCFUXML(
     dialplanKey: string,
     forwardDestination: string,
-    sipServer: string = 'localhost',
+    sipServer?: string,
     enableRecording: boolean = false,
     customerCode: string = ''
   ): string {
@@ -161,10 +171,11 @@ export class DialplanGeneratorService {
     members: { extensionNumber: string, priority?: number }[],
     strategy: string,
     timeout: number = 30,
-    sipServer: string = 'localhost',
+    sipServer?: string,
     enableRecording: boolean = false,
     customerCode: string = ''
   ): string {
+    const server = sipServer || this.sipServer;
     const recordingVariables = enableRecording && customerCode ? this.getRecordingVariablesBlock() : '';
     const executeOnAnswerString = enableRecording && customerCode
       ? `,execute_on_answer='record_session /mnt/freeswitch-recordings/recordings/${customerCode}/\${uuid}.mp3'`
@@ -179,7 +190,7 @@ export class DialplanGeneratorService {
     if (strategy === 'simultaneous') {
       // --- PARALLEL ---
       typeSuffix = 'parallel';
-      const endpoints = members.map(m => `sofia/internal/${m.extensionNumber}@${sipServer}`).join(',');
+      const endpoints = members.map(m => `sofia/internal/${m.extensionNumber}@${server}`).join(',');
 
       actions = `          <action application="set" data="call_timeout=${timeout}"/>
           <action application="set" data="ignore_early_media=true"/>
@@ -191,7 +202,7 @@ export class DialplanGeneratorService {
 
       const steps = members.map(m => {
         return `          <action application="set" data="call_timeout=${timeout}"/>
-          <action application="bridge" data="{ignore_early_media=true${executeOnAnswerString}}sofia/internal/${m.extensionNumber}@${sipServer}"/>`;
+          <action application="bridge" data="{ignore_early_media=true${executeOnAnswerString}}sofia/internal/${m.extensionNumber}@${server}"/>`;
       });
 
       actions = `          <!-- Try each member in order -->\n` + steps.join('\n');
@@ -206,7 +217,7 @@ export class DialplanGeneratorService {
       members.forEach(m => {
         const p = m.priority || 1;
         if (!tiers.has(p)) tiers.set(p, []);
-        tiers.get(p)!.push(`sofia/internal/${m.extensionNumber}@${sipServer}`);
+        tiers.get(p)!.push(`sofia/internal/${m.extensionNumber}@${server}`);
       });
 
       // Sort priorities (1, 2, 3...)
@@ -224,7 +235,7 @@ export class DialplanGeneratorService {
     } else {
       // Fallback to parallel
       typeSuffix = 'parallel';
-      const endpoints = members.map(m => `sofia/internal/${m.extensionNumber}@${sipServer}`).join(',');
+      const endpoints = members.map(m => `sofia/internal/${m.extensionNumber}@${server}`).join(',');
       actions = `          <action application="set" data="call_timeout=${timeout}"/>
           <action application="set" data="ignore_early_media=true"/>
           <action application="bridge" data="{ignore_early_media=true${executeOnAnswerString}}${endpoints}"/>`;
@@ -258,8 +269,8 @@ ${actions}
    * Generate XML for DID Forward (External Number)
    * Ref: XML_FORMATS_REFERENCE.txt Section 4
    */
-  generateDIDForwardXML(dialplanKey: string, destination: string): string {
-    const gateway = 'localhost:5060';
+  generateDIDForwardXML(dialplanKey: string, destination: string, gateway?: string): string {
+    const gw = gateway || this.outboundGateway;
     return `<?xml version="1.0" encoding="UTF-8"?>
 <document type="freeswitch/xml">
   <section name="dialplan">
@@ -270,7 +281,7 @@ ${actions}
           <action application="set" data="call_timeout=30"/>
           <action application="set" data="ignore_early_media=true"/>
           <!-- Forward to external number, preserving original caller ID -->
-          <action application="bridge" data="{ignore_early_media=true}sofia/internal/${destination}@${gateway}"/>
+          <action application="bridge" data="{ignore_early_media=true}sofia/internal/${destination}@${gw}"/>
           <!-- Fallback if forward fails -->
           <action application="answer"/>
           <action application="sleep" data="200"/>

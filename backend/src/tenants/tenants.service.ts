@@ -326,14 +326,15 @@ export class TenantsService {
 
     private async invalidateT2002Cache(customerCode: string | null) {
         if (!customerCode) return;
-        const host = process.env.T_2002_HOST || 'localhost';
-        const url = `http://${host}:8000/admin/cache/flush/carrier?customer=${customerCode}`;
+        const baseUrl = process.env.CACHE_FLUSH_URL || 'http://localhost:8000';
+        const token = process.env.CACHE_FLUSH_TOKEN || 'PBX_FLUSH_2026_acaJOOAJjasojoa';
+        const url = `${baseUrl}/admin/cache/flush/carrier?customer=${customerCode}`;
         
         try {
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
-                    'X-Cache-Token': 'PBX_FLUSH_2026_acaJOOAJjasojoa'
+                    'X-Cache-Token': token
                 }
             });
             if (!response.ok) {

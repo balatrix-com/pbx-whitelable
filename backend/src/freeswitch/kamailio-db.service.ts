@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Client } from 'pg';
 import * as crypto from 'crypto';
 
@@ -13,6 +14,8 @@ export class KamailioDBService {
     private readonly logger = new Logger(KamailioDBService.name);
     private readonly realm = process.env.SIP_REALM || 'sip.telecom-platform.com';
 
+    constructor(private readonly configService?: ConfigService) {}
+
     private getClient(): Client {
         return new Client({
             host: process.env.FS_DB_HOST,
@@ -25,7 +28,7 @@ export class KamailioDBService {
     }
 
     private async callKamailioRpc(method: string, params: any[] = []): Promise<void> {
-        const rpcUrl = process.env.KAMAILIO_RPC_URL || 'http://10.30.0.61:8080/rpc';
+        const rpcUrl = this.configService?.get<string>('kamailio.rpcUrl') || process.env.KAMAILIO_RPC_URL || `http://${process.env.FS_DB_HOST || '10.30.0.61'}:8080/rpc`;
         try {
             const response = await fetch(rpcUrl, {
                 method: 'POST',

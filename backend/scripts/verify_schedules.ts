@@ -1,3 +1,7 @@
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+dotenv.config({ path: path.join(__dirname, '../.env') });
+
 import { DialplanGeneratorService } from '../src/freeswitch/dialplan-generator.service';
 
 const service = new DialplanGeneratorService();
@@ -9,8 +13,10 @@ const fwdKey = 'fwd1_1002';
 const fwdDest = '+15551234567';
 const fwdXml = service.generateDIDForwardXML(fwdKey, fwdDest);
 
+const expectedGateway = process.env.OUTBOUND_GATEWAY || 'localhost:5060';
+
 console.log('\n[Forwarding Check]');
-if (fwdXml.includes(`bridge" data="{ignore_early_media=true}sofia/internal/${fwdDest}@\${outbound_gateway}"`)) {
+if (fwdXml.includes(`bridge" data="{ignore_early_media=true}sofia/internal/${fwdDest}@${expectedGateway}"`)) {
     console.log('✅ Forwarding Bridge string matches.');
 } else {
     console.log('❌ Forwarding Bridge string MISMATCH.');

@@ -34,4 +34,7 @@ export default () => ({
         url: process.env.BILLING_CACHE_REFRESH_URL || 'http://localhost:8000/api/v1/cache/refresh',
         token: process.env.BILLING_CACHE_REFRESH_TOKEN || 'dev-token-123',
     },
+    kamailio: {
+        rpcUrl: process.env.KAMAILIO_RPC_URL || 'http://10.30.0.61:8080/rpc',
+    },
 });

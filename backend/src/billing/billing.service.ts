@@ -78,12 +78,13 @@ export class BillingService implements OnModuleInit {
             });
         }
 
+        const frontendUrl = this.configService.get<string>('frontendUrl') || 'http://localhost:5173';
         const session = await this.stripe.checkout.sessions.create({
             mode: 'setup',
             currency: 'usd',
             customer: customerId,
-            success_url: 'http://localhost:5173/billing?success=true',
-            cancel_url: 'http://localhost:5173/billing?canceled=true',
+            success_url: `${frontendUrl}/billing?success=true`,
+            cancel_url: `${frontendUrl}/billing?canceled=true`,
         });
 
         return { url: session.url };
@@ -304,6 +305,7 @@ export class BillingService implements OnModuleInit {
             }
         }
 
+        const frontendUrl = this.configService.get<string>('frontendUrl') || 'http://localhost:5173';
         // Create PaymentIntent
         try {
             const paymentIntent = await this.stripe.paymentIntents.create({
@@ -314,7 +316,7 @@ export class BillingService implements OnModuleInit {
                 off_session: true,
                 confirm: true,
                 description,
-                return_url: 'http://localhost:5173/payment-return' // Required for some flows
+                return_url: `${frontendUrl}/payment-return` // Required for some flows
             });
 
             if (paymentIntent.status === 'succeeded') {
