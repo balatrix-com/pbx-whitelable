@@ -304,42 +304,35 @@ const AdminDashboard = () => {
                 </div>
 
                 {/* Tenant Settings Card */}
-                <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100 hover:shadow-md transition-shadow relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform duration-500 group-hover:opacity-20">
-                        <Mic className="h-24 w-24 text-primary-600" />
-                    </div>
-                    <div className="relative z-10 flex items-center justify-between">
-                        <div className="rounded-xl bg-primary-50 p-3 shadow-sm">
-                            <Mic className="h-6 w-6 text-primary-600" />
+                {recordingAllowed && (
+                    <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100 hover:shadow-md transition-shadow relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform duration-500 group-hover:opacity-20">
+                            <Mic className="h-24 w-24 text-primary-600" />
                         </div>
-                        {!recordingAllowed && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
-                                <Lock size={10} /> Locked
-                            </span>
-                        )}
-                    </div>
-                    <div className="relative z-10 mt-6">
-                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Global Settings</h3>
-                        <div className="mt-4 flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-extrabold text-gray-900">Call Recording</p>
-                                <p className="text-xs text-gray-500 mt-1">
-                                    {recordingAllowed 
-                                        ? "Record all inbound and outbound calls" 
-                                        : "Contact support to enable call recording."
-                                    }
-                                </p>
+                        <div className="relative z-10 flex items-center justify-between">
+                            <div className="rounded-xl bg-primary-50 p-3 shadow-sm">
+                                <Mic className="h-6 w-6 text-primary-600" />
                             </div>
-                            <button 
-                                onClick={handleToggleRecording}
-                                disabled={toggling || !recordingAllowed}
-                                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 ${recordingEnabled && recordingAllowed ? 'bg-primary-600' : 'bg-gray-200'} ${toggling || !recordingAllowed ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            >
-                                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${recordingEnabled && recordingAllowed ? 'translate-x-5' : 'translate-x-0'}`} />
-                            </button>
+                        </div>
+                        <div className="relative z-10 mt-6">
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Global Settings</h3>
+                            <div className="mt-4 flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-extrabold text-gray-900">Call Recording</p>
+                                    <p className="text-xs text-gray-500 mt-1">Record all inbound and outbound calls</p>
+                                </div>
+                                <button 
+                                    onClick={handleToggleRecording}
+                                    disabled={toggling}
+                                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 ${recordingEnabled ? 'bg-primary-600' : 'bg-gray-200'} ${toggling ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${recordingEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
+
 
             </div>
 
