@@ -81,7 +81,7 @@ export class RingGroupsService {
         if (limitStr) {
             const limit = parseInt(limitStr, 10);
             if (!isNaN(limit)) {
-                const count = await this.prisma.ringGroup.count({ where: { tenantId } });
+                const count = await this.prisma.ringGroup.count();
                 if (count >= limit) {
                     throw new BadRequestException(`Maximum ring group limit of ${limit} has been reached.`);
                 }

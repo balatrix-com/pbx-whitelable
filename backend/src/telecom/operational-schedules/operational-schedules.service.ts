@@ -57,7 +57,7 @@ export class OperationalSchedulesService {
         if (limitStr) {
             const limit = parseInt(limitStr, 10);
             if (!isNaN(limit)) {
-                const count = await this.prisma.operationalSchedule.count({ where: { tenantId } });
+                const count = await this.prisma.operationalSchedule.count();
                 if (count >= limit) {
                     throw new BadRequestException(`Maximum schedule limit of ${limit} has been reached.`);
                 }

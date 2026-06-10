@@ -54,7 +54,7 @@ export class DIDsService {
         if (limitStr) {
             const limit = parseInt(limitStr, 10);
             if (!isNaN(limit)) {
-                const count = await this.prisma.dID.count({ where: { tenantId } });
+                const count = await this.prisma.dID.count({ where: { NOT: { tenantId: null } } });
                 if (count >= limit) {
                     throw new BadRequestException(`Maximum DID limit of ${limit} has been reached.`);
                 }

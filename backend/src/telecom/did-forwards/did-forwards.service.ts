@@ -37,7 +37,7 @@ export class DIDForwardsService {
         if (limitStr) {
             const limit = parseInt(limitStr, 10);
             if (!isNaN(limit)) {
-                const count = await this.prisma.dIDForward.count({ where: { tenantId } });
+                const count = await this.prisma.dIDForward.count();
                 if (count >= limit) {
                     throw new BadRequestException(`Maximum DID Forward limit of ${limit} has been reached.`);
                 }

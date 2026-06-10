@@ -53,7 +53,7 @@ export class TFNsService {
         if (limitStr) {
             const limit = parseInt(limitStr, 10);
             if (!isNaN(limit)) {
-                const count = await this.prisma.tFN.count({ where: { tenantId } });
+                const count = await this.prisma.tFN.count({ where: { NOT: { tenantId: null } } });
                 if (count >= limit) {
                     throw new BadRequestException(`Maximum Toll-Free Number limit of ${limit} has been reached.`);
                 }
@@ -252,7 +252,7 @@ export class TFNsService {
         if (limitStr) {
             const limit = parseInt(limitStr, 10);
             if (!isNaN(limit)) {
-                const count = await this.prisma.tFN.count({ where: { tenantId } });
+                const count = await this.prisma.tFN.count({ where: { NOT: { tenantId: null } } });
                 if (count >= limit) {
                     throw new BadRequestException(`Maximum Toll-Free Number limit of ${limit} has been reached.`);
                 }

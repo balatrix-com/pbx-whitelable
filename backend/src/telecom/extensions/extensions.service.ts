@@ -78,7 +78,7 @@ export class ExtensionsService {
         if (limitStr) {
             const limit = parseInt(limitStr, 10);
             if (!isNaN(limit)) {
-                const count = await this.prisma.extension.count({ where: { tenantId } });
+                const count = await this.prisma.extension.count();
                 if (count >= limit) {
                     throw new BadRequestException(`Maximum extension limit of ${limit} has been reached.`);
                 }

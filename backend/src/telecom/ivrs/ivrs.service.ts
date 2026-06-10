@@ -54,7 +54,7 @@ export class IVRsService {
         if (limitStr) {
             const limit = parseInt(limitStr, 10);
             if (!isNaN(limit)) {
-                const count = await this.prisma.iVR.count({ where: { tenantId } });
+                const count = await this.prisma.iVR.count();
                 if (count >= limit) {
                     throw new BadRequestException(`Maximum IVR limit of ${limit} has been reached.`);
                 }
