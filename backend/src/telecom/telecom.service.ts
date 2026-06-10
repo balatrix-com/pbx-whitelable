@@ -156,11 +156,19 @@ export class TelecomService implements OnModuleInit {
 
     async getRecordingStatus(tenantId: string) {
         const feature = await this.prisma.tenantFeature.findUnique({ where: { tenantId } });
-        return { enabled: feature?.recordingEnabled ?? false };
+        return { 
+            enabled: feature?.recordingEnabled ?? false,
+            allowed: feature?.recordingAllowed ?? false
+        };
     }
 
     async toggleRecording(tenantId: string, enabled: boolean) {
         let feature = await this.prisma.tenantFeature.findUnique({ where: { tenantId } });
+        
+        if (enabled && (!feature || !feature.recordingAllowed)) {
+            throw new ForbiddenException('Call recording feature is not allowed for your tenant. Please contact support.');
+        }
+
         if (!feature) {
             feature = await this.prisma.tenantFeature.create({ data: { tenantId, recordingEnabled: enabled } });
         } else {
@@ -183,6 +191,7 @@ export class TelecomService implements OnModuleInit {
 
         return { success: true, enabled };
     }
+
 
     async checkRecording(tenantId: string, callUuid: string): Promise<boolean> {
         const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });

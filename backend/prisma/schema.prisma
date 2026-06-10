@@ -594,7 +594,9 @@ model TenantFeature {
   monitorEnabled    Boolean  @default(true)
   monitorLimit      Int      @default(10)
   recordingEnabled  Boolean  @default(false)
+  recordingAllowed  Boolean  @default(false)
   createdAt         DateTime @default(now())
+
   updatedAt         DateTime @updatedAt
   tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 

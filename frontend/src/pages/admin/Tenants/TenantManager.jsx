@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Wallet, Phone, Users, Info, Building2, Plus, Trash2, Loader, CreditCard, RefreshCw, User, LogIn, Sliders, ShieldAlert, Clock, Server } from 'lucide-react';
+import { X, Wallet, Phone, Users, Info, Building2, Plus, Trash2, Loader, CreditCard, RefreshCw, User, LogIn, Sliders, ShieldAlert, Clock, Server, Mic } from 'lucide-react';
 import api from '../../../services/api';
 import { useAuth } from '../../../context/AuthContext';
 import MonitoringExtensionModal from '../../../components/admin/MonitoringExtensionModal';
@@ -1182,6 +1182,13 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
             description: 'Allows administrators to view real-time calls, listen-in, whisper, or barge into active conversations.',
             icon: ShieldAlert,
             color: 'text-rose-600 bg-rose-50 border-rose-100',
+        },
+        {
+            key: 'recordingAllowed',
+            title: 'Call Recording Permission',
+            description: 'Allow tenant administrators to toggle automatic call recording for extensions.',
+            icon: Mic,
+            color: 'text-violet-600 bg-violet-50 border-violet-100',
         },
     ];
 

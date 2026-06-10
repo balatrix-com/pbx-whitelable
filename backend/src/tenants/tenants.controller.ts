@@ -72,10 +72,12 @@ export class TenantsController {
             didForwardLimit?: number;
             monitorEnabled?: boolean;
             monitorLimit?: number;
+            recordingAllowed?: boolean;
         }
     ) {
         return this.tenantsService.updateTenantFeatures(id, body);
     }
+
 
     @Delete(':id')
     @Roles(Role.SUPER_ADMIN)

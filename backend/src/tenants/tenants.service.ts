@@ -262,13 +262,16 @@ export class TenantsService {
         didForwardLimit?: number;
         monitorEnabled?: boolean;
         monitorLimit?: number;
+        recordingAllowed?: boolean;
     }) {
         const tenant = await this.prisma.tenant.findUnique({
             where: { id }
         });
         if (!tenant) throw new NotFoundException('Tenant not found');
 
-        return this.prisma.tenantFeature.upsert({
+        const isDisablingRecording = dto.recordingAllowed === false;
+
+        const updatedFeatures = await this.prisma.tenantFeature.upsert({
             where: { tenantId: id },
             create: {
                 tenantId: id,
@@ -281,7 +284,9 @@ export class TenantsService {
                 didForwardEnabled: dto.didForwardEnabled ?? true,
                 didForwardLimit: dto.didForwardLimit ?? 10,
                 monitorEnabled: dto.monitorEnabled ?? true,
-                monitorLimit: dto.monitorLimit ?? 10
+                monitorLimit: dto.monitorLimit ?? 10,
+                recordingAllowed: dto.recordingAllowed ?? false,
+                recordingEnabled: false,
             },
             update: {
                 ivrEnabled: dto.ivrEnabled,
@@ -293,10 +298,24 @@ export class TenantsService {
                 didForwardEnabled: dto.didForwardEnabled,
                 didForwardLimit: dto.didForwardLimit,
                 monitorEnabled: dto.monitorEnabled,
-                monitorLimit: dto.monitorLimit
+                monitorLimit: dto.monitorLimit,
+                recordingAllowed: dto.recordingAllowed,
+                ...(isDisablingRecording ? { recordingEnabled: false } : {}),
             }
         });
+
+        if (isDisablingRecording) {
+            await this.prisma.extension.updateMany({
+                where: { tenantId: id },
+                data: { recordingEnabled: false }
+            });
+            await this.freeSwitchSync.syncAllDialplans(id);
+        }
+
+        return updatedFeatures;
     }
+
+
 
     async assignOutboundEndpoint(tenantId: string, endpointId: number) {
         const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
