@@ -69,10 +69,7 @@ export const BrandingProvider = ({ children }) => {
         try {
             setLoading(true);
             const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-            const domain = window.location.hostname;
-            const response = await axios.get(`${apiBaseUrl}/branding`, {
-                params: { domain }
-            });
+            const response = await axios.get(`${apiBaseUrl}/branding`);
 
             if (response.data) {
                 const data = response.data;

@@ -159,38 +159,14 @@ export class AdminController {
      */
     @Get('branding/current')
     @Roles('SUPER_ADMIN')
-    async getCurrentBranding(@Req() req: any) {
-        return this.adminService.getCurrentBranding(req);
+    async getCurrentBranding() {
+        return this.adminService.getCurrentBranding();
     }
 
     @Put('branding/current')
     @Roles('SUPER_ADMIN')
-    async updateCurrentBranding(@Req() req: any, @Body() data: any) {
-        return this.adminService.updateCurrentBranding(req, data);
-    }
-
-    @Get('partners')
-    @Roles('SUPER_ADMIN')
-    async getAllPartners() {
-        return this.adminService.getAllPartners();
-    }
-
-    @Post('partners')
-    @Roles('SUPER_ADMIN')
-    async createPartner(@Body() data: any) {
-        return this.adminService.createPartner(data);
-    }
-
-    @Put('partners/:id')
-    @Roles('SUPER_ADMIN')
-    async updatePartner(@Param('id') id: string, @Body() data: any) {
-        return this.adminService.updatePartner(id, data);
-    }
-
-    @Delete('partners/:id')
-    @Roles('SUPER_ADMIN')
-    async deletePartner(@Param('id') id: string) {
-        return this.adminService.deletePartner(id);
+    async updateCurrentBranding(@Body() data: any) {
+        return this.adminService.updateCurrentBranding(data);
     }
 
     @Post('branding/upload')

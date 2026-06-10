@@ -15,16 +15,7 @@ export class AppController {
   }
 
   @Get('branding')
-  async getBranding(@Query('domain') domainParam?: string, @Req() req?: any) {
-    let domain = domainParam;
-    if (!domain && req && req.headers) {
-      domain = req.headers.host || req.headers.Host;
-    }
-
-    if (domain) {
-      domain = domain.split(':')[0].toLowerCase();
-    }
-
+  async getBranding() {
     const defaultBranding = {
       name: 'Cloud PBX',
       logoMain: '/svg logo/logo-main.svg',
@@ -36,14 +27,8 @@ export class AppController {
       supportPhone: '+1-800-555-0199',
     };
 
-    if (!domain) {
-      return defaultBranding;
-    }
-
     try {
-      const partner = await this.prisma.partner.findUnique({
-        where: { domain }
-      });
+      const partner = await this.prisma.partner.findFirst();
 
       if (!partner) {
         return defaultBranding;

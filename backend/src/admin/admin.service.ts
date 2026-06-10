@@ -522,33 +522,8 @@ export class AdminService {
     /**
      * White-label Branding Methods
      */
-    private extractDomainFromReq(req: any): string {
-        let domain = '';
-        if (req && req.headers) {
-            const host = req.headers.host || req.headers.Host;
-            if (host) {
-                domain = host.split(':')[0].toLowerCase();
-            }
-        }
-        return domain;
-    }
-
-    async getCurrentBranding(req: any) {
-        const domain = this.extractDomainFromReq(req);
-        if (!domain) {
-            return {
-                name: 'Cloud PBX',
-                primaryColor: '#3d52a0',
-                accentColor: '#ed8f55',
-                supportEmail: 'support@telecom-platform.com',
-                supportPhone: '+1-800-555-0199',
-            };
-        }
-
-        const partner = await this.prisma.partner.findUnique({
-            where: { domain }
-        });
-
+    async getCurrentBranding() {
+        const partner = await this.prisma.partner.findFirst();
         if (!partner) {
             return {
                 name: 'Cloud PBX',
@@ -556,114 +531,41 @@ export class AdminService {
                 accentColor: '#ed8f55',
                 supportEmail: 'support@telecom-platform.com',
                 supportPhone: '+1-800-555-0199',
-                domain,
             };
         }
-
         return partner;
     }
 
-    async updateCurrentBranding(req: any, data: any) {
-        const domain = this.extractDomainFromReq(req);
-        if (!domain) {
-            throw new HttpException('Could not resolve host domain', HttpStatus.BAD_REQUEST);
-        }
-
-        return this.prisma.partner.upsert({
-            where: { domain },
-            update: {
-                name: data.name,
-                primaryColor: data.primaryColor,
-                accentColor: data.accentColor,
-                logoMain: data.logoMain,
-                logoSidebar: data.logoSidebar,
-                favicon: data.favicon,
-                supportEmail: data.supportEmail,
-                supportPhone: data.supportPhone,
-            },
-            create: {
-                domain,
-                name: data.name || 'Cloud PBX',
-                primaryColor: data.primaryColor || '#3d52a0',
-                accentColor: data.accentColor || '#ed8f55',
-                logoMain: data.logoMain,
-                logoSidebar: data.logoSidebar,
-                favicon: data.favicon,
-                supportEmail: data.supportEmail || 'support@telecom-platform.com',
-                supportPhone: data.supportPhone || '+1-800-555-0199',
-            }
-        });
-    }
-
-    async getAllPartners() {
-        return this.prisma.partner.findMany({
-            orderBy: { createdAt: 'desc' }
-        });
-    }
-
-    async createPartner(data: any) {
-        if (!data.domain) {
-            throw new HttpException('Domain is required', HttpStatus.BAD_REQUEST);
-        }
-        const normalizedDomain = data.domain.toLowerCase().trim();
-
-        const existing = await this.prisma.partner.findUnique({
-            where: { domain: normalizedDomain }
-        });
-        if (existing) {
-            throw new HttpException('A partner with this domain already exists', HttpStatus.BAD_REQUEST);
-        }
-
-        return this.prisma.partner.create({
-            data: {
-                domain: normalizedDomain,
-                name: data.name,
-                primaryColor: data.primaryColor || '#3d52a0',
-                accentColor: data.accentColor || '#ed8f55',
-                logoMain: data.logoMain,
-                logoSidebar: data.logoSidebar,
-                favicon: data.favicon,
-                supportEmail: data.supportEmail,
-                supportPhone: data.supportPhone,
-            }
-        });
-    }
-
-    async updatePartner(id: string, data: any) {
-        let domain = undefined;
-        if (data.domain) {
-            domain = data.domain.toLowerCase().trim();
-            // Check uniqueness if domain changed
-            const existing = await this.prisma.partner.findFirst({
-                where: {
-                    domain,
-                    NOT: { id }
+    async updateCurrentBranding(data: any) {
+        const partner = await this.prisma.partner.findFirst();
+        if (partner) {
+            return this.prisma.partner.update({
+                where: { id: partner.id },
+                data: {
+                    name: data.name,
+                    primaryColor: data.primaryColor,
+                    accentColor: data.accentColor,
+                    logoMain: data.logoMain,
+                    logoSidebar: data.logoSidebar,
+                    favicon: data.favicon,
+                    supportEmail: data.supportEmail,
+                    supportPhone: data.supportPhone,
                 }
             });
-            if (existing) {
-                throw new HttpException('A partner with this domain already exists', HttpStatus.BAD_REQUEST);
-            }
+        } else {
+            return this.prisma.partner.create({
+                data: {
+                    domain: 'global',
+                    name: data.name || 'Cloud PBX',
+                    primaryColor: data.primaryColor || '#3d52a0',
+                    accentColor: data.accentColor || '#ed8f55',
+                    logoMain: data.logoMain,
+                    logoSidebar: data.logoSidebar,
+                    favicon: data.favicon,
+                    supportEmail: data.supportEmail || 'support@telecom-platform.com',
+                    supportPhone: data.supportPhone || '+1-800-555-0199',
+                }
+            });
         }
-
-        return this.prisma.partner.update({
-            where: { id },
-            data: {
-                domain,
-                name: data.name,
-                primaryColor: data.primaryColor,
-                accentColor: data.accentColor,
-                logoMain: data.logoMain,
-                logoSidebar: data.logoSidebar,
-                favicon: data.favicon,
-                supportEmail: data.supportEmail,
-                supportPhone: data.supportPhone,
-            }
-        });
-    }
-
-    async deletePartner(id: string) {
-        return this.prisma.partner.delete({
-            where: { id }
-        });
     }
 }
