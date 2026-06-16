@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useGlobalMetrics } from '../../context/GlobalMetricsContext';
 import { Bell, LogOut, Activity, Menu, X } from 'lucide-react';
 import NotificationPanel from './NotificationPanel';
+import { formatCustomerId } from '../../utils/billing.utils';
 
 const Header = ({ onMenuClick }) => {
     const { user, logout, isImpersonating, exitImpersonation } = useAuth();
@@ -25,11 +26,11 @@ const Header = ({ onMenuClick }) => {
                     </span>
                     {user?.role !== 'SUPER_ADMIN' && user?.tenant?.customerCode && (
                         <>
-                            <span className="hidden sm:inline-flex items-center rounded-md bg-gray-50 px-2 py-0.5 md:px-2.5 md:py-1 text-[10px] md:text-xs font-bold text-gray-500 ring-1 ring-inset ring-gray-200 uppercase tracking-widest shadow-sm">
-                                {user?.tenant?.customerCode}
+                            <span className="hidden sm:inline-flex items-center rounded-md bg-gray-50 px-2 py-0.5 md:px-2.5 md:py-1 text-[10px] md:text-xs font-bold text-gray-500 ring-1 ring-inset ring-gray-200 tracking-widest shadow-sm">
+                                {formatCustomerId(user?.tenant?.customerCode)}
                             </span>
-                            <span className="sm:hidden inline-flex items-center rounded-md bg-gray-50 px-1.5 py-0.5 text-[8px] font-bold text-gray-500 ring-1 ring-inset ring-gray-200 uppercase">
-                                {user?.tenant?.customerCode}
+                            <span className="sm:hidden inline-flex items-center rounded-md bg-gray-50 px-1.5 py-0.5 text-[8px] font-bold text-gray-500 ring-1 ring-inset ring-gray-200">
+                                {formatCustomerId(user?.tenant?.customerCode)}
                             </span>
                         </>
                     )}

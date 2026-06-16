@@ -3,6 +3,7 @@ import { Phone, Plus, Search, Trash2, Link as LinkIcon, Unlink, Globe, Hash, Bui
 import telecomService from '../../services/telecom.service';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { formatCustomerId } from '../../utils/billing.utils';
 
 const NumbersManagement = () => {
     const { isSuperAdmin } = useAuth();
@@ -228,7 +229,7 @@ const NumbersManagement = () => {
                                                     <Building2 className="text-primary-500 hidden xs:block" size={14} />
                                                     <div className="truncate max-w-[100px] md:max-w-none">
                                                         <div className="font-bold text-gray-900 text-sm">{n.tenant.name}</div>
-                                                        <div className="text-[10px] text-gray-400 font-mono uppercase">{n.tenant.customerCode}</div>
+                                                        <div className="text-[10px] text-gray-400 font-mono">{formatCustomerId(n.tenant.customerCode)}</div>
                                                     </div>
                                                 </div>
                                             ) : (
@@ -378,7 +379,7 @@ const NumbersManagement = () => {
                                 >
                                     <option value="">Select a company...</option>
                                     {tenants.map(t => (
-                                        <option key={t.id} value={t.id}>{t.name} ({t.customerCode})</option>
+                                        <option key={t.id} value={t.id}>{t.name} ({formatCustomerId(t.customerCode)})</option>
                                     ))}
                                 </select>
                             </div>

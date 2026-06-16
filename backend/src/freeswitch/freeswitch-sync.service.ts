@@ -212,7 +212,8 @@ export class FreeSwitchSyncService {
                 targetKey = `fwd_${seqId}_${did.tenant.customerCode}`;
 
                 // Generate and Upsert XML
-                const xml = this.dialplanGenerator.generateDIDForwardXML(targetKey, did.forwardNumber);
+                const gateway = await this.resolveOutboundGatewayForTenant(did.tenantId);
+                const xml = this.dialplanGenerator.generateDIDForwardXML(targetKey, did.forwardNumber, gateway);
                 await this.freeswitchDB.upsertDialplan(targetKey, xml);
 
             } else {
@@ -336,7 +337,8 @@ export class FreeSwitchSyncService {
             } else if (tfn.routeType === 'forward') {
                 // TFN Forwarding - unique key using number since TFN has no sequenceId
                 targetKey = `fwd_tfn_${tfn.number}`;
-                const fwdXml = this.dialplanGenerator.generateDIDForwardXML(targetKey, tfn.forwardNumber!);
+                const gateway = await this.resolveOutboundGatewayForTenant(tfn.tenantId);
+                const fwdXml = this.dialplanGenerator.generateDIDForwardXML(targetKey, tfn.forwardNumber!, gateway);
                 await this.freeswitchDB.upsertDialplan(targetKey, fwdXml);
             } else {
                 if (tfn.routeType && tfn.routeTargetId) {
@@ -776,5 +778,101 @@ export class FreeSwitchSyncService {
             }
         }
         return resolved;
+    }
+
+    /**
+     * Dynamically resolves the outbound gateway (host:port) for a tenant.
+     * Uses tenant's assigned gateway, or falls back to system default database gateway.
+     */
+    async resolveOutboundGatewayForTenant(tenantId: string | null): Promise<string> {
+        if (!tenantId) {
+            return await this.getDefaultSystemGateway();
+        }
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            include: { outboundEndpoint: true }
+        });
+        if (tenant?.outboundEndpoint) {
+            const { sipHost, sipPort } = tenant.outboundEndpoint;
+            return `${sipHost}:${sipPort}`;
+        }
+        return await this.getDefaultSystemGateway();
+    }
+
+    /**
+     * Resolves the system default outbound gateway from database.
+     * Falls back to process.env.OUTBOUND_GATEWAY or 'localhost:5060'.
+     */
+    async getDefaultSystemGateway(): Promise<string> {
+        const defaultEndpoint = await this.prisma.outboundEndpoint.findFirst({
+            where: { isSystemDefault: true }
+        });
+        if (defaultEndpoint) {
+            return `${defaultEndpoint.sipHost}:${defaultEndpoint.sipPort}`;
+        }
+        return process.env.OUTBOUND_GATEWAY || 'localhost:5060';
+    }
+
+    /**
+     * Synchronizes all forwarding routes (DIDs and TFNs) for a given tenant.
+     */
+    async syncTenantForwards(tenantId: string): Promise<void> {
+        this.logger.log(`Syncing forwarding routes for tenant: ${tenantId}`);
+        const [dids, tfns] = await Promise.all([
+            this.prisma.dID.findMany({
+                where: { tenantId, routeType: 'forward' },
+                select: { id: true }
+            }),
+            this.prisma.tFN.findMany({
+                where: { tenantId, routeType: 'forward' },
+                select: { id: true }
+            })
+        ]);
+
+        for (const did of dids) {
+            await this.syncDID(did.id);
+        }
+        for (const tfn of tfns) {
+            await this.syncTFN(tfn.id);
+        }
+    }
+
+    /**
+     * Bulk synchronizes all forwarding routes for all tenants relying on the system default gateway.
+     */
+    async syncAllSystemDefaultForwards(): Promise<void> {
+        this.logger.log('Starting bulk resync of system-default forwarding XMLs...');
+        const tenantsWithoutGateway = await this.prisma.tenant.findMany({
+            where: { outboundEndpointId: null },
+            select: { id: true }
+        });
+        const tenantIds = tenantsWithoutGateway.map(t => t.id);
+
+        const [dids, tfns] = await Promise.all([
+            this.prisma.dID.findMany({
+                where: {
+                    tenantId: { in: tenantIds },
+                    routeType: 'forward'
+                },
+                select: { id: true }
+            }),
+            this.prisma.tFN.findMany({
+                where: {
+                    tenantId: { in: tenantIds },
+                    routeType: 'forward'
+                },
+                select: { id: true }
+            })
+        ]);
+
+        this.logger.log(`Found ${dids.length} DIDs and ${tfns.length} TFNs relying on system default. Syncing...`);
+
+        for (const did of dids) {
+            await this.syncDID(did.id);
+        }
+        for (const tfn of tfns) {
+            await this.syncTFN(tfn.id);
+        }
+        this.logger.log('Bulk resync of system-default forwarding XMLs completed.');
     }
 }

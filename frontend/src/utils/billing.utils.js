@@ -58,4 +58,18 @@ export const getRiskLevel = (balance, runwayDays) => {
     return { status, messages };
 };
 
+/**
+ * Formats a customer code or tenant ID to consistently start with a lowercase letter (e.g. u1001 or u0001).
+ * @param {string|number} code - Customer ID or code.
+ * @returns {string} - Formatted customer ID.
+ */
+export const formatCustomerId = (code) => {
+    if (!code) return '';
+    const str = String(code);
+    if (/^[A-Za-z]/.test(str)) {
+        return str.toLowerCase();
+    }
+    return `u${str}`;
+};
+
 

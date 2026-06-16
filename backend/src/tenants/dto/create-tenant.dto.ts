@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsOptional } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsNumber } from 'class-validator';
 
 export class CreateTenantDto {
     @IsString()
@@ -36,5 +36,10 @@ export class CreateTenantDto {
     @IsOptional()
     @IsString()
     country?: string;
+
+    @IsOptional()
+    @IsNumber()
+    creditLimit?: number;
 }
+
 

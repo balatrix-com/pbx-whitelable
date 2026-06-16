@@ -32,7 +32,6 @@ import { MonitorModule } from './monitor/monitor.module';
 import { MailModule } from './mail/mail.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { LookupRedisModule } from './redis/lookup-redis.module';
-import { DemoModule } from './demo/demo.module';
 import { CarriersModule } from './carriers/carriers.module';
 import { InboundWhitelistModule } from './inbound-whitelist/inbound-whitelist.module';
 
@@ -71,7 +70,6 @@ import { InboundWhitelistModule } from './inbound-whitelist/inbound-whitelist.mo
     MailModule,
     NotificationsModule,
     LookupRedisModule,
-    DemoModule,
     CarriersModule,
     InboundWhitelistModule,
   ],

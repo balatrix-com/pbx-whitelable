@@ -1,10 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { FreeSwitchSyncService } from '../freeswitch/freeswitch-sync.service';
 
 @Injectable()
 export class CarriersService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly freeSwitchSync: FreeSwitchSyncService,
   ) {}
 
   async getCarriers() {
@@ -35,6 +37,23 @@ export class CarriersService {
   }
 
   async createEndpoint(carrierId: number, data: any) {
+    if (data.isSystemDefault) {
+      const created = await this.prisma.$transaction(async (tx) => {
+        await tx.outboundEndpoint.updateMany({
+          data: { isSystemDefault: false },
+        });
+        return tx.outboundEndpoint.create({
+          data: {
+            ...data,
+            carrierId,
+          },
+        });
+      });
+
+      await this.freeSwitchSync.syncAllSystemDefaultForwards();
+      return created;
+    }
+
     return this.prisma.outboundEndpoint.create({
       data: {
         ...data,
@@ -47,18 +66,49 @@ export class CarriersService {
     const oldEndpoint = await this.prisma.outboundEndpoint.findUnique({ where: { id } });
     if (!oldEndpoint) throw new NotFoundException('Endpoint not found');
 
-    return this.prisma.outboundEndpoint.update({
-      where: { id },
-      data,
-    });
+    const isNowDefault = data.isSystemDefault === true;
+    const wasDefault = oldEndpoint.isSystemDefault === true;
+    const hostOrPortChanged = (data.sipHost !== undefined && data.sipHost !== oldEndpoint.sipHost) || 
+                              (data.sipPort !== undefined && data.sipPort !== oldEndpoint.sipPort);
+
+    let updated;
+    if (isNowDefault && !wasDefault) {
+      updated = await this.prisma.$transaction(async (tx) => {
+        await tx.outboundEndpoint.updateMany({
+          data: { isSystemDefault: false },
+        });
+        return tx.outboundEndpoint.update({
+          where: { id },
+          data,
+        });
+      });
+    } else {
+      updated = await this.prisma.outboundEndpoint.update({
+        where: { id },
+        data,
+      });
+    }
+
+    if (isNowDefault || (wasDefault && hostOrPortChanged) || (wasDefault && !isNowDefault)) {
+      await this.freeSwitchSync.syncAllSystemDefaultForwards();
+    }
+
+    return updated;
   }
 
   async deleteEndpoint(id: number) {
     const endpoint = await this.prisma.outboundEndpoint.findUnique({ where: { id } });
     if (!endpoint) throw new NotFoundException('Endpoint not found');
 
-    return this.prisma.outboundEndpoint.delete({
+    const wasDefault = endpoint.isSystemDefault === true;
+    const deleted = await this.prisma.outboundEndpoint.delete({
       where: { id },
     });
+
+    if (wasDefault) {
+      await this.freeSwitchSync.syncAllSystemDefaultForwards();
+    }
+
+    return deleted;
   }
 }

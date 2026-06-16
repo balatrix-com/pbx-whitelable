@@ -3,6 +3,7 @@ import { X, Wallet, Phone, Users, Info, Building2, Plus, Trash2, Loader, CreditC
 import api from '../../../services/api';
 import { useAuth } from '../../../context/AuthContext';
 import MonitoringExtensionModal from '../../../components/admin/MonitoringExtensionModal';
+import { formatCustomerId } from '../../../utils/billing.utils';
 
 const TABS = [
     { id: 'overview', label: 'Overview', icon: Info },
@@ -128,7 +129,7 @@ const OverviewTab = ({ tenant }) => (
                         <div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>
                         Company Code
                     </div>
-                    <p className="text-2xl font-mono font-extrabold text-gray-900">{tenant.customerCode}</p>
+                    <p className="text-2xl font-mono font-extrabold text-gray-900">{formatCustomerId(tenant.customerCode)}</p>
                 </div>
             </div>
 

@@ -284,6 +284,7 @@ export class WalletService {
         city: string;
         state: string;
         country: string;
+        creditLimit?: number;
     }) {
         try {
             // Strict Validation - Throw error immediately instead of using placeholders
@@ -334,7 +335,8 @@ export class WalletService {
                     address_st: data.address,
                     city: data.city,
                     state: data.state,
-                    country: mappedCountry
+                    country: mappedCountry,
+                    credit_limit: data.creditLimit !== undefined ? data.creditLimit : 0
                 })
             );
             if (response.data && response.data.success) {

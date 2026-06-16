@@ -1,5 +1,4 @@
-const { Client } = require('pg');
-require('dotenv').config();
+
 
 async function checkSchema() {
   const client = new Client({

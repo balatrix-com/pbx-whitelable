@@ -201,6 +201,63 @@ export class AdminService {
     }
 
     /**
+     * Recording Rate Cards CRUD Proxy
+     */
+    async getAllRecRateCards() {
+        try {
+            const response = await lastValueFrom(this.httpService.get(`${this.subBillingUrl}/rec-rate-cards`));
+            return response.data;
+        } catch (error: any) {
+            this.handleProxyError(error, 'getAllRecRateCards');
+        }
+    }
+
+    async getCustomerRecRateCardMappings() {
+        try {
+            const response = await lastValueFrom(this.httpService.get(`${this.subBillingUrl}/rec-rate-cards/mappings`));
+            return response.data;
+        } catch (error: any) {
+            this.handleProxyError(error, 'getCustomerRecRateCardMappings');
+        }
+    }
+
+    async createRecRateCard(data: any) {
+        try {
+            const response = await lastValueFrom(this.httpService.post(`${this.subBillingUrl}/rec-rate-cards`, data));
+            return response.data;
+        } catch (error: any) {
+            this.handleProxyError(error, 'createRecRateCard');
+        }
+    }
+
+    async updateRecRateCard(id: string, data: any) {
+        try {
+            const response = await lastValueFrom(this.httpService.put(`${this.subBillingUrl}/rec-rate-cards/${id}`, data));
+            return response.data;
+        } catch (error: any) {
+            this.handleProxyError(error, 'updateRecRateCard');
+        }
+    }
+
+    async getCustomerRecRateCard(customerId: string) {
+        try {
+            const response = await lastValueFrom(this.httpService.get(`${this.subBillingUrl}/rec-rate-cards/customer/${customerId}`));
+            return response.data;
+        } catch (error: any) {
+            this.handleProxyError(error, 'getCustomerRecRateCard');
+        }
+    }
+
+    async updateCustomerRecRateCardMapping(customerId: string, data: { rec_rc_id: number }) {
+        try {
+            const response = await lastValueFrom(this.httpService.put(`${this.subBillingUrl}/rec-rate-cards/customer/${customerId}`, data));
+            return response.data;
+        } catch (error: any) {
+            this.handleProxyError(error, 'updateCustomerRecRateCardMapping');
+        }
+    }
+
+    /**
      * Existing stats methods...
      */
     async getPlatformStats() {
@@ -261,9 +318,15 @@ export class AdminService {
             0,
         );
 
+        const limitStr = process.env.SYSTEM_LIMIT_EXTENSIONS;
+        const limit = limitStr ? parseInt(limitStr, 10) : 500;
+        const availableExtensions = Math.max(0, limit - totalExtensions);
+
         return {
             totalDIDs,
             totalExtensions,
+            availableExtensions,
+            limitExtensions: limit,
             totalRingGroups,
             totalIVRs,
             totalSchedules,

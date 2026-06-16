@@ -85,17 +85,26 @@ export class TenantsService {
         const [
             totalTenants,
             totalUsers,
-            totalWalletBalance
+            totalWalletBalance,
+            totalExtensions
         ] = await Promise.all([
             this.prisma.tenant.count(),
             this.prisma.user.count(),
-            this.adminService.getBillingTotalBalance()
+            this.adminService.getBillingTotalBalance(),
+            this.prisma.extension.count()
         ]);
+
+        const limitStr = process.env.SYSTEM_LIMIT_EXTENSIONS;
+        const limit = limitStr ? parseInt(limitStr, 10) : 500;
+        const availableExtensions = Math.max(0, limit - totalExtensions);
 
         return {
             totalTenants,
             totalUsers,
-            totalWalletBalance
+            totalWalletBalance,
+            totalExtensions,
+            availableExtensions,
+            limitExtensions: limit
         };
     }
 
@@ -326,6 +335,7 @@ export class TenantsService {
             data: { outboundEndpointId: endpointId }
         });
 
+        await this.freeSwitchSync.syncTenantForwards(tenantId);
         await this.invalidateT2002Cache(tenant.customerCode);
         return updated;
     }
@@ -339,6 +349,7 @@ export class TenantsService {
             data: { outboundEndpointId: null }
         });
 
+        await this.freeSwitchSync.syncTenantForwards(tenantId);
         await this.invalidateT2002Cache(tenant.customerCode);
         return updated;
     }
@@ -379,6 +390,7 @@ export class TenantsService {
         city: string;
         state: string;
         country: string;
+        creditLimit?: number;
     }) {
         // Validation - Throw errors immediately (no defaults/placeholders!)
         if (!data.customerType || !['individual', 'company'].includes(data.customerType)) {
@@ -413,7 +425,7 @@ export class TenantsService {
         let freeMinutes = 0;
 
         // Generate Customer Code (Sequential starting from 1001)
-        // This ensures extensions start at 100101, 100201, etc.
+        // This ensures extensions start at u100101, u100201, etc.
         // Find the highest existing customer code numerically
         const allTenants = await this.prisma.tenant.findMany({
             where: { customerCode: { not: null } },
@@ -425,8 +437,11 @@ export class TenantsService {
         if (allTenants.length > 0) {
             const maxCode = Math.max(
                 ...allTenants
-                    .map(t => parseInt(t.customerCode!, 10))
-                    .filter(c => !isNaN(c))
+                    .map(t => {
+                        const match = t.customerCode!.match(/\d+/);
+                        return match ? parseInt(match[0], 10) : 0;
+                    })
+                    .filter(c => !isNaN(c) && c > 0)
             );
             if (maxCode >= 1001) {
                 nextCode = maxCode + 1;
@@ -434,7 +449,7 @@ export class TenantsService {
         }
 
         // Ensure uniqueness (though sequential should be unique unless race condition or gaps)
-        let customerCode = nextCode.toString();
+        let customerCode = `u${nextCode}`;
         let isUnique = false;
         let retries = 0;
 
@@ -442,7 +457,7 @@ export class TenantsService {
             const exists = await this.prisma.tenant.findUnique({ where: { customerCode } });
             if (exists) {
                 nextCode++;
-                customerCode = nextCode.toString();
+                customerCode = `u${nextCode}`;
                 retries++;
                 continue;
             }
@@ -450,7 +465,7 @@ export class TenantsService {
             const existsInSubBilling = await this.walletService.checkCustomerExists(customerCode);
             if (existsInSubBilling) {
                 nextCode++;
-                customerCode = nextCode.toString();
+                customerCode = `u${nextCode}`;
                 retries++;
                 continue;
             }
@@ -460,51 +475,23 @@ export class TenantsService {
 
         if (!isUnique) throw new Error('Failed to generate unique customer code');
 
-        if (data.planId) {
-            // 1. Fetch sub-billing plan details to verify & get name
-            const subBillingPlan = await this.walletService.getSubBillingPlan(data.planId);
-            if (!subBillingPlan) {
-                throw new Error(`Plan ${data.planId} not found in Sub-billing`);
-            }
-
-            const planNameQuery = subBillingPlan.name.split('(')[0].trim();
-            const pbxPlan = await this.prisma.plan.findFirst({
-                where: {
-                    name: { contains: planNameQuery, mode: 'insensitive' }
-                }
-            });
-
-            if (!pbxPlan) {
-                throw new Error(`Selected plan "${subBillingPlan.name}" is not synchronized on the PBX platform`);
-            }
-
-            localPlanId = pbxPlan.id;
-            freeMinutes = pbxPlan.freeMinutes;
-
-            // 2. Create customer in sub-billing
-            const subCustomer = await this.walletService.createSubBillingCustomerExtended({
-                customerId: customerCode,
-                customerType: data.customerType,
-                firstName: data.firstName,
-                lastName: data.lastName,
-                companyName: data.companyName,
-                companyTaxId: data.companyTaxId,
-                email: data.adminEmail,
-                phone: data.phone,
-                address: data.address,
-                city: data.city,
-                state: data.state,
-                country: data.country
-            });
-            subBillingCustomerId = subCustomer.customer_id;
-
-            // 3. Create subscription in sub-billing
-            const subSubscription = await this.walletService.createSubBillingSubscription(
-                subBillingCustomerId!,
-                data.planId
-            );
-            subBillingSubscriptionId = subSubscription.subscription_id || subSubscription.id;
-        }
+        // Create customer in sub-billing (Always run this for new tenants!)
+        const subCustomer = await this.walletService.createSubBillingCustomerExtended({
+            customerId: customerCode,
+            customerType: data.customerType,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            companyName: data.companyName,
+            companyTaxId: data.companyTaxId,
+            email: data.adminEmail,
+            phone: data.phone,
+            address: data.address,
+            city: data.city,
+            state: data.state,
+            country: data.country,
+            creditLimit: data.creditLimit !== undefined && data.creditLimit !== null && (data.creditLimit as any) !== '' ? Number(data.creditLimit) : undefined
+        });
+        subBillingCustomerId = subCustomer.customer_id;
 
         // Transactional creation
         return this.prisma.$transaction(async (prisma) => {

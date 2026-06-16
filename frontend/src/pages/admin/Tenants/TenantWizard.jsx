@@ -28,33 +28,22 @@ const TenantWizard = ({ onClose, onSuccess }) => {
         adminEmail: '',
         adminPassword: '',
         confirmPassword: '',
-        planId: '',
         phone: '',
         address: '',
         city: '',
         state: '',
-        country: 'USA'
+        country: 'USA',
+        creditLimit: ''
     });
 
-    const [packages, setPackages] = useState([]);
-
-    useEffect(() => {
-        const fetchPackages = async () => {
-            try {
-                const res = await api.get('/admin/packages');
-                setPackages(res.data?.data || (Array.isArray(res.data) ? res.data : []));
-            } catch (err) {
-                console.error('Failed to fetch packages:', err);
-            }
-        };
-        fetchPackages();
-    }, []);
+    // Packages state and hook removed as plans are removed from PBX tenant creation flow
 
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     // Step 2: Wallet
     const [walletAmount, setWalletAmount] = useState(10); // Default $10
+    const [walletDescription, setWalletDescription] = useState('Initial Funding');
 
     // Step 3: TFNs
     const [availableTfns, setAvailableTfns] = useState([]);
@@ -71,7 +60,7 @@ const TenantWizard = ({ onClose, onSuccess }) => {
     // --- Step Actions ---
 
     const isStep1Valid = () => {
-        if (!basicInfo.firstName || !basicInfo.lastName || !basicInfo.adminEmail || !basicInfo.adminPassword || !basicInfo.confirmPassword || !basicInfo.planId || !basicInfo.phone || !basicInfo.address || basicInfo.address.length < 10 || !basicInfo.city || !basicInfo.state || !basicInfo.country) {
+        if (!basicInfo.firstName || !basicInfo.lastName || !basicInfo.adminEmail || !basicInfo.adminPassword || !basicInfo.confirmPassword || !basicInfo.phone || !basicInfo.address || basicInfo.address.length < 10 || !basicInfo.city || !basicInfo.state || !basicInfo.country) {
             return false;
         }
         if (basicInfo.customerType === 'company') {
@@ -88,10 +77,7 @@ const TenantWizard = ({ onClose, onSuccess }) => {
             return;
         }
 
-        if (!basicInfo.planId) {
-            setError('Please select a billing plan');
-            return;
-        }
+        // Plan check removed as plans are no longer part of tenant creation flow
 
         if (basicInfo.customerType === 'company') {
             if (!basicInfo.companyName) {
@@ -165,7 +151,7 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                 targetTenantId: createdTenantId,
                 amount: Number(walletAmount),
                 type: 'CREDIT',
-                description: 'Initial Funding'
+                description: walletDescription || 'Initial Funding'
             });
             await fetchAvailableTfns();
             setCurrentStep(3);
@@ -348,58 +334,53 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                     </div>
                 </div>
                 <div className="pt-2 border-t">
-                    <p className="text-xs text-gray-500 font-semibold uppercase mb-2">Billing & Subscription</p>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 font-semibold">Billing Plan *</label>
-                        <select 
-                            className="w-full border rounded p-2" 
-                            value={basicInfo.planId} 
-                            onChange={e => setBasicInfo({ ...basicInfo, planId: e.target.value })}
-                        >
-                            <option value="">Select Plan</option>
-                            {packages.map(pkg => (
-                                <option key={pkg.plan_id} value={pkg.plan_id}>
-                                    {pkg.name} (${parseFloat(pkg.amount).toFixed(2)})
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    {basicInfo.planId && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Phone *</label>
-                                <input type="tel" className="w-full border rounded p-2" value={basicInfo.phone} onChange={e => setBasicInfo({ ...basicInfo, phone: e.target.value })} placeholder="1234567890" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Country *</label>
-                                <select 
-                                    className="w-full border rounded p-2" 
-                                    value={basicInfo.country} 
-                                    onChange={e => setBasicInfo({ ...basicInfo, country: e.target.value })}
-                                >
-                                    <option value="USA">USA</option>
-                                    <option value="CAD">Canada</option>
-                                    <option value="IND">India</option>
-                                    <option value="PAK">Pakistan</option>
-                                    <option value="PHI">Philippines</option>
-                                    <option value="BNG">Bangladesh</option>
-                                    <option value="OTHER">Other</option>
-                                </select>
-                            </div>
-                            <div className="sm:col-span-2">
-                                <label className="block text-sm font-medium text-gray-700">Address (min 10 chars) *</label>
-                                <input type="text" className="w-full border rounded p-2" value={basicInfo.address} onChange={e => setBasicInfo({ ...basicInfo, address: e.target.value })} placeholder="123 Main St, Suite 100" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">City *</label>
-                                <input type="text" className="w-full border rounded p-2" value={basicInfo.city} onChange={e => setBasicInfo({ ...basicInfo, city: e.target.value })} placeholder="San Francisco" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">State *</label>
-                                <input type="text" className="w-full border rounded p-2" value={basicInfo.state} onChange={e => setBasicInfo({ ...basicInfo, state: e.target.value })} placeholder="CA" />
-                            </div>
+                    <p className="text-xs text-gray-500 font-semibold uppercase mb-2">Billing & Limits</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 font-semibold">Credit Limit ($)</label>
+                            <input 
+                                type="number" 
+                                className="w-full border rounded p-2" 
+                                value={basicInfo.creditLimit} 
+                                onChange={e => setBasicInfo({ ...basicInfo, creditLimit: e.target.value })} 
+                                placeholder="0.00" 
+                                min="0" 
+                                step="any" 
+                            />
                         </div>
-                    )}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Phone *</label>
+                            <input type="tel" className="w-full border rounded p-2" value={basicInfo.phone} onChange={e => setBasicInfo({ ...basicInfo, phone: e.target.value })} placeholder="1234567890" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Country *</label>
+                            <select 
+                                className="w-full border rounded p-2" 
+                                value={basicInfo.country} 
+                                onChange={e => setBasicInfo({ ...basicInfo, country: e.target.value })}
+                            >
+                                <option value="USA">USA</option>
+                                <option value="CAD">Canada</option>
+                                <option value="IND">India</option>
+                                <option value="PAK">Pakistan</option>
+                                <option value="PHI">Philippines</option>
+                                <option value="BNG">Bangladesh</option>
+                                <option value="OTHER">Other</option>
+                            </select>
+                        </div>
+                        <div className="sm:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700">Address (min 10 chars) *</label>
+                            <input type="text" className="w-full border rounded p-2" value={basicInfo.address} onChange={e => setBasicInfo({ ...basicInfo, address: e.target.value })} placeholder="123 Main St, Suite 100" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">City *</label>
+                            <input type="text" className="w-full border rounded p-2" value={basicInfo.city} onChange={e => setBasicInfo({ ...basicInfo, city: e.target.value })} placeholder="San Francisco" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">State *</label>
+                            <input type="text" className="w-full border rounded p-2" value={basicInfo.state} onChange={e => setBasicInfo({ ...basicInfo, state: e.target.value })} placeholder="CA" />
+                        </div>
+                    </div>
                 </div>
             </div>
             <div className="flex justify-end pt-4">
@@ -430,6 +411,16 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                         placeholder="0.00"
                     />
                 </div>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Description / Note</label>
+                <input
+                    type="text"
+                    className="w-full border rounded p-2 mt-1"
+                    value={walletDescription}
+                    onChange={e => setWalletDescription(e.target.value)}
+                    placeholder="e.g. Initial Funding, Promo Credits"
+                />
             </div>
             <div className="flex justify-between pt-4">
                 <button onClick={() => setCurrentStep(3)} className="text-gray-500 hover:text-gray-700">Skip</button>

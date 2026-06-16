@@ -28,7 +28,7 @@ const CarriersGatewaysPage = () => {
     // Form states - Carrier / Endpoint
     const [carrierName, setCarrierName] = useState('');
     const [endpointForm, setEndpointForm] = useState({
-        name: '', sipHost: '', sipPort: 5060, transport: 'udp', prefix: '', stripPlus: false, callerIdMode: 'extension', callerIdNumber: '', isActive: true
+        name: '', sipHost: '', sipPort: 5060, transport: 'udp', prefix: '', stripPlus: false, callerIdMode: 'extension', callerIdNumber: '', isActive: true, isSystemDefault: false
     });
 
     // Form states - Inbound ACL
@@ -237,7 +237,7 @@ const CarriersGatewaysPage = () => {
                                                 onClick={() => {
                                                     setSelectedCarrierId(carrier.id);
                                                     setEditingEndpoint(null);
-                                                    setEndpointForm({ name: '', sipHost: '', sipPort: 5060, transport: 'udp', prefix: '', stripPlus: false, callerIdMode: 'extension', callerIdNumber: '', isActive: true });
+                                                    setEndpointForm({ name: '', sipHost: '', sipPort: 5060, transport: 'udp', prefix: '', stripPlus: false, callerIdMode: 'extension', callerIdNumber: '', isActive: true, isSystemDefault: false });
                                                     setShowEndpointModal(true);
                                                 }}
                                                 className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium hover:underline"
@@ -277,7 +277,16 @@ const CarriersGatewaysPage = () => {
                                                     <tbody>
                                                         {carrier.endpoints.map(ep => (
                                                             <tr key={ep.id} className="border-b last:border-0 hover:bg-gray-50">
-                                                                <td className="py-3 font-medium text-gray-900">{ep.name}</td>
+                                                                <td className="py-3 font-medium text-gray-900">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span>{ep.name}</span>
+                                                                        {ep.isSystemDefault && (
+                                                                            <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                                                                System Default
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
                                                                 <td className="py-3 text-gray-600">{ep.sipHost}:{ep.sipPort}</td>
                                                                 <td className="py-3 uppercase text-gray-600">{ep.transport}</td>
                                                                 <td className="py-3">
@@ -449,11 +458,19 @@ const CarriersGatewaysPage = () => {
                                     <input type="text" placeholder="Caller ID Number" className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-100 outline-none" value={endpointForm.callerIdNumber || ''} onChange={e => setEndpointForm({ ...endpointForm, callerIdNumber: e.target.value })} />
                                 )}
                             </div>
-                            <div>
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input type="checkbox" checked={endpointForm.isActive} onChange={e => setEndpointForm({ ...endpointForm, isActive: e.target.checked })} />
-                                    <span className="text-sm font-medium text-gray-700">Active (Enable outbound routing)</span>
-                                </label>
+                            <div className="space-y-2">
+                                <div>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" checked={endpointForm.isActive} onChange={e => setEndpointForm({ ...endpointForm, isActive: e.target.checked })} />
+                                        <span className="text-sm font-medium text-gray-700">Active (Enable outbound routing)</span>
+                                    </label>
+                                </div>
+                                <div>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" checked={endpointForm.isSystemDefault || false} onChange={e => setEndpointForm({ ...endpointForm, isSystemDefault: e.target.checked })} />
+                                        <span className="text-sm font-medium text-gray-700">Set as System Default Outbound Gateway</span>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                         <div className="flex justify-end gap-2 mt-6">

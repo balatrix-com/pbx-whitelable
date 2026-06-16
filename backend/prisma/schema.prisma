@@ -644,6 +644,7 @@ model OutboundEndpoint {
   callerIdMode    String           @default("extension") // 'extension' or 'override'
   callerIdNumber  String?          // Override caller ID number if mode is 'override'
   isActive        Boolean          @default(true)
+  isSystemDefault Boolean          @default(false)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   carrier         OutboundCarrier  @relation(fields: [carrierId], references: [id], onDelete: Cascade)

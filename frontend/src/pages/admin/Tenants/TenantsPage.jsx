@@ -6,6 +6,7 @@ import TenantManager from './TenantManager';
 import Pagination from '../../../components/common/Pagination';
 import { useAuth } from '../../../context/AuthContext';
 import { clsx } from 'clsx';
+import { formatCustomerId } from '../../../utils/billing.utils';
 
 const TenantsPage = () => {
     const { isSuperAdmin } = useAuth();
@@ -184,7 +185,7 @@ const TenantsPage = () => {
                                         <td className="px-6 py-5 whitespace-nowrap">
                                             <div className="flex flex-col">
                                                 <span className="text-sm font-bold text-gray-900 group-hover:text-primary-600 transition-colors">{tenant.name}</span>
-                                                <span className="text-[10px] text-gray-400 font-mono font-bold uppercase tracking-tight">{tenant.id}</span>
+                                                <span className="text-[10px] text-gray-400 font-mono font-bold tracking-tight">{formatCustomerId(tenant.id)}</span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-5 whitespace-nowrap">

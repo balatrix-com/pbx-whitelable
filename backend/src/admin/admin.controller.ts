@@ -115,6 +115,45 @@ export class AdminController {
     }
 
     /**
+     * Recording Rate Card Management (SUPER_ADMIN only)
+     */
+    @Get('rec-rate-cards')
+    @Roles('SUPER_ADMIN')
+    getAllRecRateCards() {
+        return this.adminService.getAllRecRateCards();
+    }
+
+    @Get('rec-rate-cards/mappings')
+    @Roles('SUPER_ADMIN')
+    getCustomerRecRateCardMappings() {
+        return this.adminService.getCustomerRecRateCardMappings();
+    }
+
+    @Get('rec-rate-cards/customer/:customerId')
+    @Roles('SUPER_ADMIN')
+    getCustomerRecRateCard(@Param('customerId') customerId: string) {
+        return this.adminService.getCustomerRecRateCard(customerId);
+    }
+
+    @Post('rec-rate-cards')
+    @Roles('SUPER_ADMIN')
+    createRecRateCard(@Body() data: any) {
+        return this.adminService.createRecRateCard(data);
+    }
+
+    @Put('rec-rate-cards/:id')
+    @Roles('SUPER_ADMIN')
+    updateRecRateCard(@Param('id') id: string, @Body() data: any) {
+        return this.adminService.updateRecRateCard(id, data);
+    }
+
+    @Put('rec-rate-cards/customer/:customerId')
+    @Roles('SUPER_ADMIN')
+    updateCustomerRecRateCardMapping(@Param('customerId') customerId: string, @Body() data: { rec_rc_id: number }) {
+        return this.adminService.updateCustomerRecRateCardMapping(customerId, data);
+    }
+
+    /**
      * Number Management (TFN & DID)
      */
     @Get('numbers')

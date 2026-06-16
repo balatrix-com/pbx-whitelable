@@ -53,7 +53,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
                     { name: 'Revenue', href: '/revenue', icon: BarChart3 },
                     { name: 'Rate Cards', href: '/super-admin/rate-cards', icon: CreditCard },
-                    { name: 'Packages', href: '/super-admin/packages', icon: Briefcase },
                     { name: 'Manage Numbers', href: '/super-admin/numbers', icon: Phone },
                     { name: 'Carriers & Gateways', href: '/super-admin/carriers', icon: Server },
                     { name: 'User Management', href: '/super-admin/users', icon: Users },

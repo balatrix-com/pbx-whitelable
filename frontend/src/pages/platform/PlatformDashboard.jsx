@@ -32,6 +32,8 @@ const PlatformDashboard = () => {
         telecom: {
             totalDIDs: 0,
             totalExtensions: 0,
+            availableExtensions: 0,
+            limitExtensions: 500,
             totalRingGroups: 0,
             totalIVRs: 0,
             totalSchedules: 0,
@@ -69,7 +71,9 @@ const PlatformDashboard = () => {
                     ...res.data,
                     telecom: {
                         totalDIDs: 0,
-                        totalExtensions: 0,
+                        totalExtensions: res.data.totalExtensions || 0,
+                        availableExtensions: res.data.availableExtensions || 0,
+                        limitExtensions: res.data.limitExtensions || 500,
                         totalRingGroups: 0,
                         totalIVRs: 0,
                         totalSchedules: 0,
@@ -220,6 +224,12 @@ const PlatformDashboard = () => {
                             label="Total Extensions"
                             value={stats.telecom.totalExtensions}
                             color="purple"
+                        />
+                        <StatCard
+                            icon={Database}
+                            label="Available Extensions"
+                            value={`${stats.telecom.availableExtensions} / ${stats.telecom.limitExtensions}`}
+                            color="orange"
                         />
                         <StatCard
                             icon={LayoutDashboard}
