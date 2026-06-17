@@ -51,6 +51,7 @@ export class WalletService {
                 balance: parseFloat(balanceStr),
                 currency: currency || 'USD',
                 freeMins: data["mins Balance"] !== undefined ? data["mins Balance"] : (data.freeMins || 0),
+                creditLimit: data.credit_limit !== undefined ? parseFloat(data.credit_limit) : 0,
                 autoRecharge: {
                     enabled: false,
                     threshold: 0,
@@ -65,11 +66,12 @@ export class WalletService {
             const subscription = await this.prisma.subscription.findFirst({ 
                 where: { tenantId, status: 'ACTIVE' } 
             });
-
+ 
             return {
                 balance: wallet?.balance || 0,
                 currency: wallet?.currency || 'USD',
                 freeMins: subscription?.remainingFreeMinutes || 0,
+                creditLimit: 0,
                 autoRecharge: {
                     enabled: false,
                     threshold: 0,

@@ -169,9 +169,17 @@ const WalletPage = () => {
                                         <RefreshCw size={14} />
                                     </button>
                                 </div>
-                                <dd className="text-3xl font-mono font-extrabold text-gray-900 tracking-tight mt-1">
-                                    ${Number(wallet?.balance || 0).toFixed(2)}
-                                </dd>
+                                <div className="flex flex-col mt-1">
+                                    <span className="text-3xl font-mono font-extrabold text-gray-900 tracking-tight">
+                                        ${Number(wallet?.balance || 0).toFixed(2)}
+                                    </span>
+                                    {wallet?.creditLimit !== undefined && (
+                                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 mt-1.5">
+                                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary-500"></span>
+                                            Credit Limit: ${Number(wallet.creditLimit).toFixed(2)}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -260,11 +260,17 @@ const AdminDashboard = () => {
                                 <RefreshCw className="h-4 w-4" />
                             </button>
                         </div>
-                        <p className="mt-2 flex items-baseline gap-x-2">
+                        <div className="mt-2 flex flex-col">
                             <span className="text-4xl font-extrabold tracking-tight text-gray-900">
                                 ${Number(wallet?.balance || 0).toFixed(2)}
                             </span>
-                        </p>
+                            {wallet?.creditLimit !== undefined && (
+                                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 mt-2">
+                                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary-500"></span>
+                                    Credit Limit: ${Number(wallet.creditLimit).toFixed(2)}
+                                </span>
+                            )}
+                        </div>
                         <p className="mt-2 text-sm font-medium text-gray-500 flex items-center">
                             <TrendingUp className="mr-1.5 h-4 w-4 text-green-500" />
                             Burn: ~${intelligence.financial.burnRate.toFixed(2)}/day
