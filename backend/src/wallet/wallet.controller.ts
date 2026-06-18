@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Query, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Query, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { WalletService } from './wallet.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -105,5 +105,21 @@ export class WalletController {
 
         const tenantId = targetTenantId || user.tenantId!; // Default to self if not provided
         return this.walletService.adjustBalance(tenantId, amount, type, description, `MANUAL-ADJ-BY-${user.email}`);
+    }
+
+    @Post('credit-limit')
+    @Roles(Role.SUPER_ADMIN)
+    async updateCreditLimit(
+        @GetUser() user: User,
+        @Body('targetTenantId') targetTenantId: string,
+        @Body('creditLimit') creditLimit: number
+    ) {
+        if (user.role !== Role.SUPER_ADMIN) {
+            throw new ForbiddenException('Only Platform Owner can edit credit limit');
+        }
+        if (!targetTenantId) {
+            throw new BadRequestException('Target tenant ID is required');
+        }
+        return this.walletService.updateCreditLimit(targetTenantId, creditLimit);
     }
 }

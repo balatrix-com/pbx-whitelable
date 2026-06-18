@@ -182,6 +182,16 @@ const WalletTab = ({ tenant, onUpdate }) => {
     const [description, setDescription] = useState('Admin adjustment');
     const [loading, setLoading] = useState(false);
 
+    const [creditLimitInput, setCreditLimitInput] = useState('');
+    const [creditLimitLoading, setCreditLimitLoading] = useState(false);
+
+    // Sync input value with current creditLimit when tenant changes
+    useEffect(() => {
+        if (tenant?.wallet?.creditLimit !== undefined) {
+            setCreditLimitInput(String(tenant.wallet.creditLimit));
+        }
+    }, [tenant]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -201,6 +211,22 @@ const WalletTab = ({ tenant, onUpdate }) => {
         }
     };
 
+    const handleCreditLimitSubmit = async (e) => {
+        e.preventDefault();
+        setCreditLimitLoading(true);
+        try {
+            await api.post('/wallet/credit-limit', {
+                targetTenantId: tenant.id,
+                creditLimit: Number(creditLimitInput)
+            });
+            onUpdate();
+        } catch (err) {
+            alert('Failed to update credit limit: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setCreditLimitLoading(false);
+        }
+    };
+
     return (
         <div className="space-y-8 max-w-4xl">
             <div className="flex sm:justify-between sm:items-center flex-col sm:flex-row gap-4">
@@ -208,35 +234,99 @@ const WalletTab = ({ tenant, onUpdate }) => {
                     <h3 className="text-xl font-extrabold text-gray-900 tracking-tight">Wallet Management</h3>
                     <p className="text-sm font-medium text-gray-500 mt-1">Adjust tenant funds and view balance.</p>
                 </div>
-                <div className="bg-white px-5 py-3 rounded-2xl shadow-sm ring-1 ring-gray-200">
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 text-right">Current Balance</p>
-                    <p className={`text-3xl font-mono font-extrabold tracking-tight ${Number(tenant.wallet?.balance || 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        ${Number(tenant.wallet?.balance || 0).toFixed(2)}
-                    </p>
+                <div className="flex gap-4">
+                    <div className="bg-white px-5 py-3 rounded-2xl shadow-sm ring-1 ring-gray-200">
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 text-right">Current Balance</p>
+                        <p className={`text-3xl font-mono font-extrabold tracking-tight ${Number(tenant.wallet?.balance || 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            ${Number(tenant.wallet?.balance || 0).toFixed(2)}
+                        </p>
+                    </div>
+                    <div className="bg-white px-5 py-3 rounded-2xl shadow-sm ring-1 ring-gray-200">
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 text-right">Credit Limit</p>
+                        <p className="text-3xl font-mono font-extrabold tracking-tight text-gray-900">
+                            ${Number(tenant.wallet?.creditLimit || 0).toFixed(2)}
+                        </p>
+                    </div>
                 </div>
             </div>
 
-            <div className="bg-gray-50/50 p-6 sm:p-8 rounded-2xl ring-1 ring-inset ring-gray-100 shadow-sm relative overflow-hidden">
-                <Wallet className="absolute -top-12 -right-12 h-48 w-48 text-gray-100/50 transform -rotate-12 pointer-events-none" />
-                <div className="relative z-10">
-                    <h4 className="text-base font-extrabold text-gray-900 mb-6 flex items-center gap-2 tracking-tight">
-                        <CreditCard className="h-5 w-5 text-primary-500" /> Administrative Adjustment
-                    </h4>
-                    <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Transaction Type</label>
-                                <select
-                                    className="block w-full rounded-xl border-0 py-2.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm font-medium bg-white transition-all"
-                                    value={type}
-                                    onChange={e => setType(e.target.value)}
-                                >
-                                    <option value="CREDIT">Add Credit (Deposit)</option>
-                                    <option value="DEBIT">Remove Credit (Charge)</option>
-                                </select>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Administrative Adjustment Card */}
+                <div className="bg-gray-50/50 p-6 sm:p-8 rounded-2xl ring-1 ring-inset ring-gray-100 shadow-sm relative overflow-hidden">
+                    <Wallet className="absolute -top-12 -right-12 h-48 w-48 text-gray-100/50 transform -rotate-12 pointer-events-none" />
+                    <div className="relative z-10">
+                        <h4 className="text-base font-extrabold text-gray-900 mb-6 flex items-center gap-2 tracking-tight">
+                            <CreditCard className="h-5 w-5 text-primary-500" /> Administrative Adjustment
+                        </h4>
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Transaction Type</label>
+                                    <select
+                                        className="block w-full rounded-xl border-0 py-2.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm font-medium bg-white transition-all"
+                                        value={type}
+                                        onChange={e => setType(e.target.value)}
+                                    >
+                                        <option value="CREDIT">Add Credit (Deposit)</option>
+                                        <option value="DEBIT">Remove Credit (Charge)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Amount</label>
+                                    <div className="relative rounded-md shadow-sm">
+                                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                            <span className="text-gray-500 sm:text-sm font-medium">$</span>
+                                        </div>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            required
+                                            className="block w-full rounded-xl border-0 py-2.5 pl-7 pr-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm font-medium bg-white transition-all font-mono"
+                                            value={amount}
+                                            onChange={e => setAmount(e.target.value)}
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Amount</label>
+                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Description (Internal Note)</label>
+                                <input
+                                    type="text"
+                                    required
+                                    className="block w-full rounded-xl border-0 py-2.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm font-medium bg-white transition-all"
+                                    value={description}
+                                    onChange={e => setDescription(e.target.value)}
+                                    placeholder="E.g., Platform fee adjustment"
+                                />
+                            </div>
+                            <div className="flex justify-end pt-2">
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="inline-flex justify-center items-center rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-primary-700 transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {loading ? (
+                                        <><Loader className="animate-spin -ml-1 mr-2 h-4 w-4" /> Processing...</>
+                                    ) : (
+                                        'Process Transaction'
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                {/* Edit Credit Limit Card */}
+                <div className="bg-gray-50/50 p-6 sm:p-8 rounded-2xl ring-1 ring-inset ring-gray-100 shadow-sm relative overflow-hidden">
+                    <Wallet className="absolute -top-12 -right-12 h-48 w-48 text-gray-100/50 transform -rotate-12 pointer-events-none" />
+                    <div className="relative z-10">
+                        <h4 className="text-base font-extrabold text-gray-900 mb-6 flex items-center gap-2 tracking-tight">
+                            <CreditCard className="h-5 w-5 text-primary-500" /> Credit Limit Control
+                        </h4>
+                        <form onSubmit={handleCreditLimitSubmit} className="space-y-6">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Tenant Credit Limit</label>
                                 <div className="relative rounded-md shadow-sm">
                                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                                         <span className="text-gray-500 sm:text-sm font-medium">$</span>
@@ -244,40 +334,33 @@ const WalletTab = ({ tenant, onUpdate }) => {
                                     <input
                                         type="number"
                                         step="0.01"
+                                        min="0"
                                         required
                                         className="block w-full rounded-xl border-0 py-2.5 pl-7 pr-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm font-medium bg-white transition-all font-mono"
-                                        value={amount}
-                                        onChange={e => setAmount(e.target.value)}
+                                        value={creditLimitInput}
+                                        onChange={e => setCreditLimitInput(e.target.value)}
                                         placeholder="0.00"
                                     />
                                 </div>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    Determines how much negative balance this tenant is permitted before outbound services are restricted.
+                                </p>
                             </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1.5">Description (Internal Note)</label>
-                            <input
-                                type="text"
-                                required
-                                className="block w-full rounded-xl border-0 py-2.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm font-medium bg-white transition-all"
-                                value={description}
-                                onChange={e => setDescription(e.target.value)}
-                                placeholder="E.g., Platform fee adjustment"
-                            />
-                        </div>
-                        <div className="flex justify-end pt-2">
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="inline-flex justify-center items-center rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-primary-700 transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {loading ? (
-                                    <><Loader className="animate-spin -ml-1 mr-2 h-4 w-4" /> Processing...</>
-                                ) : (
-                                    'Process Transaction'
-                                )}
-                            </button>
-                        </div>
-                    </form>
+                            <div className="flex justify-end pt-8">
+                                <button
+                                    type="submit"
+                                    disabled={creditLimitLoading}
+                                    className="inline-flex justify-center items-center rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-primary-700 transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {creditLimitLoading ? (
+                                        <><Loader className="animate-spin -ml-1 mr-2 h-4 w-4" /> Updating...</>
+                                    ) : (
+                                        'Update Credit Limit'
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>

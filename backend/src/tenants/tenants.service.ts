@@ -229,19 +229,26 @@ export class TenantsService {
             monitorLimit: 10
         };
 
-        // Override local wallet with real-time balance from billing system
+        // Override local wallet with real-time balance and credit limit from billing system
         let realWallet = tenant.wallet;
         try {
             const billingBalance = await this.walletService.getBalance(tenant.id);
             if (realWallet) {
                 realWallet.balance = new Prisma.Decimal(billingBalance.balance);
+                (realWallet as any).creditLimit = billingBalance.creditLimit;
             } else {
-                realWallet = { balance: new Prisma.Decimal(billingBalance.balance), currency: billingBalance.currency } as any;
+                realWallet = { 
+                    balance: new Prisma.Decimal(billingBalance.balance), 
+                    currency: billingBalance.currency,
+                    creditLimit: billingBalance.creditLimit 
+                } as any;
             }
         } catch (error) {
             // If fetching real balance fails, just use local fallback (or 0)
             if (!realWallet) {
-                realWallet = { balance: new Prisma.Decimal(0), currency: 'USD' } as any;
+                realWallet = { balance: new Prisma.Decimal(0), currency: 'USD', creditLimit: 0 } as any;
+            } else {
+                (realWallet as any).creditLimit = 0;
             }
         }
 

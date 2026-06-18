@@ -426,4 +426,23 @@ export class WalletService {
             return { tfns: [], dids: [], extensions: [], totals: { tfns: 0, dids: 0, extensions: 0 } };
         }
     }
+
+    async updateCreditLimit(tenantId: string, creditLimit: number) {
+        const customerId = await this.getSubBillingCustomerId(tenantId);
+        if (creditLimit < 0) {
+            throw new BadRequestException('Credit limit cannot be negative');
+        }
+        try {
+            const response = await firstValueFrom(
+                this.httpService.put(`${this.subBillingUrl}/customers/${customerId}/credit-limit`, {
+                    credit_limit: creditLimit
+                })
+            );
+            return response.data;
+        } catch (error) {
+            const errorMsg = error.response?.data?.message || error.message;
+            this.logger.error(`Failed to update credit limit for ${customerId}: ${errorMsg}`);
+            throw new BadRequestException(`Failed to update credit limit: ${errorMsg}`);
+        }
+    }
 }
