@@ -5,7 +5,7 @@ import { useToast } from '../../context/ToastContext';
 import { walletService } from '../../services/wallet.service';
 import { useBillingIntelligence } from '../../hooks/useBillingIntelligence';
 import { useWalletQuery, useSubscriptionQuery, useCardsQuery, useWalletActions } from '../../hooks/useBillingQueries';
-import { Wallet, ArrowDown, ArrowUp, CreditCard, RotateCw, TrendingDown, Clock, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
+import { Wallet, ArrowDown, ArrowUp, CreditCard, RotateCw, TrendingDown, Clock, AlertTriangle, CheckCircle, RefreshCw, DollarSign } from 'lucide-react';
 import ReadOnlyBanner from '../../components/ReadOnlyBanner';
 
 const WalletPage = () => {
@@ -14,6 +14,8 @@ const WalletPage = () => {
     const location = useLocation();
     const [addingFunds, setAddingFunds] = useState(false);
     const [rechargeAmount, setRechargeAmount] = useState('50');
+    const [paymentDetails, setPaymentDetails] = useState([]);
+    const [paymentDetailsLoading, setPaymentDetailsLoading] = useState(true);
 
     // Queries
     const { data: wallet, isLoading: walletLoading, isFetching: walletRefreshing } = useWalletQuery();
@@ -25,6 +27,22 @@ const WalletPage = () => {
 
     const { addToast } = useToast();
 
+    const fetchPaymentDetails = useCallback(async () => {
+        try {
+            setPaymentDetailsLoading(true);
+            const data = await walletService.getPaymentDetails();
+            setPaymentDetails(data || []);
+        } catch (e) {
+            console.error('Failed to fetch payment details:', e);
+        } finally {
+            setPaymentDetailsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchPaymentDetails();
+    }, [fetchPaymentDetails]);
+
     useEffect(() => {
         const queryParams = new URLSearchParams(location.search);
         if (queryParams.get('success')) {
@@ -32,11 +50,12 @@ const WalletPage = () => {
             // Clear query parameters using navigate so React Router is aware
             navigate(window.location.pathname, { replace: true });
             refreshWallet();
+            fetchPaymentDetails();
         } else if (queryParams.get('canceled')) {
             addToast('warning', 'Payment was cancelled.');
             navigate(window.location.pathname, { replace: true });
         }
-    }, [location.search, addToast, refreshWallet, navigate]);
+    }, [location.search, addToast, refreshWallet, navigate, fetchPaymentDetails]);
 
     const handleAddFunds = useCallback(async (amount) => {
         const numericAmount = parseFloat(amount);
@@ -161,7 +180,7 @@ const WalletPage = () => {
                                 <div className="flex items-center justify-between">
                                     <dt className="text-xs font-bold text-gray-500 uppercase tracking-widest">Current Balance</dt>
                                     <button 
-                                        onClick={() => refreshWallet()}
+                                        onClick={() => { refreshWallet(); fetchPaymentDetails(); }}
                                         disabled={walletRefreshing}
                                         className={`p-1 rounded-md hover:bg-gray-100 transition-colors text-gray-400 hover:text-primary-600 ${walletRefreshing ? 'animate-spin' : ''}`}
                                         title="Refresh balance"
@@ -242,9 +261,9 @@ const WalletPage = () => {
                 </div>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-8">
-                {/* Saved Cards Section */}
-                <div className="flex-1 space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Left Column: Cards & Stripe Payments */}
+                <div className="space-y-6">
                     <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
                         <div className="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
                             <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -283,6 +302,61 @@ const WalletPage = () => {
                         </div>
                     </div>
 
+                    {/* Stripe Payment History */}
+                    <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
+                        <div className="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                <DollarSign className="text-emerald-500 h-5 w-5" /> Stripe Payment History
+                            </h3>
+                            <button 
+                                onClick={fetchPaymentDetails}
+                                disabled={paymentDetailsLoading}
+                                className={`p-1 rounded-md hover:bg-gray-100 transition-colors text-gray-400 hover:text-primary-600 ${paymentDetailsLoading ? 'animate-spin' : ''}`}
+                                title="Refresh payment history"
+                            >
+                                <RefreshCw size={14} />
+                            </button>
+                        </div>
+                        <div className="p-0 max-h-[400px] overflow-y-auto">
+                            <ul role="list" className="divide-y divide-gray-100">
+                                {paymentDetailsLoading ? (
+                                    <li className="p-8 text-center text-gray-500 font-medium flex items-center justify-center gap-2">
+                                        <RotateCw size={16} className="animate-spin text-primary-600" />
+                                        Loading payments...
+                                    </li>
+                                ) : (!paymentDetails || paymentDetails.length === 0) ? (
+                                    <li className="p-8 text-center text-gray-500 font-medium">No payment records found.</li>
+                                ) : (
+                                    paymentDetails.map((payment) => (
+                                        <li key={payment.payment_id} className="p-4 sm:px-6 hover:bg-gray-50 transition-colors">
+                                            <div className="flex items-center space-x-4">
+                                                <div className="flex-shrink-0">
+                                                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 ring-1 ring-inset ring-emerald-600/20">
+                                                        <DollarSign className="h-5 w-5 text-emerald-600" />
+                                                    </span>
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate text-sm font-bold text-gray-900">{payment.description || 'Wallet Top-up'}</p>
+                                                    <p className="truncate text-xs font-mono text-gray-500 mt-0.5">
+                                                        {payment.payment_id}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <span className="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-mono font-bold uppercase tracking-wider ring-1 ring-inset bg-emerald-50 text-emerald-700 ring-emerald-600/20">
+                                                        +${Number(payment.amount).toFixed(2)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    ))
+                                )}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right Column: Transaction History */}
+                <div className="space-y-6">
                     <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
                         <div className="px-6 py-5 border-b border-gray-100 bg-gray-50/50">
                             <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">

@@ -27,5 +27,10 @@ export const walletService = {
     setAutoRecharge: async (enabled, threshold, amount) => {
         const response = await api.post('/wallet/auto-recharge', { enabled, threshold, amount });
         return response.data;
+    },
+
+    getPaymentDetails: async () => {
+        const response = await api.get('/wallet/payment-details');
+        return response.data;
     }
 };

@@ -389,6 +389,31 @@ export class WalletService {
         }
     }
 
+    async getPaymentDetails(tenantId: string) {
+        try {
+            const customerId = await this.getSubBillingCustomerId(tenantId);
+            const response = await firstValueFrom(
+                this.httpService.get(`${this.subBillingUrl}/payments/details/customer/${customerId}`)
+            );
+            return response.data?.data || [];
+        } catch (error) {
+            this.logger.error(`Failed to fetch payment details from Sub Billing for tenant ${tenantId}: ${error.message}`);
+            return [];
+        }
+    }
+
+    async getAllPaymentDetails() {
+        try {
+            const response = await firstValueFrom(
+                this.httpService.get(`${this.subBillingUrl}/payments/details`)
+            );
+            return response.data?.data || [];
+        } catch (error) {
+            this.logger.error(`Failed to fetch all payment details from Sub Billing: ${error.message}`);
+            return [];
+        }
+    }
+
     async getAssets(tenantId: string) {
         const customerId = await this.getSubBillingCustomerId(tenantId);
         try {

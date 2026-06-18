@@ -30,6 +30,7 @@ import MonitoringPage from './pages/telecom/MonitoringPage';
 import CdrsPage from './pages/telecom/CdrsPage';
 import DIDForwardsPage from './pages/telecom/did-forwards/DIDForwardsPage';
 import DIDForwardForm from './pages/telecom/did-forwards/DIDForwardForm';
+import RevenuePage from './pages/admin/RevenuePage';
 
 import UserManagement from './pages/admin/UserManagement';
 import SuperAdminUsers from './pages/admin/SuperAdminUsers';
@@ -160,7 +161,7 @@ function App() {
                                         <Route path="/super-admin/packages" element={<PackagesPage />} />
                                         <Route path="/super-admin/carriers" element={<CarriersGatewaysPage />} />
                                         <Route path="/tenants" element={<TenantsPage />} />
-                                        <Route path="/revenue" element={<div className="p-8">Revenue Analytics</div>} />
+                                        <Route path="/revenue" element={<RevenuePage />} />
                                     </Route>
                                 </Route>
 

@@ -63,6 +63,17 @@ export class WalletController {
         return this.walletService.updateAutoRechargeSettings(user.tenantId, body.enabled, body.threshold, body.amount);
     }
 
+    @Get('payment-details')
+    getPaymentDetails(@GetUser() user: User) {
+        if (user.role === Role.SUPER_ADMIN) {
+            return this.walletService.getAllPaymentDetails();
+        }
+        if (!user.tenantId) {
+            return [];
+        }
+        return this.walletService.getPaymentDetails(user.tenantId);
+    }
+
     @Get('all-balances')
     @Roles(Role.SUPER_ADMIN)
     getAllBalances() {
