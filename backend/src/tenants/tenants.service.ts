@@ -432,7 +432,7 @@ export class TenantsService {
         let freeMinutes = 0;
 
         // Generate Customer Code (Sequential starting from 1001)
-        // This ensures extensions start at u100101, u100201, etc.
+        // This ensures extensions start at U100101, U100201, etc.
         // Find the highest existing customer code numerically
         const allTenants = await this.prisma.tenant.findMany({
             where: { customerCode: { not: null } },
@@ -456,7 +456,7 @@ export class TenantsService {
         }
 
         // Ensure uniqueness (though sequential should be unique unless race condition or gaps)
-        let customerCode = `u${nextCode}`;
+        let customerCode = `U${nextCode}`;
         let isUnique = false;
         let retries = 0;
 
@@ -464,7 +464,7 @@ export class TenantsService {
             const exists = await this.prisma.tenant.findUnique({ where: { customerCode } });
             if (exists) {
                 nextCode++;
-                customerCode = `u${nextCode}`;
+                customerCode = `U${nextCode}`;
                 retries++;
                 continue;
             }
@@ -472,7 +472,7 @@ export class TenantsService {
             const existsInSubBilling = await this.walletService.checkCustomerExists(customerCode);
             if (existsInSubBilling) {
                 nextCode++;
-                customerCode = `u${nextCode}`;
+                customerCode = `U${nextCode}`;
                 retries++;
                 continue;
             }
