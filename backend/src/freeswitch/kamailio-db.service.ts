@@ -12,7 +12,7 @@ import * as crypto from 'crypto';
 @Injectable()
 export class KamailioDBService {
     private readonly logger = new Logger(KamailioDBService.name);
-    private readonly realm = process.env.SIP_REALM || 'sip.telecom-platform.com';
+    private readonly realm = process.env.SIP_REALM;
 
     constructor(private readonly configService?: ConfigService) {}
 
@@ -103,6 +103,11 @@ export class KamailioDBService {
      * Calculates HA1/HA1B and upserts into subscriber table
      */
     async syncSubscriber(username: string, passwordPlain: string): Promise<void> {
+        if (!this.realm) {
+            this.logger.error('Cannot sync subscriber: SIP_REALM is not defined in environment variables.');
+            return;
+        }
+
         // Calculate HA1: MD5(username:realm:password)
         const ha1 = crypto.createHash('md5')
             .update(`${username}:${this.realm}:${passwordPlain}`)
@@ -133,6 +138,11 @@ export class KamailioDBService {
      * Delete Subscriber from Kamailio
      */
     async deleteSubscriber(username: string): Promise<void> {
+        if (!this.realm) {
+            this.logger.error('Cannot delete subscriber: SIP_REALM is not defined in environment variables.');
+            return;
+        }
+
         try {
             await this.executeQuery('DELETE FROM subscriber WHERE username = $1 AND domain = $2', [username, this.realm]);
             this.logger.log(`Deleted Kamailio subscriber: ${username}@${this.realm}`);
