@@ -33,17 +33,24 @@ export class MailService {
         }
 
         try {
+            // Force IPv4 lookup to prevent ENETUNREACH on IPv6
+            const { address } = await dns.promises.lookup(partner.smtpHost, { family: 4 });
+            this.logger.log(`Resolved SMTP host ${partner.smtpHost} to IPv4: ${address}`);
+
             return nodemailer.createTransport({
-                host: partner.smtpHost,
+                host: address, // use the IPv4 address directly
                 port: Number(partner.smtpPort),
                 secure: partner.smtpSecure ?? false,
                 auth: {
                     user: partner.smtpUser,
                     pass: partner.smtpPass,
                 },
-                connectionTimeout: 8000, // 8 seconds fail fast
-                greetingTimeout: 8000,
-                socketTimeout: 10000,
+                tls: {
+                    servername: partner.smtpHost, // maintain SNI for SSL certificate validation
+                },
+                connectionTimeout: 10000, 
+                greetingTimeout: 10000,
+                socketTimeout: 15000,
             });
         } catch (error) {
             this.logger.error(`Failed to initialize SMTP transporter: ${error.message}`);
