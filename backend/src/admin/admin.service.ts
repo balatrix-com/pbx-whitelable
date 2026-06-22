@@ -601,6 +601,7 @@ export class AdminService {
 
     async updateCurrentBranding(data: any) {
         const partner = await this.prisma.partner.findFirst();
+        const smtpPortVal = data.smtpPort !== undefined && data.smtpPort !== null && data.smtpPort !== '' ? Number(data.smtpPort) : null;
         if (partner) {
             return this.prisma.partner.update({
                 where: { id: partner.id },
@@ -613,6 +614,13 @@ export class AdminService {
                     favicon: data.favicon,
                     supportEmail: data.supportEmail,
                     supportPhone: data.supportPhone,
+                    smtpHost: data.smtpHost,
+                    smtpPort: smtpPortVal,
+                    smtpSecure: data.smtpSecure,
+                    smtpUser: data.smtpUser,
+                    smtpPass: data.smtpPass,
+                    smtpFromName: data.smtpFromName,
+                    smtpFromEmail: data.smtpFromEmail,
                 }
             });
         } else {
@@ -627,6 +635,13 @@ export class AdminService {
                     favicon: data.favicon,
                     supportEmail: data.supportEmail || 'support@telecom-platform.com',
                     supportPhone: data.supportPhone || '+1-800-555-0199',
+                    smtpHost: data.smtpHost,
+                    smtpPort: smtpPortVal,
+                    smtpSecure: data.smtpSecure,
+                    smtpUser: data.smtpUser,
+                    smtpPass: data.smtpPass,
+                    smtpFromName: data.smtpFromName,
+                    smtpFromEmail: data.smtpFromEmail,
                 }
             });
         }
