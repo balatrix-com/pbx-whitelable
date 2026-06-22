@@ -36,6 +36,9 @@ export class MailService {
                     user: partner.smtpUser,
                     pass: partner.smtpPass,
                 },
+                connectionTimeout: 8000, // 8 seconds fail fast
+                greetingTimeout: 8000,
+                socketTimeout: 10000,
             });
         } catch (error) {
             this.logger.error(`Failed to initialize SMTP transporter: ${error.message}`);
