@@ -1,33 +1,36 @@
 import { Injectable, Logger } from '@nestjs/common';
-import SftpClient from 'ssh2-sftp-client';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class RecordingStorageService {
     private readonly logger = new Logger(RecordingStorageService.name);
-    private readonly sftpConfig = {
-        host: process.env.FS_RECORDING_HOST || 'localhost',
-        port: parseInt(process.env.FS_RECORDING_PORT || '22'),
-        username: process.env.FS_RECORDING_USER || 'recordingadmin',
-        password: process.env.FS_RECORDING_PASSWORD || 'OnidaMaruti1)',
-    };
-    private readonly basePath = process.env.FS_RECORDING_BASE_PATH || '/recordings';
+    private readonly basePath = process.env.FS_RECORDING_PATH || '/mnt/freeswitch-recordings/recordings';
 
     /**
-     * Ensure the recordings directory exists for a customer on the NAS
+     * Resolve the local path from the given remote/relative path.
+     * Maps `/recordings/...` to the configured `basePath`.
+     */
+    private getLocalPath(remotePath: string): string {
+        if (remotePath.startsWith('/recordings')) {
+            // Replace /recordings with basePath
+            return path.join(this.basePath, remotePath.substring('/recordings'.length));
+        }
+        return path.isAbsolute(remotePath) ? remotePath : path.join(this.basePath, remotePath);
+    }
+
+    /**
+     * Ensure the recordings directory exists for a customer on the NAS mount
      * @param customerCode - Customer ID
      */
     async ensureRecordingsDirectory(customerCode: string): Promise<void> {
-        const sftp = new SftpClient();
         try {
-            await sftp.connect(this.sftpConfig);
-            const customerDir = `${this.basePath}/${customerCode}`;
+            const customerDir = path.join(this.basePath, customerCode);
 
-            if (!(await sftp.exists(customerDir))) {
-                await sftp.mkdir(customerDir, true);
+            if (!fs.existsSync(customerDir)) {
+                fs.mkdirSync(customerDir, { recursive: true });
                 this.logger.log(`Created recordings directory for customer: ${customerDir}`);
             }
-
-            await sftp.end();
         } catch (error) {
             this.logger.error(`Failed to ensure recordings directory for ${customerCode}: ${error.message}`);
             // Don't throw, just log
@@ -35,16 +38,13 @@ export class RecordingStorageService {
     }
 
     /**
-     * Check if a recording file exists on the NAS
-     * @param remotePath - Full remote path on NAS
+     * Check if a recording file exists on the NAS mount
+     * @param remotePath - Full remote path or path under /recordings
      */
     async checkFileExists(remotePath: string): Promise<boolean> {
-        const sftp = new SftpClient();
         try {
-            await sftp.connect(this.sftpConfig);
-            const exists = await sftp.exists(remotePath);
-            await sftp.end();
-            return !!exists;
+            const localPath = this.getLocalPath(remotePath);
+            return fs.existsSync(localPath);
         } catch (error) {
             this.logger.error(`Failed to check recording file existence: ${error.message}`);
             return false;
@@ -52,32 +52,32 @@ export class RecordingStorageService {
     }
 
     /**
-     * Stream a recording file from the NAS
-     * @param remotePath - Full remote path on NAS
+     * Stream a recording file from the NAS mount
+     * @param remotePath - Full remote path or path under /recordings
      * @param res - Response object
      */
     async streamAudio(remotePath: string, res: any): Promise<void> {
-        const sftp = new SftpClient();
         try {
-            await sftp.connect(this.sftpConfig);
-            const exists = await sftp.exists(remotePath);
-            if (!exists) {
-                await sftp.end();
+            const localPath = this.getLocalPath(remotePath);
+            if (!fs.existsSync(localPath)) {
                 res.status(404).send('Recording file not found');
                 return;
             }
 
             res.setHeader('Content-Type', 'audio/mpeg'); // Or audio/wav based on file extension
-            const parts = remotePath.split('/');
-            const filename = parts[parts.length - 1];
+            const filename = path.basename(localPath);
             res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
 
             // Stream directly to response
-            await sftp.get(remotePath, res);
-            await sftp.end();
+            const readStream = fs.createReadStream(localPath);
+            readStream.pipe(res);
+            
+            readStream.on('error', (err) => {
+                this.logger.error(`Read stream error: ${err.message}`);
+                if (!res.headersSent) res.status(500).send('Internal server error');
+            });
         } catch (error) {
             this.logger.error(`Failed to stream recording: ${error.message}`);
-            await sftp.end();
             if (!res.headersSent) res.status(500).send('Internal server error');
         }
     }

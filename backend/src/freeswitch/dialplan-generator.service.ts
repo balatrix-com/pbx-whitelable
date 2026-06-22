@@ -19,10 +19,12 @@ export class DialplanGeneratorService {
   private readonly logger = new Logger(DialplanGeneratorService.name);
   private readonly sipServer: string;
   private readonly outboundGateway: string;
+  private readonly fsRecordingPath: string;
 
   constructor(private readonly configService?: ConfigService) {
     this.sipServer = this.configService?.get<string>('SIP_SERVER') || process.env.SIP_SERVER || 'localhost';
     this.outboundGateway = this.configService?.get<string>('OUTBOUND_GATEWAY') || process.env.OUTBOUND_GATEWAY || 'localhost:5060';
+    this.fsRecordingPath = this.configService?.get<string>('FS_RECORDING_PATH') || process.env.FS_RECORDING_PATH || '/mnt/freeswitch-recordings/recordings';
   }
 
   /**
@@ -49,7 +51,7 @@ export class DialplanGeneratorService {
     const server = sipServer || this.sipServer;
     const recordingVariables = enableRecording && customerCode ? this.getRecordingVariablesBlock() : '';
     const executeOnAnswer = enableRecording && customerCode
-      ? `,execute_on_answer='record_session /mnt/freeswitch-recordings/recordings/${customerCode}/\${uuid}.mp3'`
+      ? `,execute_on_answer='record_session ${this.fsRecordingPath}/${customerCode}/\${uuid}.mp3'`
       : '';
 
     return `<?xml version="1.0" encoding="UTF-8"?>
@@ -89,7 +91,7 @@ export class DialplanGeneratorService {
     const server = sipServer || this.sipServer;
     const recordingVariables = enableRecording && customerCode ? this.getRecordingVariablesBlock() : '';
     const executeOnAnswerString = enableRecording && customerCode
-      ? `,execute_on_answer='record_session /mnt/freeswitch-recordings/recordings/${customerCode}/\${uuid}.mp3'`
+      ? `,execute_on_answer='record_session ${this.fsRecordingPath}/${customerCode}/\${uuid}.mp3'`
       : '';
 
     return `<?xml version="1.0" encoding="UTF-8"?>
@@ -133,7 +135,7 @@ export class DialplanGeneratorService {
   ): string {
     const recordingVariables = enableRecording && customerCode ? this.getRecordingVariablesBlock() : '';
     const executeOnAnswer = enableRecording && customerCode
-      ? `,execute_on_answer='record_session /mnt/freeswitch-recordings/recordings/${customerCode}/\${uuid}.mp3'`
+      ? `,execute_on_answer='record_session ${this.fsRecordingPath}/${customerCode}/\${uuid}.mp3'`
       : '';
 
     return `<?xml version="1.0" encoding="UTF-8"?>
@@ -178,7 +180,7 @@ export class DialplanGeneratorService {
     const server = sipServer || this.sipServer;
     const recordingVariables = enableRecording && customerCode ? this.getRecordingVariablesBlock() : '';
     const executeOnAnswerString = enableRecording && customerCode
-      ? `,execute_on_answer='record_session /mnt/freeswitch-recordings/recordings/${customerCode}/\${uuid}.mp3'`
+      ? `,execute_on_answer='record_session ${this.fsRecordingPath}/${customerCode}/\${uuid}.mp3'`
       : '';
 
     let typeSuffix = '';
