@@ -22,6 +22,7 @@ const BrandingSettingsPage = () => {
     // States for current branding settings
     const [currentBranding, setCurrentBranding] = useState({
         name: '',
+        domain: '',
         primaryColor: '#3d52a0',
         accentColor: '#ed8f55',
         logoMain: '',
@@ -56,6 +57,7 @@ const BrandingSettingsPage = () => {
             if (response.data) {
                 setCurrentBranding({
                     name: response.data.name || '',
+                    domain: response.data.domain || '',
                     primaryColor: response.data.primaryColor || '#3d52a0',
                     accentColor: response.data.accentColor || '#ed8f55',
                     logoMain: response.data.logoMain || '',
@@ -174,6 +176,19 @@ const BrandingSettingsPage = () => {
                                         value={currentBranding.name}
                                         onChange={(e) => setCurrentBranding({...currentBranding, name: e.target.value})}
                                         placeholder="Cloud PBX"
+                                        className="w-full rounded-xl border-gray-200 focus:border-primary-500 focus:ring-primary-500 text-sm font-medium bg-gray-50/50"
+                                        required
+                                    />
+                                </div>
+
+                                {/* Platform Domain */}
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Platform Domain</label>
+                                    <input
+                                        type="text"
+                                        value={currentBranding.domain}
+                                        onChange={(e) => setCurrentBranding({...currentBranding, domain: e.target.value})}
+                                        placeholder="https://pbxwl.balatrix.com"
                                         className="w-full rounded-xl border-gray-200 focus:border-primary-500 focus:ring-primary-500 text-sm font-medium bg-gray-50/50"
                                         required
                                     />

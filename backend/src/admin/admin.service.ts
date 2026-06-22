@@ -606,6 +606,7 @@ export class AdminService {
             return this.prisma.partner.update({
                 where: { id: partner.id },
                 data: {
+                    domain: data.domain !== undefined ? data.domain : partner.domain,
                     name: data.name,
                     primaryColor: data.primaryColor,
                     accentColor: data.accentColor,
