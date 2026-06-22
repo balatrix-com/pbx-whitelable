@@ -58,6 +58,13 @@ export class MailService {
         }
     }
 
+    private getBaseUrl(partner: any): string {
+        if (partner?.domain) {
+            return partner.domain.startsWith('http') ? partner.domain.replace(/\/+$/, '') : `https://${partner.domain.replace(/\/+$/, '')}`;
+        }
+        return this.frontendUrl.replace(/\/+$/, '');
+    }
+
     /**
      * Helper to wrap HTML content with global branding styling (premium aesthetics)
      */
@@ -65,7 +72,12 @@ export class MailService {
         const primaryColor = partner?.primaryColor || '#3d52a0';
         const accentColor = partner?.accentColor || '#ed8f55';
         const platformName = partner?.name || 'Cloud PBX';
-        const logoUrl = partner?.logoMain || partner?.logoSidebar || '';
+        let logoUrl = partner?.logoMain || partner?.logoSidebar || '';
+
+        const baseUrl = this.getBaseUrl(partner);
+        if (logoUrl && logoUrl.startsWith('/')) {
+            logoUrl = `${baseUrl}${logoUrl}`;
+        }
 
         let logoElement = `<h1 style="margin: 0; color: ${primaryColor}; font-size: 24px; font-weight: 800; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">${platformName}</h1>`;
         if (logoUrl) {
@@ -132,7 +144,7 @@ export class MailService {
         const platformName = partner?.name || companyName || 'Cloud PBX';
         const primaryColor = partner?.primaryColor || '#3d52a0';
         
-        const baseUrl = this.frontendUrl.replace(/\/+$/, '');
+        const baseUrl = this.getBaseUrl(partner);
         const resetUrl = `${baseUrl}/reset?token=${token}`;
 
         // Attempt SMTP
@@ -236,7 +248,7 @@ export class MailService {
         const platformName = partner?.name || 'Cloud PBX';
         const primaryColor = partner?.primaryColor || '#3d52a0';
 
-        const baseUrl = this.frontendUrl.replace(/\/+$/, '');
+        const baseUrl = this.getBaseUrl(partner);
         const inviteUrl = `${baseUrl}/invite/accept?token=${token}`;
 
         // Attempt SMTP
@@ -345,7 +357,7 @@ export class MailService {
         const platformName = partner?.name || 'Cloud PBX';
         const primaryColor = partner?.primaryColor || '#3d52a0';
 
-        const baseUrl = this.frontendUrl.replace(/\/+$/, '');
+        const baseUrl = this.getBaseUrl(partner);
         const loginUrl = `${baseUrl}/login`;
 
         // Attempt SMTP
