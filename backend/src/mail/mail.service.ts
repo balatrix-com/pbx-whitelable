@@ -2,6 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import * as nodemailer from 'nodemailer';
+import * as dns from 'dns';
+
+// Force Node to prioritize IPv4 over IPv6 for DNS lookups
+// This fixes the ENETUNREACH error when connecting to smtp.gmail.com
+dns.setDefaultResultOrder('ipv4first');
 
 @Injectable()
 export class MailService {
