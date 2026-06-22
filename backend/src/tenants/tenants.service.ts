@@ -441,7 +441,7 @@ export class TenantsService {
             select: { customerCode: true }
         });
 
-        let nextCode = 1001; // Default start
+        let nextCode = 1; // Default start
 
         if (allTenants.length > 0) {
             const maxCode = Math.max(
@@ -452,13 +452,13 @@ export class TenantsService {
                     })
                     .filter(c => !isNaN(c) && c > 0)
             );
-            if (maxCode >= 1001) {
+            if (maxCode >= 1) {
                 nextCode = maxCode + 1;
             }
         }
 
         // Ensure uniqueness (though sequential should be unique unless race condition or gaps)
-        let customerCode = `U${nextCode}`;
+        let customerCode = `U${String(nextCode).padStart(4, '0')}`;
         let isUnique = false;
         let retries = 0;
 
@@ -466,7 +466,7 @@ export class TenantsService {
             const exists = await this.prisma.tenant.findUnique({ where: { customerCode } });
             if (exists) {
                 nextCode++;
-                customerCode = `U${nextCode}`;
+                customerCode = `U${String(nextCode).padStart(4, '0')}`;
                 retries++;
                 continue;
             }
@@ -474,7 +474,7 @@ export class TenantsService {
             const existsInSubBilling = await this.walletService.checkCustomerExists(customerCode);
             if (existsInSubBilling) {
                 nextCode++;
-                customerCode = `U${nextCode}`;
+                customerCode = `U${String(nextCode).padStart(4, '0')}`;
                 retries++;
                 continue;
             }
