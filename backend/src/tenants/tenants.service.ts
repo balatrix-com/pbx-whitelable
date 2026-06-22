@@ -5,6 +5,7 @@ import { FreeSwitchSyncService } from '../freeswitch/freeswitch-sync.service';
 import { AdminService } from '../admin/admin.service';
 import { LookupRedisService } from '../redis/lookup-redis.module';
 import { WalletService } from '../wallet/wallet.service';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class TenantsService {
@@ -14,6 +15,7 @@ export class TenantsService {
         private adminService: AdminService,
         private lookupRedis: LookupRedisService,
         private walletService: WalletService,
+        private mailService: MailService,
     ) { }
 
     async listTenants(query: {
@@ -571,6 +573,23 @@ export class TenantsService {
 
             // 6. Initialize Redis Lookup
             await this.lookupRedis.updateExtensionLookup('', tenant.id);
+
+            // 7. Send Welcome Email
+            try {
+                await this.mailService.sendOnboardingCompletionEmail(
+                    data.adminEmail,
+                    data.firstName,
+                    customerCode,
+                    data.phone,
+                    '', // extensionListHtml
+                    data.adminEmail,
+                    'N/A', // planName
+                    'N/A', // quoteNo
+                    data.adminPassword
+                );
+            } catch (error) {
+                console.error('Failed to send welcome email on manual tenant creation:', error);
+            }
 
             return {
                 tenant,
