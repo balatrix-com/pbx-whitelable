@@ -6,6 +6,8 @@ import {
   useNodesState,
   useEdgesState,
   MarkerType,
+  Handle,
+  Position
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
@@ -45,9 +47,14 @@ const getLayoutedElements = (nodes, edges, direction = 'TB') => {
   return { nodes, edges };
 };
 
-const CustomNode = ({ data }) => {
+const CustomNode = ({ data, targetPosition, sourcePosition }) => {
   return (
-    <div className={`px-4 py-3 shadow-md rounded-2xl bg-white border-2 ${data.borderColor} w-[260px] flex items-center gap-3`}>
+    <div className={`px-4 py-3 shadow-md rounded-2xl bg-white border-2 ${data.borderColor} w-[260px] flex items-center gap-3 relative`}>
+      <Handle 
+        type="target" 
+        position={targetPosition || Position.Top} 
+        className="w-2 h-2 !bg-gray-400 border-none" 
+      />
       <div className={`p-2.5 rounded-xl ${data.iconBgColor} ${data.iconColor}`}>
         {data.icon}
       </div>
@@ -55,6 +62,11 @@ const CustomNode = ({ data }) => {
         <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{data.label}</div>
         <div className="text-sm font-bold text-gray-900 mt-0.5 truncate" title={data.subLabel}>{data.subLabel}</div>
       </div>
+      <Handle 
+        type="source" 
+        position={sourcePosition || Position.Bottom} 
+        className="w-2 h-2 !bg-gray-400 border-none" 
+      />
     </div>
   );
 };
