@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Trash2, Plus, ArrowRight, CornerDownRight, Settings, PhoneForwarded, Loader2, Play, GitMerge, FileAudio, ArrowLeft, Eye, Edit3 } from 'lucide-react';
 import api from '../../../services/api';
 import VisualIVRFlow from '../../../components/telecom/VisualIVRFlow';
+import InteractiveIVRBuilder from '../../../components/telecom/InteractiveIVRBuilder';
 
 function IVRForm() {
     const navigate = useNavigate();
@@ -11,7 +12,8 @@ function IVRForm() {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [viewMode, setViewMode] = useState('builder'); // 'builder' | 'visual'
+    const [viewMode, setViewMode] = useState('interactive'); // 'builder' | 'visual' | 'interactive'
+    const [interactiveMenuJSON, setInteractiveMenuJSON] = useState({});
 
     // Form State
     const [formData, setFormData] = useState({
@@ -249,7 +251,7 @@ function IVRForm() {
         setError(null);
 
         // Validation could be added here to check for duplicate keys at same level
-        const menuObject = transformFrontendToBackend(menuOptions);
+        const menuObject = viewMode === 'interactive' ? interactiveMenuJSON : transformFrontendToBackend(menuOptions);
 
         try {
             const payload = {
@@ -630,19 +632,27 @@ function IVRForm() {
                             <div className="flex bg-gray-200/50 p-1 rounded-xl">
                                 <button
                                     type="button"
+                                    onClick={() => setViewMode('interactive')}
+                                    className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'interactive' ? 'bg-white text-primary-600 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
+                                >
+                                    <Plus className="w-3.5 h-3.5 mr-1.5" />
+                                    Interactive Builder
+                                </button>
+                                <button
+                                    type="button"
                                     onClick={() => setViewMode('builder')}
                                     className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'builder' ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
                                 >
                                     <Edit3 className="w-3.5 h-3.5 mr-1.5" />
-                                    Builder
+                                    Classic Form
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setViewMode('visual')}
-                                    className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'visual' ? 'bg-white text-primary-600 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
+                                    className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'visual' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
                                 >
                                     <Eye className="w-3.5 h-3.5 mr-1.5" />
-                                    Visual Flow
+                                    Read-Only Flow
                                 </button>
                             </div>
 
@@ -658,8 +668,15 @@ function IVRForm() {
                         </div>
                     </div>
 
-                    <div className={`p-6 bg-gray-50/30 ${viewMode === 'visual' ? 'h-[600px] p-2' : ''}`}>
-                        {viewMode === 'visual' ? (
+                    <div className={`p-6 bg-gray-50/30 ${['visual', 'interactive'].includes(viewMode) ? 'h-[750px] p-2' : ''}`}>
+                        {viewMode === 'interactive' ? (
+                            <InteractiveIVRBuilder
+                                ivrName={formData.name}
+                                resources={resources}
+                                initialMenu={formData.menu}
+                                onChange={setInteractiveMenuJSON}
+                            />
+                        ) : viewMode === 'visual' ? (
                             <VisualIVRFlow 
                                 ivrName={formData.name} 
                                 menu={transformFrontendToBackend(menuOptions)} 
