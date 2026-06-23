@@ -12,7 +12,7 @@ import {
   Position,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { PhoneCall, CornerDownRight, PhoneForwarded, Link, Repeat, PhoneOff, Trash2, Settings, Plus, X } from 'lucide-react';
+import { PhoneCall, CornerDownRight, PhoneForwarded, Link, Repeat, PhoneOff, Trash2, Settings, Plus, X, KeySquare } from 'lucide-react';
 
 const ActionPalette = () => {
   const onDragStart = (event, nodeType, actionType) => {
@@ -114,6 +114,7 @@ const InteractiveBuilderCore = ({ ivrName, resources, initialMenu, onChange }) =
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [pendingConnection, setPendingConnection] = useState(null);
 
   // Initialize
   useEffect(() => {
@@ -130,25 +131,34 @@ const InteractiveBuilderCore = ({ ivrName, resources, initialMenu, onChange }) =
 
   const onConnect = useCallback(
     (params) => {
-        const digit = window.prompt("Enter the digit (e.g. 1, 2, *, #) for this route:");
-        if (digit === null || digit.trim() === "") return; // Cancelled
-
-        const newEdge = {
-            ...params,
-            id: `e-${params.source}-${params.target}`,
-            data: { digit },
-            label: `Press ${digit}`,
-            labelBgPadding: [6, 4],
-            labelBgBorderRadius: 6,
-            labelBgStyle: { fill: '#ffffff', stroke: '#e2e8f0', strokeWidth: 1, fillOpacity: 1 },
-            labelStyle: { fill: '#475569', fontWeight: 800, fontSize: 13, fontFamily: 'inherit' },
-            style: { stroke: '#94a3b8', strokeWidth: 2 },
-            markerEnd: { type: MarkerType.ArrowClosed, width: 15, height: 15, color: '#94a3b8' },
-        };
-        setEdges((eds) => addEdge(newEdge, eds));
+        // Instead of window.prompt, we open the custom modal
+        setPendingConnection(params);
     },
-    [setEdges]
+    []
   );
+
+  const confirmConnection = (digit) => {
+      if (!pendingConnection) return;
+      
+      const newEdge = {
+          ...pendingConnection,
+          id: `e-${pendingConnection.source}-${pendingConnection.target}`,
+          data: { digit },
+          label: `Press ${digit}`,
+          labelBgPadding: [6, 4],
+          labelBgBorderRadius: 6,
+          labelBgStyle: { fill: '#ffffff', stroke: '#e2e8f0', strokeWidth: 1, fillOpacity: 1 },
+          labelStyle: { fill: '#475569', fontWeight: 800, fontSize: 13, fontFamily: 'inherit' },
+          style: { stroke: '#94a3b8', strokeWidth: 2 },
+          markerEnd: { type: MarkerType.ArrowClosed, width: 15, height: 15, color: '#94a3b8' },
+      };
+      setEdges((eds) => addEdge(newEdge, eds));
+      setPendingConnection(null);
+  };
+
+  const cancelConnection = () => {
+      setPendingConnection(null);
+  };
 
   const onDragOver = useCallback((event) => {
     event.preventDefault();
@@ -287,6 +297,55 @@ const InteractiveBuilderCore = ({ ivrName, resources, initialMenu, onChange }) =
           <Background color="#cbd5e1" gap={20} size={1} />
           <Controls />
         </ReactFlow>
+
+        {/* Digit Selection Modal */}
+        {pendingConnection && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/80 flex items-center gap-3">
+                        <div className="p-2 bg-primary-100 text-primary-600 rounded-xl">
+                            <KeySquare size={20} />
+                        </div>
+                        <div>
+                            <h3 className="text-base font-extrabold text-gray-900">Assign Key Route</h3>
+                            <p className="text-xs font-medium text-gray-500">Select the digit the caller should press</p>
+                        </div>
+                    </div>
+                    <div className="p-5">
+                        <div className="grid grid-cols-3 gap-3">
+                            {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map(digit => {
+                                // Check if this digit is already used by an edge coming from the same source
+                                const isUsed = edges.some(e => e.source === pendingConnection.source && e.data?.digit === digit);
+                                
+                                return (
+                                    <button
+                                        key={digit}
+                                        onClick={() => confirmConnection(digit)}
+                                        disabled={isUsed}
+                                        className={`h-12 flex items-center justify-center text-xl font-bold rounded-xl transition-all ${
+                                            isUsed 
+                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50' 
+                                            : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-primary-500 hover:text-primary-600 hover:bg-primary-50 active:scale-95 shadow-sm'
+                                        }`}
+                                        title={isUsed ? `Key ${digit} is already assigned to another route` : `Assign Key ${digit}`}
+                                    >
+                                        {digit}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <div className="mt-6 flex justify-end">
+                            <button
+                                onClick={cancelConnection}
+                                className="px-4 py-2 text-sm font-bold text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
 
         {/* Configuration Panel */}
         {selectedNode && selectedNode.id !== 'root' && (
