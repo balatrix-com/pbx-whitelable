@@ -12,6 +12,7 @@ import {
   Position,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import dagre from 'dagre';
 import { PhoneCall, CornerDownRight, PhoneForwarded, Link, Repeat, PhoneOff, Trash2, Settings, Plus, X, KeySquare } from 'lucide-react';
 
 const ActionPalette = () => {
@@ -118,16 +119,105 @@ const InteractiveBuilderCore = ({ ivrName, resources, initialMenu, onChange }) =
 
   // Initialize
   useEffect(() => {
-    // We start with a blank root node. (In the future, we can add logic to parse initialMenu into nodes/edges).
-    // For now, we assume a fresh start or we can build the parser later.
-    // Given the complexity, let's start fresh.
-    setNodes([{
+    if (!initialMenu || Object.keys(initialMenu).length === 0) {
+      setNodes([{
+        id: 'root',
+        type: 'rootNode',
+        data: { label: ivrName || 'Main Menu', actionType: 'submenu' }, // root acts as a submenu source
+        position: { x: 250, y: 50 },
+      }]);
+      setEdges([]);
+      return;
+    }
+
+    const initialNodes = [];
+    const initialEdges = [];
+
+    initialNodes.push({
       id: 'root',
       type: 'rootNode',
-      data: { label: ivrName || 'Main Menu', actionType: 'submenu' }, // root acts as a submenu source
-      position: { x: 250, y: 50 },
-    }]);
-  }, [ivrName, setNodes]);
+      data: { label: ivrName || 'Main Menu', actionType: 'submenu' },
+      position: { x: 0, y: 0 },
+    });
+
+    const traverseMenu = (menuObj, parentId) => {
+      Object.entries(menuObj).forEach(([digit, action]) => {
+        const nodeId = `${parentId}-${digit}`;
+        
+        const details = getActionDetails(action.type);
+        
+        let subLabel = details.subLabel;
+        if (['extension', 'ring_group', 'ivr', 'external'].includes(action.type)) {
+            subLabel = action.target || 'Unconfigured';
+        } else if (action.type === 'submenu') {
+            subLabel = action.props?.greeting ? 'Has Greeting' : 'No Greeting';
+        }
+
+        initialNodes.push({
+          id: nodeId,
+          type: 'actionNode',
+          data: { 
+              actionType: action.type,
+              target: action.target || '',
+              props: action.props || {},
+              ...details,
+              subLabel
+          },
+          position: { x: 0, y: 0 },
+        });
+
+        initialEdges.push({
+          id: `e-${parentId}-${nodeId}`,
+          source: parentId,
+          target: nodeId,
+          data: { digit },
+          label: `Press ${digit}`,
+          labelBgPadding: [6, 4],
+          labelBgBorderRadius: 6,
+          labelBgStyle: { fill: '#ffffff', stroke: '#e2e8f0', strokeWidth: 1, fillOpacity: 1 },
+          labelStyle: { fill: '#475569', fontWeight: 800, fontSize: 13, fontFamily: 'inherit' },
+          style: { stroke: '#94a3b8', strokeWidth: 2 },
+          markerEnd: { type: MarkerType.ArrowClosed, width: 15, height: 15, color: '#94a3b8' },
+        });
+
+        if (action.type === 'submenu' && action.children) {
+            traverseMenu(action.children, nodeId);
+        }
+      });
+    };
+
+    traverseMenu(initialMenu, 'root');
+
+    // Layout using dagre
+    const nodeWidth = 260;
+    const nodeHeight = 80;
+    const dagreGraph = new dagre.graphlib.Graph();
+    dagreGraph.setDefaultEdgeLabel(() => ({}));
+    dagreGraph.setGraph({ rankdir: 'TB', ranksep: 80, nodesep: 100 });
+
+    initialNodes.forEach((node) => {
+      dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+    });
+
+    initialEdges.forEach((edge) => {
+      dagreGraph.setEdge(edge.source, edge.target);
+    });
+
+    dagre.layout(dagreGraph);
+
+    initialNodes.forEach((node) => {
+      const nodeWithPosition = dagreGraph.node(node.id);
+      node.position = {
+        x: nodeWithPosition.x - nodeWidth / 2,
+        y: nodeWithPosition.y - nodeHeight / 2,
+      };
+    });
+
+    setNodes(initialNodes);
+    setEdges(initialEdges);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(initialMenu), ivrName, setNodes, setEdges]);
 
   const onConnect = useCallback(
     (params) => {
