@@ -5,7 +5,6 @@ import { FreeSwitchSyncService } from '../freeswitch/freeswitch-sync.service';
 import { AdminService } from '../admin/admin.service';
 import { LookupRedisService } from '../redis/lookup-redis.module';
 import { WalletService } from '../wallet/wallet.service';
-import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class TenantsService {
@@ -15,7 +14,6 @@ export class TenantsService {
         private adminService: AdminService,
         private lookupRedis: LookupRedisService,
         private walletService: WalletService,
-        private mailService: MailService,
     ) { }
 
     async listTenants(query: {
@@ -239,10 +237,10 @@ export class TenantsService {
                 realWallet.balance = new Prisma.Decimal(billingBalance.balance);
                 (realWallet as any).creditLimit = billingBalance.creditLimit;
             } else {
-                realWallet = { 
-                    balance: new Prisma.Decimal(billingBalance.balance), 
+                realWallet = {
+                    balance: new Prisma.Decimal(billingBalance.balance),
                     currency: billingBalance.currency,
-                    creditLimit: billingBalance.creditLimit 
+                    creditLimit: billingBalance.creditLimit
                 } as any;
             }
         } catch (error) {
@@ -368,7 +366,7 @@ export class TenantsService {
         const baseUrl = process.env.CACHE_FLUSH_URL || 'http://localhost:8000';
         const token = process.env.CACHE_FLUSH_TOKEN || 'PBX_FLUSH_2026_acaJOOAJjasojoa';
         const url = `${baseUrl}/admin/cache/flush/carrier?customer=${customerCode}`;
-        
+
         try {
             const response = await fetch(url, {
                 method: 'POST',
@@ -441,7 +439,7 @@ export class TenantsService {
             select: { customerCode: true }
         });
 
-        let nextCode = 1; // Default start
+        let nextCode = 1001; // Default start
 
         if (allTenants.length > 0) {
             const maxCode = Math.max(
@@ -452,13 +450,13 @@ export class TenantsService {
                     })
                     .filter(c => !isNaN(c) && c > 0)
             );
-            if (maxCode >= 1) {
+            if (maxCode >= 1001) {
                 nextCode = maxCode + 1;
             }
         }
 
         // Ensure uniqueness (though sequential should be unique unless race condition or gaps)
-        let customerCode = `U${String(nextCode).padStart(4, '0')}`;
+        let customerCode = `U${nextCode}`;
         let isUnique = false;
         let retries = 0;
 
@@ -466,7 +464,7 @@ export class TenantsService {
             const exists = await this.prisma.tenant.findUnique({ where: { customerCode } });
             if (exists) {
                 nextCode++;
-                customerCode = `U${String(nextCode).padStart(4, '0')}`;
+                customerCode = `U${nextCode}`;
                 retries++;
                 continue;
             }
@@ -474,7 +472,7 @@ export class TenantsService {
             const existsInSubBilling = await this.walletService.checkCustomerExists(customerCode);
             if (existsInSubBilling) {
                 nextCode++;
-                customerCode = `U${String(nextCode).padStart(4, '0')}`;
+                customerCode = `U${nextCode}`;
                 retries++;
                 continue;
             }
@@ -574,23 +572,6 @@ export class TenantsService {
             // 6. Initialize Redis Lookup
             await this.lookupRedis.updateExtensionLookup('', tenant.id);
 
-            // 7. Send Welcome Email
-            try {
-                await this.mailService.sendOnboardingCompletionEmail(
-                    data.adminEmail,
-                    data.firstName,
-                    customerCode,
-                    data.phone,
-                    '', // extensionListHtml
-                    data.adminEmail,
-                    'N/A', // planName
-                    'N/A', // quoteNo
-                    data.adminPassword
-                );
-            } catch (error) {
-                console.error('Failed to send welcome email on manual tenant creation:', error);
-            }
-
             return {
                 tenant,
                 user: {
@@ -606,7 +587,7 @@ export class TenantsService {
     async deleteTenant(id: string) {
         // 0. Cleanup external telecom dependencies (FreeSWITCH / Kamailio)
         // We fetch the entities first before deleting them from Prisma
-        
+
         const tenant = await this.prisma.tenant.findUnique({ where: { id } });
         if (!tenant) throw new NotFoundException('Tenant not found');
 

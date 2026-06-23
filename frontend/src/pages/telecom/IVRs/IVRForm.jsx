@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Trash2, Plus, ArrowRight, CornerDownRight, Settings, PhoneForwarded, Loader2, Play, GitMerge, FileAudio, ArrowLeft } from 'lucide-react';
+import { Trash2, Plus, ArrowRight, CornerDownRight, Settings, PhoneForwarded, Loader2, Play, GitMerge, FileAudio, ArrowLeft, Eye, Edit3 } from 'lucide-react';
 import api from '../../../services/api';
+import VisualIVRFlow from '../../../components/telecom/VisualIVRFlow';
+
 function IVRForm() {
     const navigate = useNavigate();
     const { id } = useParams();
@@ -9,6 +11,7 @@ function IVRForm() {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [viewMode, setViewMode] = useState('builder'); // 'builder' | 'visual'
 
     // Form State
     const [formData, setFormData] = useState({
@@ -617,33 +620,66 @@ function IVRForm() {
 
                 {/* Menu Builder Panel */}
                 <div className="bg-white shadow-sm ring-1 ring-gray-100 sm:rounded-2xl overflow-hidden">
-                    <div className="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
+                    <div className="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="flex items-center space-x-2">
                             <GitMerge className="h-4 w-4 text-gray-400" />
                             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest">Routing Schema</h3>
                         </div>
-                        <button
-                            type="button"
-                            className="inline-flex items-center justify-center rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-gray-800 transition-colors focus:outline-none"
-                            onClick={handleAddRootOption}
-                        >
-                            <Plus className="w-3.5 h-3.5 mr-1" /> Add Root Option
-                        </button>
+
+                        <div className="flex items-center space-x-3">
+                            <div className="flex bg-gray-200/50 p-1 rounded-xl">
+                                <button
+                                    type="button"
+                                    onClick={() => setViewMode('builder')}
+                                    className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'builder' ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
+                                >
+                                    <Edit3 className="w-3.5 h-3.5 mr-1.5" />
+                                    Builder
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setViewMode('visual')}
+                                    className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'visual' ? 'bg-white text-primary-600 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
+                                >
+                                    <Eye className="w-3.5 h-3.5 mr-1.5" />
+                                    Visual Flow
+                                </button>
+                            </div>
+
+                            {viewMode === 'builder' && (
+                                <button
+                                    type="button"
+                                    className="inline-flex items-center justify-center rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-gray-800 transition-colors focus:outline-none"
+                                    onClick={handleAddRootOption}
+                                >
+                                    <Plus className="w-3.5 h-3.5 mr-1" /> Add Root Option
+                                </button>
+                            )}
+                        </div>
                     </div>
 
-                    <div className="p-6 bg-gray-50/30">
-                        {menuOptions.length === 0 ? (
-                            <div className="text-center py-12 px-4 rounded-xl border-2 border-dashed border-gray-200">
-                                <GitMerge className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                                <h3 className="text-sm font-bold text-gray-900 mb-1">No Menu Options</h3>
-                                <p className="text-sm text-gray-500 font-medium">Click "Add Root Option" above to start building your IVR tree.</p>
-                            </div>
+                    <div className={`p-6 bg-gray-50/30 ${viewMode === 'visual' ? 'h-[600px] p-2' : ''}`}>
+                        {viewMode === 'visual' ? (
+                            <VisualIVRFlow 
+                                ivrName={formData.name} 
+                                menu={transformFrontendToBackend(menuOptions)} 
+                            />
                         ) : (
-                            <div className="space-y-4">
-                                {menuOptions.map((opt) => (
-                                    renderMenuOptionRow(opt, 0)
-                                ))}
-                            </div>
+                            <>
+                                {menuOptions.length === 0 ? (
+                                    <div className="text-center py-12 px-4 rounded-xl border-2 border-dashed border-gray-200">
+                                        <GitMerge className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                                        <h3 className="text-sm font-bold text-gray-900 mb-1">No Menu Options</h3>
+                                        <p className="text-sm text-gray-500 font-medium">Click "Add Root Option" above to start building your IVR tree.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {menuOptions.map((opt) => (
+                                            renderMenuOptionRow(opt, 0)
+                                        ))}
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>
