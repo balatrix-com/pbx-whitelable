@@ -40,8 +40,7 @@ export class AudioUploadService {
             }
 
             // Upload file
-            const stream = Readable.from(file);
-            await sftp.put(stream, remotePath);
+            await sftp.put(file, remotePath);
 
             this.logger.log(`Uploaded audio file to: ${remotePath}`);
 
