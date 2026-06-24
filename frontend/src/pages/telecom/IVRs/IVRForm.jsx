@@ -69,6 +69,12 @@ function IVRForm() {
         const file = e.target.files[0];
         if (!file) return;
 
+        if (file.size > 10 * 1024 * 1024) {
+            alert('File size exceeds maximum limit of 10MB');
+            e.target.value = '';
+            return;
+        }
+
         // Require name
         const name = uploadName || file.name.split('.')[0];
 
