@@ -55,7 +55,7 @@ const ActionPalette = () => {
 const ActionNode = ({ data, selected }) => {
   return (
     <div className={`px-4 py-3 shadow-md rounded-2xl bg-white border-2 ${selected ? 'border-primary-500 ring-4 ring-primary-50' : data.borderColor} w-[260px] flex items-center gap-3 relative transition-all`}>
-      <Handle type="target" position={Position.Top} className="w-3 h-3 !bg-gray-400 border-2 border-white" />
+      <Handle type="target" position={Position.Top} className="w-5 h-5 !bg-gray-400 border-2 border-white hover:scale-125 hover:!bg-primary-400 transition-transform cursor-crosshair shadow-sm" />
       <div className={`p-2.5 rounded-xl ${data.iconBgColor} ${data.iconColor}`}>
         {data.icon}
       </div>
@@ -66,7 +66,7 @@ const ActionNode = ({ data, selected }) => {
         </div>
       </div>
       {data.actionType === 'submenu' && (
-        <Handle type="source" position={Position.Bottom} className="w-3 h-3 !bg-primary-500 border-2 border-white" />
+        <Handle type="source" position={Position.Bottom} className="w-5 h-5 !bg-primary-500 border-2 border-white hover:scale-125 hover:!bg-primary-400 transition-transform cursor-crosshair shadow-sm" />
       )}
     </div>
   );
@@ -82,7 +82,7 @@ const RootNode = ({ data, selected }) => {
         <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">IVR Entry</div>
         <div className="text-sm font-bold text-gray-900 mt-0.5 truncate">{data.label}</div>
       </div>
-      <Handle type="source" position={Position.Bottom} className="w-3 h-3 !bg-primary-500 border-2 border-white" />
+      <Handle type="source" position={Position.Bottom} className="w-5 h-5 !bg-primary-500 border-2 border-white hover:scale-125 hover:!bg-primary-400 transition-transform cursor-crosshair shadow-sm" />
     </div>
   );
 };
@@ -250,6 +250,13 @@ const InteractiveBuilderCore = ({ ivrName, resources, initialMenu, onChange }) =
       setPendingConnection(null);
   };
 
+  const onEdgeClick = useCallback((event, edge) => {
+      event.stopPropagation();
+      if (window.confirm(`Delete the routing rule: ${edge.label}?`)) {
+          setEdges((eds) => eds.filter((e) => e.id !== edge.id));
+      }
+  }, [setEdges]);
+
   const onDragOver = useCallback((event) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
@@ -379,6 +386,7 @@ const InteractiveBuilderCore = ({ ivrName, resources, initialMenu, onChange }) =
           onDrop={onDrop}
           onDragOver={onDragOver}
           onNodeClick={onNodeClick}
+          onEdgeClick={onEdgeClick}
           onPaneClick={onPaneClick}
           nodeTypes={nodeTypes}
           fitView
