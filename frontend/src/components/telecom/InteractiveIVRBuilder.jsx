@@ -98,7 +98,7 @@ const getActionDetails = (type) => {
         case 'ring_group': return { label: 'Ring Group', icon: <PhoneForwarded size={20} />, borderColor: 'border-indigo-400', iconBgColor: 'bg-indigo-50', iconColor: 'text-indigo-600' };
         case 'submenu': return { label: 'Submenu', icon: <CornerDownRight size={20} />, borderColor: 'border-purple-400', iconBgColor: 'bg-purple-50', iconColor: 'text-purple-600' };
         case 'ivr': return { label: 'Route to IVR', icon: <Link size={20} />, borderColor: 'border-emerald-400', iconBgColor: 'bg-emerald-50', iconColor: 'text-emerald-600' };
-        case 'external': return { label: 'External No.', icon: <PhoneCall size={20} />, borderColor: 'border-orange-400', iconBgColor: 'bg-orange-50', iconColor: 'text-orange-600' };
+        case 'external': return { label: 'DID Forward', icon: <PhoneCall size={20} />, borderColor: 'border-orange-400', iconBgColor: 'bg-orange-50', iconColor: 'text-orange-600' };
         case 'back': return { label: 'Action', icon: <CornerDownRight size={20} className="transform rotate-180" />, borderColor: 'border-gray-400', iconBgColor: 'bg-gray-100', iconColor: 'text-gray-600', subLabel: 'Go Back' };
         case 'repeat': return { label: 'Action', icon: <Repeat size={20} />, borderColor: 'border-gray-400', iconBgColor: 'bg-gray-100', iconColor: 'text-gray-600', subLabel: 'Repeat Menu' };
         case 'hangup': return { label: 'Action', icon: <PhoneOff size={20} />, borderColor: 'border-red-400', iconBgColor: 'bg-red-50', iconColor: 'text-red-600', subLabel: 'Hangup' };
@@ -553,14 +553,17 @@ const InteractiveBuilderCore = ({ ivrName, resources, initialMenu, onChange }) =
 
                     {selectedNode.data.actionType === 'external' && (
                         <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 block">External Number</label>
-                            <input
-                                type="text"
-                                placeholder="+1234567890"
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 block">Select DID Forward</label>
+                            <select
                                 className="w-full rounded-lg border-0 py-2 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-primary-600 sm:text-sm font-medium bg-white"
                                 value={selectedNode.data.target}
                                 onChange={(e) => updateNodeData(selectedNode.id, { target: e.target.value })}
-                            />
+                            >
+                                <option value="">Select DID Forward...</option>
+                                {resources.didForwards?.map(df => (
+                                    <option key={df.id} value={df.destinationNumber}>{df.name} ({df.destinationNumber})</option>
+                                ))}
+                            </select>
                         </div>
                     )}
 

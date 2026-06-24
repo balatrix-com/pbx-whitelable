@@ -33,7 +33,8 @@ function IVRForm() {
         extensions: [],
         ringGroups: [],
         ivrs: [],
-        audioFiles: []
+        audioFiles: [],
+        didForwards: []
     });
 
     // Upload state
@@ -57,7 +58,8 @@ function IVRForm() {
                 extensions: routingRes.data.extensions || [],
                 ringGroups: routingRes.data.ringGroups || [],
                 ivrs: routingRes.data.ivrs || [],
-                audioFiles: audioRes.data.files || []
+                audioFiles: audioRes.data.files || [],
+                didForwards: routingRes.data.didForwards || []
             });
         } catch (e) {
             console.error('Failed to fetch resources:', e);
