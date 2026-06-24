@@ -22,7 +22,10 @@ import {
     PhoneForwarded,
     ScrollText,
     Building2,
-    Server
+    Server,
+    ChevronLeft,
+    ChevronRight,
+    X
 } from 'lucide-react';
 import { Menu, Transition } from '@headlessui/react';
 import { Fragment, useState } from 'react';
@@ -32,6 +35,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     const { user, logout } = useAuth();
     const { branding } = useBranding();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(false);
     const location = useLocation();
     const role = user?.role;
     
@@ -136,24 +140,38 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
     return (
         <div className={clsx(
-            "fixed inset-y-0 left-0 z-50 w-72 flex-col border-r border-gray-200 bg-white transition-transform duration-300 ease-in-out lg:static lg:flex lg:translate-x-0 shadow-2xl lg:shadow-none",
+            "fixed inset-y-0 left-0 z-50 flex-col border-r border-gray-200 bg-white transition-all duration-300 ease-in-out lg:static lg:flex lg:translate-x-0 shadow-2xl lg:shadow-none",
+            isCollapsed ? "w-20" : "w-72",
             isOpen ? "translate-x-0" : "-translate-x-full"
         )}>
             {/* Brand Header */}
-            <div className="flex h-16 shrink-0 items-center justify-between px-6">
+            <div className={clsx("flex h-16 shrink-0 items-center relative", isCollapsed ? "justify-center px-0" : "justify-between px-6")}>
                 <Link to="/dashboard" className="flex items-center outline-none">
-                    <img
-                        src={currentBranding.logoSidebar || currentBranding.logoMain}
-                        alt={currentBranding.name}
-                        className="h-8 w-auto object-contain"
-                    />
+                    {!isCollapsed ? (
+                        <img
+                            src={currentBranding.logoSidebar || currentBranding.logoMain}
+                            alt={currentBranding.name}
+                            className="h-8 w-auto object-contain"
+                        />
+                    ) : (
+                        <div className="h-8 w-8 bg-primary-600 text-white rounded-lg flex items-center justify-center font-bold text-xl shadow-sm">
+                            {currentBranding.name?.charAt(0)}
+                        </div>
+                    )}
                 </Link>
                 {/* Mobile Close Button */}
                 <button
                     onClick={() => setIsOpen(false)}
                     className="p-2 -mr-2 text-gray-500 hover:text-gray-900 lg:hidden focus:outline-none"
                 >
-                    <LogOut className="h-5 w-5 rotate-180" /> {/* Using LogOut icon as a back arrow for simplicity or just an X */}
+                    <X className="h-5 w-5" /> 
+                </button>
+                {/* Desktop Collapse Toggle */}
+                <button
+                    onClick={() => setIsCollapsed(!isCollapsed)}
+                    className="hidden lg:flex absolute -right-3 top-5 h-6 w-6 bg-white border border-gray-200 rounded-full items-center justify-center text-gray-500 hover:text-primary-600 hover:border-primary-600 shadow-sm z-50 transition-colors cursor-pointer"
+                >
+                    {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                 </button>
             </div>
             
@@ -172,16 +190,19 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                                     isActive
                                         ? 'bg-primary-600 text-white shadow-md shadow-primary-600/20'
                                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-                                    'group flex items-center rounded-xl px-3 py-2.5 text-[14px] font-bold transition-all duration-200 ease-in-out'
+                                    'group flex items-center rounded-xl px-3 py-2.5 text-[14px] font-bold transition-all duration-200 ease-in-out',
+                                    isCollapsed && 'justify-center px-0'
                                 )}
+                                title={isCollapsed ? item.name : undefined}
                             >
                                 <Icon
                                     className={clsx(
                                         isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-600',
-                                        'mr-3 h-5 w-5 flex-shrink-0 transition-colors duration-200'
+                                        isCollapsed ? 'mx-0' : 'mr-3',
+                                        'h-5 w-5 flex-shrink-0 transition-colors duration-200'
                                     )}
                                 />
-                                {item.name}
+                                {!isCollapsed && <span>{item.name}</span>}
                             </Link>
                         );
                     })}
@@ -189,14 +210,16 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             </div>
             <div className="border-t border-gray-100 p-4 shrink-0 bg-white">
                 <Menu as="div" className="relative">
-                    <Menu.Button className="group flex w-full items-center rounded-xl p-2.5 text-left focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 hover:bg-gray-50 transition-all duration-200 border border-transparent hover:border-gray-200 hover:shadow-sm">
+                    <Menu.Button className={clsx("group flex w-full items-center rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 hover:bg-gray-50 transition-all duration-200 border border-transparent hover:border-gray-200 hover:shadow-sm", isCollapsed ? "justify-center text-center px-0" : "text-left")}>
                         <div className="h-9 w-9 shrink-0 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-extrabold shadow-sm ring-1 ring-primary-200 group-hover:bg-primary-600 group-hover:text-white transition-colors duration-200">
                             {user?.name?.charAt(0)?.toUpperCase()}
                         </div>
-                        <div className="ml-3 flex-1 min-w-0">
-                            <p className="text-sm font-extrabold text-gray-900 truncate">{user?.name}</p>
-                            <p className="text-xs font-medium text-gray-500 truncate">{user?.tenant?.name || 'No Company'}</p>
-                        </div>
+                        {!isCollapsed && (
+                            <div className="ml-3 flex-1 min-w-0">
+                                <p className="text-sm font-extrabold text-gray-900 truncate">{user?.name}</p>
+                                <p className="text-xs font-medium text-gray-500 truncate">{user?.tenant?.name || 'No Company'}</p>
+                            </div>
+                        )}
                     </Menu.Button>
                     <Transition
                         as={Fragment}

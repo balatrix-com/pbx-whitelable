@@ -34,7 +34,7 @@ const ActionPalette = () => {
   ];
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 p-4 flex flex-col gap-3 overflow-y-auto">
+    <div className="w-64 bg-white border-r-2 border-gray-300 shadow-[2px_0_10px_-3px_rgba(0,0,0,0.1)] p-4 flex flex-col gap-3 overflow-y-auto relative z-10">
       <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Actions</div>
       <p className="text-xs text-gray-400 mb-2">Drag blocks onto the canvas.</p>
       {actions.map((act) => (
