@@ -55,7 +55,7 @@ const ActionPalette = () => {
 const ActionNode = ({ data, selected }) => {
   return (
     <div className={`px-4 py-3 shadow-md rounded-2xl bg-white border-2 ${selected ? 'border-primary-500 ring-4 ring-primary-50' : data.borderColor} w-[260px] flex items-center gap-3 relative transition-all`}>
-      <Handle type="target" position={Position.Top} className="w-5 h-5 !bg-gray-400 border-2 border-white hover:scale-125 hover:!bg-primary-400 transition-transform cursor-crosshair shadow-sm" />
+      <Handle type="target" position={Position.Top} className="!w-6 !h-6 !min-w-[24px] !min-h-[24px] !bg-gray-400 border-2 border-white hover:scale-125 hover:!bg-primary-400 transition-transform cursor-crosshair shadow-sm" />
       <div className={`p-2.5 rounded-xl ${data.iconBgColor} ${data.iconColor}`}>
         {data.icon}
       </div>
@@ -66,7 +66,7 @@ const ActionNode = ({ data, selected }) => {
         </div>
       </div>
       {data.actionType === 'submenu' && (
-        <Handle type="source" position={Position.Bottom} className="w-5 h-5 !bg-primary-500 border-2 border-white hover:scale-125 hover:!bg-primary-400 transition-transform cursor-crosshair shadow-sm" />
+        <Handle type="source" position={Position.Bottom} className="!w-6 !h-6 !min-w-[24px] !min-h-[24px] !bg-primary-500 border-2 border-white hover:scale-125 hover:!bg-primary-400 transition-transform cursor-crosshair shadow-sm" />
       )}
     </div>
   );
@@ -82,7 +82,7 @@ const RootNode = ({ data, selected }) => {
         <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">IVR Entry</div>
         <div className="text-sm font-bold text-gray-900 mt-0.5 truncate">{data.label}</div>
       </div>
-      <Handle type="source" position={Position.Bottom} className="w-5 h-5 !bg-primary-500 border-2 border-white hover:scale-125 hover:!bg-primary-400 transition-transform cursor-crosshair shadow-sm" />
+      <Handle type="source" position={Position.Bottom} className="!w-6 !h-6 !min-w-[24px] !min-h-[24px] !bg-primary-500 border-2 border-white hover:scale-125 hover:!bg-primary-400 transition-transform cursor-crosshair shadow-sm" />
     </div>
   );
 };
@@ -116,6 +116,7 @@ const InteractiveBuilderCore = ({ ivrName, resources, initialMenu, onChange }) =
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
   const [pendingConnection, setPendingConnection] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   // Initialize
   useEffect(() => {
@@ -252,10 +253,8 @@ const InteractiveBuilderCore = ({ ivrName, resources, initialMenu, onChange }) =
 
   const onEdgeClick = useCallback((event, edge) => {
       event.stopPropagation();
-      if (window.confirm(`Delete the routing rule: ${edge.label}?`)) {
-          setEdges((eds) => eds.filter((e) => e.id !== edge.id));
-      }
-  }, [setEdges]);
+      setPendingDelete(edge);
+  }, []);
 
   const onDragOver = useCallback((event) => {
     event.preventDefault();
@@ -438,6 +437,45 @@ const InteractiveBuilderCore = ({ ivrName, resources, initialMenu, onChange }) =
                                 className="px-4 py-2 text-sm font-bold text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                             >
                                 Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {pendingDelete && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/80 flex items-center gap-3">
+                        <div className="p-2 bg-red-100 text-red-600 rounded-xl">
+                            <Trash2 size={20} />
+                        </div>
+                        <div>
+                            <h3 className="text-base font-extrabold text-gray-900">Delete Route</h3>
+                            <p className="text-xs font-medium text-gray-500">Are you sure you want to remove this connection?</p>
+                        </div>
+                    </div>
+                    <div className="p-5">
+                        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center justify-center mb-6 shadow-inner">
+                            <span className="font-bold text-gray-700 text-lg">{pendingDelete.label}</span>
+                        </div>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setPendingDelete(null)}
+                                className="px-4 py-2 text-sm font-bold text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setEdges((eds) => eds.filter((e) => e.id !== pendingDelete.id));
+                                    setPendingDelete(null);
+                                }}
+                                className="px-4 py-2 text-sm font-bold text-white bg-red-500 hover:bg-red-600 rounded-xl transition-colors shadow-sm"
+                            >
+                                Delete Route
                             </button>
                         </div>
                     </div>
