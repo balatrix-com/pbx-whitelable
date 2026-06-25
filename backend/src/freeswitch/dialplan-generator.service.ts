@@ -21,6 +21,10 @@ export class DialplanGeneratorService {
   private readonly outboundGateway: string;
   private readonly fsRecordingPath: string;
 
+  /**
+   * @param configService Optional ConfigService
+   * @deprecated Reading OUTBOUND_GATEWAY directly from env is deprecated. Pass dynamic DB-resolved gateway into generation methods instead.
+   */
   constructor(private readonly configService?: ConfigService) {
     this.sipServer = this.configService?.get<string>('SIP_SERVER') || process.env.SIP_SERVER || 'localhost';
     this.outboundGateway = this.configService?.get<string>('OUTBOUND_GATEWAY') || process.env.OUTBOUND_GATEWAY || 'localhost:5060';

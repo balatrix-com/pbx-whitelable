@@ -603,8 +603,8 @@ export class FreeSwitchSyncService {
         if (!forward) return;
 
         const key = `fwd${forward.sequenceId}_${forward.tenant.customerCode}`;
-        // Use static gateway from generator default or config
-        const xml = this.dialplanGenerator.generateDIDForwardXML(key, forward.destinationNumber);
+        const gateway = await this.resolveOutboundGatewayForTenant(forward.tenantId);
+        const xml = this.dialplanGenerator.generateDIDForwardXML(key, forward.destinationNumber, gateway);
 
         await this.freeswitchDB.upsertDialplan(key, xml);
         this.logger.log(`Synced DID Forward ${key}`);
@@ -818,13 +818,17 @@ export class FreeSwitchSyncService {
      */
     async syncTenantForwards(tenantId: string): Promise<void> {
         this.logger.log(`Syncing forwarding routes for tenant: ${tenantId}`);
-        const [dids, tfns] = await Promise.all([
+        const [dids, tfns, forwards] = await Promise.all([
             this.prisma.dID.findMany({
                 where: { tenantId, routeType: 'forward' },
                 select: { id: true }
             }),
             this.prisma.tFN.findMany({
                 where: { tenantId, routeType: 'forward' },
+                select: { id: true }
+            }),
+            this.prisma.dIDForward.findMany({
+                where: { tenantId },
                 select: { id: true }
             })
         ]);
@@ -834,6 +838,9 @@ export class FreeSwitchSyncService {
         }
         for (const tfn of tfns) {
             await this.syncTFN(tfn.id);
+        }
+        for (const fwd of forwards) {
+            await this.syncDIDForward(fwd.id);
         }
     }
 
@@ -848,7 +855,7 @@ export class FreeSwitchSyncService {
         });
         const tenantIds = tenantsWithoutGateway.map(t => t.id);
 
-        const [dids, tfns] = await Promise.all([
+        const [dids, tfns, forwards] = await Promise.all([
             this.prisma.dID.findMany({
                 where: {
                     tenantId: { in: tenantIds },
@@ -862,16 +869,23 @@ export class FreeSwitchSyncService {
                     routeType: 'forward'
                 },
                 select: { id: true }
+            }),
+            this.prisma.dIDForward.findMany({
+                where: { tenantId: { in: tenantIds } },
+                select: { id: true }
             })
         ]);
 
-        this.logger.log(`Found ${dids.length} DIDs and ${tfns.length} TFNs relying on system default. Syncing...`);
+        this.logger.log(`Found ${dids.length} DIDs, ${tfns.length} TFNs, and ${forwards.length} Forwards relying on system default. Syncing...`);
 
         for (const did of dids) {
             await this.syncDID(did.id);
         }
         for (const tfn of tfns) {
             await this.syncTFN(tfn.id);
+        }
+        for (const fwd of forwards) {
+            await this.syncDIDForward(fwd.id);
         }
         this.logger.log('Bulk resync of system-default forwarding XMLs completed.');
     }
