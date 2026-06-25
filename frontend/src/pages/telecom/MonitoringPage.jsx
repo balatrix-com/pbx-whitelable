@@ -38,14 +38,8 @@ const MonitoringPage = () => {
         }
 
         const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/api\/?$/, '');
-        // Ensure accurate namespace appending (handle validation of trailing slash if needed, but io usually handles it)
-        // Correct usage: io('http://localhost:3000/monitor', options)
         const socketUrl = `${baseUrl.replace(/\/$/, '')}/monitor`;
-        
-        // In production, we need to go through the /api path for proxy routing
-        const socketPath = import.meta.env.MODE === 'production' || !baseUrl.includes('localhost')
-            ? '/api/socket.io'
-            : '/socket.io';
+        const socketPath = '/api/socket.io';
 
         const newSocket = io(socketUrl, {
             path: socketPath,

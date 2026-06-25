@@ -17,6 +17,7 @@ import { JwtService } from '@nestjs/jwt';
 const ANALYTICS_INTERVAL_MS = 30_000; // 30 seconds
 
 @WebSocketGateway({
+    path: '/api/socket.io',
     cors: {
         origin: '*',
     },
