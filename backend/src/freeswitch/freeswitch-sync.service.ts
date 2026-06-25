@@ -801,15 +801,33 @@ export class FreeSwitchSyncService {
 
     /**
      * Resolves the system default outbound gateway from database.
-     * Falls back to process.env.OUTBOUND_GATEWAY or 'localhost:5060'.
+     * Priority: isSystemDefault endpoint → any active endpoint → env fallback.
      */
     async getDefaultSystemGateway(): Promise<string> {
+        // 1. Look for the endpoint explicitly marked as system default
         const defaultEndpoint = await this.prisma.outboundEndpoint.findFirst({
-            where: { isSystemDefault: true }
+            where: { isSystemDefault: true, isActive: true }
         });
         if (defaultEndpoint) {
             return `${defaultEndpoint.sipHost}:${defaultEndpoint.sipPort}`;
         }
+
+        // 2. Fallback: pick the first active endpoint if none is marked as default
+        const anyEndpoint = await this.prisma.outboundEndpoint.findFirst({
+            where: { isActive: true },
+            orderBy: { id: 'asc' },
+        });
+        if (anyEndpoint) {
+            this.logger.warn(
+                `No system-default outbound endpoint found. Using first active endpoint (id=${anyEndpoint.id}, ${anyEndpoint.sipHost}:${anyEndpoint.sipPort}) as fallback.`
+            );
+            return `${anyEndpoint.sipHost}:${anyEndpoint.sipPort}`;
+        }
+
+        // 3. Last resort: env variable (should not happen in production)
+        this.logger.error(
+            'No outbound endpoints found in the database! Forwarding XMLs will use env fallback. Please add an outbound endpoint and mark it as system default.'
+        );
         return process.env.OUTBOUND_GATEWAY || 'localhost:5060';
     }
 

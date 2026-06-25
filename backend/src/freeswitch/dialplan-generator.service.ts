@@ -18,16 +18,10 @@ const AUDIO_NOINPUT = '/opt/ivr_audio/system/ivr_no_input.wav';
 export class DialplanGeneratorService {
   private readonly logger = new Logger(DialplanGeneratorService.name);
   private readonly sipServer: string;
-  private readonly outboundGateway: string;
   private readonly fsRecordingPath: string;
 
-  /**
-   * @param configService Optional ConfigService
-   * @deprecated Reading OUTBOUND_GATEWAY directly from env is deprecated. Pass dynamic DB-resolved gateway into generation methods instead.
-   */
   constructor(private readonly configService?: ConfigService) {
     this.sipServer = this.configService?.get<string>('SIP_SERVER') || process.env.SIP_SERVER || 'localhost';
-    this.outboundGateway = this.configService?.get<string>('OUTBOUND_GATEWAY') || process.env.OUTBOUND_GATEWAY || 'localhost:5060';
     this.fsRecordingPath = this.configService?.get<string>('FS_RECORDING_PATH') || process.env.FS_RECORDING_PATH || '/mnt/freeswitch-recordings/recordings';
   }
 
@@ -270,13 +264,10 @@ ${actions}
   /**
    * Generate XML for DID Forward (External Number)
    * Ref: XML_FORMATS_REFERENCE.txt Section 4
+   * @param gateway Required - resolved from DB by the caller (FreeSwitchSyncService)
    */
-  /**
-   * Generate XML for DID Forward (External Number)
-   * Ref: XML_FORMATS_REFERENCE.txt Section 4
-   */
-  generateDIDForwardXML(dialplanKey: string, destination: string, gateway?: string): string {
-    const gw = gateway || this.outboundGateway;
+  generateDIDForwardXML(dialplanKey: string, destination: string, gateway: string): string {
+    const gw = gateway;
     return `<?xml version="1.0" encoding="UTF-8"?>
 <document type="freeswitch/xml">
   <section name="dialplan">
