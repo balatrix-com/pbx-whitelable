@@ -785,18 +785,26 @@ export class FreeSwitchSyncService {
      * Uses tenant's assigned gateway, or falls back to system default database gateway.
      */
     async resolveOutboundGatewayForTenant(tenantId: string | null): Promise<string> {
+        this.logger.log(`resolveOutboundGatewayForTenant called for tenantId: "${tenantId}"`);
         if (!tenantId) {
-            return await this.getDefaultSystemGateway();
+            const gw = await this.getDefaultSystemGateway();
+            this.logger.log(`resolveOutboundGatewayForTenant: No tenantId provided. Using system default: "${gw}"`);
+            return gw;
         }
         const tenant = await this.prisma.tenant.findUnique({
             where: { id: tenantId },
             include: { outboundEndpoint: true }
         });
+        this.logger.log(`resolveOutboundGatewayForTenant: Tenant lookup result: customerCode="${tenant?.customerCode}", outboundEndpointId=${tenant?.outboundEndpointId}`);
         if (tenant?.outboundEndpoint) {
             const { sipHost, sipPort } = tenant.outboundEndpoint;
-            return `${sipHost}:${sipPort}`;
+            const gw = `${sipHost}:${sipPort}`;
+            this.logger.log(`resolveOutboundGatewayForTenant: Tenant has assigned outbound endpoint: "${gw}"`);
+            return gw;
         }
-        return await this.getDefaultSystemGateway();
+        const gw = await this.getDefaultSystemGateway();
+        this.logger.log(`resolveOutboundGatewayForTenant: Tenant has no assigned outbound endpoint. Using system default: "${gw}"`);
+        return gw;
     }
 
     /**
@@ -809,7 +817,9 @@ export class FreeSwitchSyncService {
             where: { isSystemDefault: true, isActive: true }
         });
         if (defaultEndpoint) {
-            return `${defaultEndpoint.sipHost}:${defaultEndpoint.sipPort}`;
+            const gw = `${defaultEndpoint.sipHost}:${defaultEndpoint.sipPort}`;
+            this.logger.log(`getDefaultSystemGateway: Found active system default endpoint (id=${defaultEndpoint.id}, name="${defaultEndpoint.name}"): "${gw}"`);
+            return gw;
         }
 
         // 2. Fallback: pick the first active endpoint if none is marked as default
@@ -818,17 +828,19 @@ export class FreeSwitchSyncService {
             orderBy: { id: 'asc' },
         });
         if (anyEndpoint) {
+            const gw = `${anyEndpoint.sipHost}:${anyEndpoint.sipPort}`;
             this.logger.warn(
-                `No system-default outbound endpoint found. Using first active endpoint (id=${anyEndpoint.id}, ${anyEndpoint.sipHost}:${anyEndpoint.sipPort}) as fallback.`
+                `getDefaultSystemGateway: No active system-default outbound endpoint found. Using first active endpoint (id=${anyEndpoint.id}, name="${anyEndpoint.name}"): "${gw}"`
             );
-            return `${anyEndpoint.sipHost}:${anyEndpoint.sipPort}`;
+            return gw;
         }
 
         // 3. Last resort: env variable (should not happen in production)
+        const envGateway = process.env.OUTBOUND_GATEWAY || 'localhost:5060';
         this.logger.error(
-            'No outbound endpoints found in the database! Forwarding XMLs will use env fallback. Please add an outbound endpoint and mark it as system default.'
+            `getDefaultSystemGateway: No active outbound endpoints found in the database! Falling back to OUTBOUND_GATEWAY env variable (value: "${process.env.OUTBOUND_GATEWAY}"). Resolved to: "${envGateway}"`
         );
-        return process.env.OUTBOUND_GATEWAY || 'localhost:5060';
+        return envGateway;
     }
 
     /**
