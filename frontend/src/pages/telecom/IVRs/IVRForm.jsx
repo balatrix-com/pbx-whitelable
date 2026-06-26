@@ -347,6 +347,7 @@ function IVRForm() {
                             <option value="ring_group">Connect to Ring Group</option>
                             {depth === 0 && <option value="submenu">Submenu (Level 2)</option>}
                             <option value="ivr">Go to another IVR</option>
+                            <option value="did_forward">Connect to DID Forward</option>
                             <option value="external">Dial External Number</option>
                             <option value="back">Back to Previous Menu</option>
                             <option value="repeat">Repeat Greeting</option>
@@ -476,6 +477,22 @@ function IVRForm() {
                             </option>
                         ))
                     }
+                </select>
+            );
+        } else if (opt.type === 'did_forward' || opt.type === 'forward') {
+            return (
+                <select
+                    className={selectClass}
+                    value={opt.target}
+                    onChange={(e) => handleUpdate(opt.id, 'target', e.target.value)}
+                    required
+                >
+                    <option value="">Select DID Forward...</option>
+                    {resources.didForwards.map(df => (
+                        <option key={df.id} value={df.id}>
+                            {df.name} ({df.destinationNumber})
+                        </option>
+                    ))}
                 </select>
             );
         } else {
