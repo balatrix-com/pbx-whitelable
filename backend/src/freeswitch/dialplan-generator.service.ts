@@ -519,6 +519,10 @@ ${actions}
       // Target is "sched1_1001"
       // Condition is "^sched1_1001$"
       dest = action.target;
+    } else if (action.type === 'did_forward' || action.type === 'forward') {
+      // Target is "fwd1_1001"
+      // Condition is "^fwd1_1001$"
+      dest = action.target;
     } else if (action.type === 'external') {
       // External number (handled via bridge usually, but here we might need a gateway or just bridge string?)
       // If type is external, we usually bridge to sofia/external/...

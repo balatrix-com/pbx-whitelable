@@ -675,7 +675,7 @@ export class FreeSwitchSyncService {
             });
             return sched ? `sched${sched.sequenceId}_${sched.tenant.customerCode}` : '';
         }
-        if (type === 'did_forward') {
+        if (type === 'did_forward' || type === 'forward') {
             const forward = await client.dIDForward.findUnique({
                 where: { id: targetId },
                 include: { tenant: true }
@@ -752,7 +752,7 @@ export class FreeSwitchSyncService {
             const item = resolved[key];
             if (item.type === 'submenu' && item.children) {
                 item.children = await this.resolveMenuTargets(item.children, tenantId);
-            } else if (['extension', 'ring_group', 'ivr', 'schedule'].includes(item.type)) {
+            } else if (['extension', 'ring_group', 'ivr', 'schedule', 'did_forward', 'forward'].includes(item.type)) {
                 if (item.target) {
                     let dialplanKey = '';
 
