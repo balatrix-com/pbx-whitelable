@@ -278,7 +278,7 @@ ${actions}
           <action application="set" data="call_timeout=30"/>
           <action application="set" data="ignore_early_media=true"/>
           <!-- Forward to external number, preserving original caller ID -->
-          <action application="bridge" data="{ignore_early_media=true}sofia/internal/${destination}@${gw}"/>
+          <action application="bridge" data="{ignore_early_media=true}sofia/external/${destination}@${gw}"/>
           <!-- Fallback if forward fails -->
           <action application="answer"/>
           <action application="sleep" data="200"/>

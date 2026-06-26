@@ -15,7 +15,7 @@ const expectedGateway = process.env.OUTBOUND_GATEWAY || 'localhost:5060';
 const fwdXml = service.generateDIDForwardXML(fwdKey, fwdDest, expectedGateway);
 
 console.log('\n[Forwarding Check]');
-if (fwdXml.includes(`bridge" data="{ignore_early_media=true}sofia/internal/${fwdDest}@${expectedGateway}"`)) {
+if (fwdXml.includes(`bridge" data="{ignore_early_media=true}sofia/external/${fwdDest}@${expectedGateway}"`)) {
     console.log('✅ Forwarding Bridge string matches.');
 } else {
     console.log('❌ Forwarding Bridge string MISMATCH.');
