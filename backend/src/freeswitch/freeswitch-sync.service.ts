@@ -47,10 +47,15 @@ export class FreeSwitchSyncService {
 
         if (ext.forwardAllEnabled && ext.forwardAllDestination) {
             // CFU (Call Forward Unconditional)
-            const dest = ext.forwardAllType === 'extension' ? `ext_${ext.forwardAllDestination}_direct` : ext.forwardAllDestination;
-            xml = this.dialplanGenerator.generateExtensionCFUXML(key, ext.forwardAllDestination, undefined, enableRecording, customerCode);
+            // Resolve gateway for external forwarding (same logic as DID forwarding)
+            const isExternalCFU = ext.forwardAllType !== 'extension';
+            const cfuGateway = isExternalCFU ? await this.resolveOutboundGatewayForTenant(ext.tenantId) : undefined;
+            xml = this.dialplanGenerator.generateExtensionCFUXML(key, ext.forwardAllDestination, undefined, enableRecording, customerCode, cfuGateway);
         } else if (ext.forwardNoAnswerEnabled && ext.forwardNoAnswerDestination) {
             // CFNA (Call Forward No Answer)
+            // Resolve gateway for external forwarding (same logic as DID forwarding)
+            const isExternalCFNA = ext.forwardNoAnswerType !== 'extension';
+            const cfnaGateway = isExternalCFNA ? await this.resolveOutboundGatewayForTenant(ext.tenantId) : undefined;
             xml = this.dialplanGenerator.generateExtensionForwardingXML(
                 key,
                 ext.extensionNumber,
@@ -58,7 +63,8 @@ export class FreeSwitchSyncService {
                 ext.forwardNoAnswerTimeout,
                 undefined,
                 enableRecording,
-                customerCode
+                customerCode,
+                cfnaGateway
             );
         } else {
             xml = this.dialplanGenerator.generateSimpleExtensionXML(key, ext.extensionNumber, undefined, enableRecording, customerCode);

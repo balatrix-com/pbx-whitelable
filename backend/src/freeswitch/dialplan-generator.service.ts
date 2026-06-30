@@ -76,6 +76,7 @@ export class DialplanGeneratorService {
   /**
    * Generate XML for Extension with Forwarding (CFNA)
    * Ref: XML_FORMATS_REFERENCE.txt Section 2
+   * @param gateway Optional - when provided, forward leg uses sofia/external via this gateway (external forwarding)
    */
   generateExtensionForwardingXML(
     dialplanKey: string,
@@ -84,13 +85,20 @@ export class DialplanGeneratorService {
     timeout: number = 20,
     sipServer?: string,
     enableRecording: boolean = false,
-    customerCode: string = ''
+    customerCode: string = '',
+    gateway?: string
   ): string {
     const server = sipServer || this.sipServer;
     const recordingVariables = enableRecording && customerCode ? this.getRecordingVariablesBlock() : '';
     const executeOnAnswerString = enableRecording && customerCode
       ? `,execute_on_answer='record_session ${this.fsRecordingPath}/${customerCode}/\${uuid}.mp3'`
       : '';
+
+    // When gateway is provided, forward to external number via outbound gateway
+    // Otherwise, forward to internal extension
+    const forwardBridge = gateway
+      ? `sofia/external/${forwardDestination}@${gateway}`
+      : forwardDestination;
 
     return `<?xml version="1.0" encoding="UTF-8"?>
 <document type="freeswitch/xml">
@@ -107,7 +115,7 @@ export class DialplanGeneratorService {
           <action application="answer"/>
           <action application="sleep" data="200"/>
           <action application="playback" data="${AUDIO_NOINPUT}"/>
-          <action application="bridge" data="{ignore_early_media=true${executeOnAnswerString}}${forwardDestination}"/>
+          <action application="bridge" data="{ignore_early_media=true${executeOnAnswerString}}${forwardBridge}"/>
           <!-- Fallback -->
           <action application="answer"/>
           <action application="sleep" data="200"/>
@@ -123,18 +131,26 @@ export class DialplanGeneratorService {
   /**
    * Generate XML for Extension Unconditional Forwarding (CFU)
    * Ref: XML_FORMATS_REFERENCE.txt Section 3
+   * @param gateway Optional - when provided, forward leg uses sofia/external via this gateway (external forwarding)
    */
   generateExtensionCFUXML(
     dialplanKey: string,
     forwardDestination: string,
     sipServer?: string,
     enableRecording: boolean = false,
-    customerCode: string = ''
+    customerCode: string = '',
+    gateway?: string
   ): string {
     const recordingVariables = enableRecording && customerCode ? this.getRecordingVariablesBlock() : '';
     const executeOnAnswer = enableRecording && customerCode
       ? `,execute_on_answer='record_session ${this.fsRecordingPath}/${customerCode}/\${uuid}.mp3'`
       : '';
+
+    // When gateway is provided, forward to external number via outbound gateway
+    // Otherwise, forward to internal extension
+    const forwardBridge = gateway
+      ? `sofia/external/${forwardDestination}@${gateway}`
+      : forwardDestination;
 
     return `<?xml version="1.0" encoding="UTF-8"?>
 <document type="freeswitch/xml">
@@ -145,7 +161,7 @@ export class DialplanGeneratorService {
           <action application="set" data="continue_on_fail=true"/>
           <action application="set" data="call_timeout=30"/>
           <action application="set" data="ignore_early_media=true"/>${recordingVariables}
-          <action application="bridge" data="{ignore_early_media=true${executeOnAnswer}}${forwardDestination}"/>
+          <action application="bridge" data="{ignore_early_media=true${executeOnAnswer}}${forwardBridge}"/>
           <action application="answer"/>
           <action application="sleep" data="200"/>
           <action application="playback" data="${AUDIO_UNAVAILABLE}"/>
