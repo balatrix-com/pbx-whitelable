@@ -172,7 +172,7 @@ export class ExtensionsService {
         }
 
         // Sync with Redis Lookup DB
-        await this.lookupRedis.updateExtensionLookup(extension.extensionNumber, tenantId);
+        await this.lookupRedis.updateExtensionLookup(tenantId);
 
         // Return extension with plaintext password (only shown once!)
         return {
@@ -229,7 +229,7 @@ export class ExtensionsService {
         this.logger.log(`Updated extension ${extension.extensionNumber}`);
 
         // Sync with Redis Lookup DB
-        await this.lookupRedis.updateExtensionLookup(updated.extensionNumber, tenantId);
+        await this.lookupRedis.updateExtensionLookup(tenantId);
 
         // Sync to FreeSWITCH — non-fatal if unreachable
         try {

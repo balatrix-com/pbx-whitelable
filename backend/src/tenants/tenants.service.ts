@@ -616,6 +616,9 @@ export class TenantsService {
             await this.freeSwitchSync.bulkDeleteTenantData(tenant.customerCode);
         }
 
+        // 0.2 Cleanup Redis lookups
+        await this.lookupRedis.deleteTenantLookups(id);
+
         // Proceed to delete local database records via single transaction
         return this.prisma.$transaction(async (prisma) => {
             // 1. Release Telephony Assets (TFNs)

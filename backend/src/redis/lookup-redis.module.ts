@@ -48,10 +48,17 @@ export class LookupRedisService {
         const normalized = this.normalizeNumber(number);
         if (!normalized) return;
 
-        const key = `lookup:v1:number:${normalized}`;
         try {
-            await this.redisClient.set(key, tenantId);
-            this.logger.log(`Updated number lookup: ${key} -> ${tenantId}`);
+            const tenant = await this.prisma.tenant.findUnique({
+                where: { id: tenantId },
+                select: { customerCode: true }
+            });
+            const code = tenant?.customerCode;
+            if (!code) return;
+
+            const key = `lookup:v1:number:${normalized}`;
+            await this.redisClient.set(key, code);
+            this.logger.log(`Updated number lookup: ${key} -> ${code}`);
         } catch (err) {
             this.logger.error(`Failed to update number lookup for ${number}: ${err.message}`);
         }
@@ -72,7 +79,7 @@ export class LookupRedisService {
 
     /**
      * Update/Create prefix mapping for a tenant's extensions.
-     * key: lookup:v1:ext:<customerCode> -> value: <tenantId>
+     * key: lookup:v1:ext:<customerCode> -> value: <customerCode>
      */
     async updateExtensionLookup(tenantId: string, customerCode?: string) {
         try {
@@ -87,8 +94,8 @@ export class LookupRedisService {
 
             if (code) {
                 const key = `lookup:v1:ext:${code}`;
-                await this.redisClient.set(key, tenantId);
-                this.logger.log(`Updated extension prefix lookup: ${key} -> ${tenantId}`);
+                await this.redisClient.set(key, code);
+                this.logger.log(`Updated extension prefix lookup: ${key} -> ${code}`);
             }
         } catch (err) {
             this.logger.error(`Failed to update extension prefix for tenant ${tenantId}: ${err.message}`);
@@ -112,6 +119,38 @@ export class LookupRedisService {
         }
     }
 
+    async deleteTenantLookups(tenantId: string) {
+        try {
+            const tenant = await this.prisma.tenant.findUnique({
+                where: { id: tenantId },
+                include: { dids: true, tfns: true }
+            });
+
+            if (!tenant) return;
+
+            const pipeline = this.redisClient.multi();
+
+            for (const did of tenant.dids) {
+                const normalized = this.normalizeNumber(did.number);
+                if (normalized) pipeline.del(`lookup:v1:number:${normalized}`);
+            }
+
+            for (const tfn of tenant.tfns) {
+                const normalized = this.normalizeNumber(tfn.number);
+                if (normalized) pipeline.del(`lookup:v1:number:${normalized}`);
+            }
+
+            if (tenant.customerCode) {
+                pipeline.del(`lookup:v1:ext:${tenant.customerCode}`);
+            }
+
+            await pipeline.exec();
+            this.logger.log(`Deleted all lookups for tenant ${tenantId} (${tenant.customerCode})`);
+        } catch (err) {
+            this.logger.error(`Failed to delete lookups for tenant ${tenantId}: ${err.message}`);
+        }
+    }
+
     /**
      * Bulk synchronization of all Numbers and Extension Prefixes from Postgres to Redis DB 2
      */
@@ -119,8 +158,8 @@ export class LookupRedisService {
         this.logger.log('Starting bulk sync for Redis Lookup DB...');
 
         const [dids, tfns, tenantsWithExtensions] = await Promise.all([
-            this.prisma.dID.findMany({ select: { number: true, tenantId: true } }),
-            this.prisma.tFN.findMany({ select: { number: true, tenantId: true }, where: { tenantId: { not: null } } }),
+            this.prisma.dID.findMany({ select: { number: true, tenant: { select: { customerCode: true } } } }),
+            this.prisma.tFN.findMany({ select: { number: true, tenant: { select: { customerCode: true } } }, where: { tenantId: { not: null } } }),
             this.prisma.tenant.findMany({
                 where: { 
                     extensions: { some: {} },
@@ -132,28 +171,28 @@ export class LookupRedisService {
 
         const pipeline = this.redisClient.multi();
 
-        // 1. Sync DIDs (Number -> TenantID)
+        // 1. Sync DIDs (Number -> CustomerCode)
         for (const did of dids) {
             const normalized = this.normalizeNumber(did.number);
-            if (normalized) {
-                pipeline.set(`lookup:v1:number:${normalized}`, did.tenantId);
+            const code = did.tenant?.customerCode;
+            if (normalized && code) {
+                pipeline.set(`lookup:v1:number:${normalized}`, code);
             }
         }
 
-        // 2. Sync TFNs (Number -> TenantID)
+        // 2. Sync TFNs (Number -> CustomerCode)
         for (const tfn of tfns) {
-            if (tfn.tenantId) {
-                const normalized = this.normalizeNumber(tfn.number);
-                if (normalized) {
-                    pipeline.set(`lookup:v1:number:${normalized}`, tfn.tenantId);
-                }
+            const normalized = this.normalizeNumber(tfn.number);
+            const code = tfn.tenant?.customerCode;
+            if (normalized && code) {
+                pipeline.set(`lookup:v1:number:${normalized}`, code);
             }
         }
 
-        // 3. Sync Extension Prefixes (CustomerCode -> TenantID)
+        // 3. Sync Extension Prefixes (CustomerCode -> CustomerCode)
         for (const tenant of tenantsWithExtensions) {
             if (tenant.customerCode) {
-                pipeline.set(`lookup:v1:ext:${tenant.customerCode}`, tenant.id);
+                pipeline.set(`lookup:v1:ext:${tenant.customerCode}`, tenant.customerCode);
             }
         }
 
