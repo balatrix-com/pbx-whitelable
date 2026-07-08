@@ -443,6 +443,32 @@ export class AdminService {
         });
     }
 
+    async addTFNBulk(data: { numbers: string[]; price?: number; isDemo?: boolean }) {
+        const payload = data.numbers.map(num => ({
+            number: num,
+            price: data.price || 2.00,
+            status: 'AVAILABLE' as any,
+            isDemo: data.isDemo || false
+        }));
+        return this.prisma.tFN.createMany({
+            data: payload,
+            skipDuplicates: true
+        });
+    }
+
+    async addDIDBulk(data: { numbers: string[]; monthlyFee?: number; provider?: string }) {
+        const payload = data.numbers.map(num => ({
+            number: num,
+            monthlyFee: data.monthlyFee || 2.00,
+            provider: data.provider || 'telnyx',
+            isActive: true
+        }));
+        return this.prisma.dID.createMany({
+            data: payload,
+            skipDuplicates: true
+        });
+    }
+
     async assignNumber(type: 'TFN' | 'DID', id: string, tenantId: string) {
         if (type === 'TFN') {
             return this.prisma.tFN.update({

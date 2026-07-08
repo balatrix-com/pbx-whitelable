@@ -168,11 +168,23 @@ export class AdminController {
         return this.adminService.addTFN(data);
     }
 
+    @Post('numbers/tfn/bulk')
+    @Roles('SUPER_ADMIN')
+    addTFNBulk(@Body() data: { numbers: string[]; price?: number; isDemo?: boolean }) {
+        return this.adminService.addTFNBulk(data);
+    }
+
 
     @Post('numbers/did')
     @Roles('SUPER_ADMIN')
     addDID(@Body() data: { number: string; monthlyFee?: number; provider?: string }) {
         return this.adminService.addDID(data);
+    }
+
+    @Post('numbers/did/bulk')
+    @Roles('SUPER_ADMIN')
+    addDIDBulk(@Body() data: { numbers: string[]; monthlyFee?: number; provider?: string }) {
+        return this.adminService.addDIDBulk(data);
     }
 
     @Post('numbers/assign')
