@@ -58,10 +58,15 @@ export class DIDsService {
      * Assign an available DID to a tenant
      */
     async assign(id: string, tenantId: string) {
-        return this.prisma.dID.update({
+        const updated = await this.prisma.dID.update({
             where: { id },
             data: { tenantId }
         });
+
+        // Update Redis Lookup DB
+        await this.lookupRedis.updateNumberLookup(updated.number, tenantId);
+
+        return updated;
     }
 
     /**

@@ -4,6 +4,7 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { lastValueFrom } from 'rxjs';
 import { FreeSwitchSyncService } from '../freeswitch/freeswitch-sync.service';
+import { LookupRedisService } from '../redis/lookup-redis.module';
 
 @Injectable()
 export class AdminService {
@@ -14,6 +15,7 @@ export class AdminService {
         private readonly httpService: HttpService,
         private readonly configService: ConfigService,
         private readonly freeswitchSync: FreeSwitchSyncService,
+        private readonly lookupRedis: LookupRedisService,
     ) { }
 
     private get subBillingUrl() {
@@ -496,6 +498,9 @@ export class AdminService {
                     this.logger.error(`Failed to cleanup FreeSWITCH for TFN ${tfn.number}: ${err.message}`);
                 });
 
+                // Cleanup Redis mapping
+                await this.lookupRedis.deleteNumberLookup(tfn.number);
+
                 return this.prisma.tFN.update({
                     where: { id },
                     data: {
@@ -515,6 +520,9 @@ export class AdminService {
                 await this.freeswitchSync.deleteDID(did).catch(err => {
                     this.logger.error(`Failed to cleanup FreeSWITCH for DID ${did.number}: ${err.message}`);
                 });
+
+                // Cleanup Redis mapping
+                await this.lookupRedis.deleteNumberLookup(did.number);
             }
 
             return this.prisma.dID.update({
