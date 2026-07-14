@@ -681,4 +681,68 @@ export class AdminService {
             });
         }
     }
+
+    /**
+     * Get all active registered extensions from Kamailio
+     */
+    async getAllActiveExtensionsStatus() {
+        const kamailioHost = this.configService.get<string>('KAMAILIO_RPC_URL') || 'http://127.0.0.1:8080/rpc';
+
+        try {
+            const response = await lastValueFrom(
+                this.httpService.post(kamailioHost, {
+                    jsonrpc: "2.0",
+                    method: "ul.dump",
+                    id: 1
+                })
+            );
+
+            const result = response.data?.result;
+            if (!result || !result.Domains) {
+                return { online_count: 0, extensions: [] };
+            }
+
+            const activeExtensions = [];
+
+            for (const domainObj of result.Domains) {
+                const aors = domainObj.Domain?.AoRs || [];
+                for (const aorObj of aors) {
+                    const info = aorObj.Info;
+                    if (!info || !info.AoR) continue;
+
+                    const sipUsername = info.AoR.split('@')[0];
+                    // Extract customer code (e.g. U1003 from U100304). 
+                    // Usually the first letter and 4 digits.
+                    // Fallback to substring.
+                    let customerCode = sipUsername.substring(0, 5).toUpperCase();
+                    
+                    const contacts = info.Contacts || [];
+                    const devices = contacts.map((c: any) => ({
+                        address: c.Contact?.Address,
+                        expires_in: c.Contact?.Expires,
+                        user_agent: c.Contact?.['User-Agent'],
+                        received_from: c.Contact?.Received,
+                        transport_socket: c.Contact?.Socket,
+                        state: c.Contact?.State
+                    }));
+
+                    activeExtensions.push({
+                        customerCode,
+                        extension: sipUsername,
+                        domain: info.AoR.split('@')[1],
+                        aor: info.AoR,
+                        devices
+                    });
+                }
+            }
+
+            return {
+                online_count: activeExtensions.length,
+                extensions: activeExtensions
+            };
+        } catch (error) {
+            this.logger.error(`Failed to fetch global Kamailio extension status: ${error.message}`);
+            return { online_count: 0, extensions: [] };
+        }
+    }
 }

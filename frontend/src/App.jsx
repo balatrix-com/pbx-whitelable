@@ -42,6 +42,7 @@ import NumbersManagement from './pages/admin/NumbersManagement';
 import PackagesPage from './pages/admin/PackagesPage';
 import CarriersGatewaysPage from './pages/admin/CarriersGatewaysPage';
 import BrandingSettingsPage from './pages/admin/BrandingSettingsPage';
+import ExtensionStatus from './pages/admin/ExtensionStatus';
 import OnboardingLayout from './pages/onboarding/OnboardingLayout';
 import TfnOnboardingPage from './pages/onboarding/TfnOnboardingPage';
 import PrivateLayout from './components/layout/PrivateLayout';
@@ -162,6 +163,7 @@ function App() {
                                         <Route path="/super-admin/carriers" element={<CarriersGatewaysPage />} />
                                         <Route path="/tenants" element={<TenantsPage />} />
                                         <Route path="/revenue" element={<RevenuePage />} />
+                                        <Route path="/admin/extension-status" element={<ExtensionStatus />} />
                                     </Route>
                                 </Route>
 

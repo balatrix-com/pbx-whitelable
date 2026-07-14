@@ -56,6 +56,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { name: 'Audit Logs', href: '/admin/audit-logs', icon: Shield },
                     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
                     { name: 'Revenue', href: '/revenue', icon: BarChart3 },
+                    { name: 'Extension Status', href: '/admin/extension-status', icon: Activity },
                     { name: 'Rate Cards', href: '/super-admin/rate-cards', icon: CreditCard },
                     { name: 'Manage Numbers', href: '/super-admin/numbers', icon: Phone },
                     { name: 'Carriers & Gateways', href: '/super-admin/carriers', icon: Server },

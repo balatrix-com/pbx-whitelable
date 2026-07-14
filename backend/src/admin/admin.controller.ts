@@ -239,4 +239,13 @@ export class AdminController {
             url: `/api/uploads/${file.filename}`
         };
     }
+
+    /**
+     * Get global extension status
+     */
+    @Get('extensions/status')
+    @Roles('SUPER_ADMIN')
+    async getGlobalExtensionStatus() {
+        return this.adminService.getAllActiveExtensionsStatus();
+    }
 }
