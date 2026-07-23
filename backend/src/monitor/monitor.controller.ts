@@ -20,7 +20,14 @@ export class MonitorController {
             throw new ForbiddenException('Monitoring access restrictions apply');
         }
 
-        // If super admin, can request any tenant, otherwise strictly user's tenant
+        // Standard tenant isolation: non-SUPER_ADMIN users cannot query other tenants or 'all'
+        if (user.role !== 'SUPER_ADMIN') {
+            if (queryTenantId && queryTenantId !== user.tenantId) {
+                throw new ForbiddenException('Access denied: cannot monitor other tenants');
+            }
+        }
+
+        // If super admin, can request any tenant or 'all', otherwise strictly user's tenant
         const tenantId = (user.role === 'SUPER_ADMIN' && queryTenantId) ? queryTenantId : user.tenantId;
 
         const calls = await this.monitorService.getActiveCalls(tenantId);
@@ -37,6 +44,17 @@ export class MonitorController {
 
         if (!body.uuid_in || !body.uuid_out || !body.mode || !body.adminExtension) {
             throw new BadRequestException('Missing required fields');
+        }
+
+        // For non-SUPER_ADMIN, verify that the call belongs to their tenant
+        if (user.role !== 'SUPER_ADMIN') {
+            if (!user.tenantId) {
+                throw new ForbiddenException('User is not assigned to a tenant');
+            }
+            const belongsToTenant = await this.monitorService.verifyCallTenant(body.uuid_in, user.tenantId);
+            if (!belongsToTenant) {
+                throw new ForbiddenException('Access denied: target call does not belong to your tenant');
+            }
         }
 
         const result = await this.monitorService.initiateBarge(
