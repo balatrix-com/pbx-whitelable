@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import telecomService from '../../services/telecom.service';
-import { Phone, Mic, Volume2, Shield, Activity } from 'lucide-react';
+import { Phone, Mic, Volume2, Shield, Activity, RotateCw } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const MonitoringPage = () => {
     const { user } = useAuth();
     const [calls, setCalls] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [socket, setSocket] = useState(null);
     const [isConnected, setIsConnected] = useState(false);
     const [bargeStatus, setBargeStatus] = useState('');
@@ -16,13 +17,14 @@ const MonitoringPage = () => {
         // Removed as requested
     };
 
-    const tenantId = user?.tenant?.id;
+    const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+    const targetTenantId = isSuperAdmin ? 'all' : user?.tenant?.id;
     // Prefer monitoring extension, fallback to standard extension
     const adminExtension = user?.monitoringExtension || user?.extension;
     const sipServer = '10.10.0.4'; // Could be env var but hardcoded for now as per .env
 
     useEffect(() => {
-        if (!tenantId) return;
+        if (!targetTenantId) return;
 
         // 1. Initial Load
         loadActiveCalls();
@@ -64,10 +66,10 @@ const MonitoringPage = () => {
 
         newSocket.on('connect', () => {
             console.log('Monitor Socket Connected');
-            console.log('Joining room:', tenantId);
+            console.log('Joining room:', targetTenantId);
             setIsConnected(true);
-            addDebugLog('connect', { socketId: newSocket.id, tenantId });
-            newSocket.emit('join_room', tenantId);
+            addDebugLog('connect', { socketId: newSocket.id, tenantId: targetTenantId });
+            newSocket.emit('join_room', targetTenantId);
         });
 
         newSocket.on('disconnect', (reason) => {
@@ -103,7 +105,7 @@ const MonitoringPage = () => {
         return () => {
             newSocket.disconnect();
         };
-    }, [tenantId]);
+    }, [targetTenantId]);
 
     const sendPing = () => {
         if (socket) {
@@ -113,14 +115,16 @@ const MonitoringPage = () => {
     };
 
     const loadActiveCalls = async () => {
+        setRefreshing(true);
         try {
-            const res = await telecomService.getActiveCalls(tenantId);
+            const res = await telecomService.getActiveCalls(targetTenantId);
             console.log('Initial Active Calls:', res.data.calls); // DEBUG
             setCalls(res.data.calls);
         } catch (err) {
             console.error('Failed to load active calls', err);
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     };
 
@@ -266,6 +270,14 @@ const MonitoringPage = () => {
             <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 overflow-hidden flex flex-col">
                     <div className="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
                         <h2 className="text-base font-extrabold text-gray-900 tracking-tight">Active Streams</h2>
+                        <button
+                            onClick={loadActiveCalls}
+                            disabled={refreshing}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-all focus:outline-none disabled:opacity-50"
+                        >
+                            <RotateCw className={`h-3.5 w-3.5 text-blue-500 ${refreshing ? 'animate-spin' : ''}`} />
+                            Refresh
+                        </button>
                     </div>
                     <div className="p-6 bg-gray-50/30 flex-1 min-h-[400px]">
                         {calls.length === 0 ? (

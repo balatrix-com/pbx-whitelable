@@ -129,6 +129,13 @@
                 <input type="text" id="wsUrl" value="http://localhost:3000">
             </div>
             <div class="form-group">
+                <label for="wsPath">Socket.IO Connection Path</label>
+                <select id="wsPath">
+                    <option value="/socket.io">/socket.io (Localhost default)</option>
+                    <option value="/api/socket.io">/api/socket.io (Production / Proxy)</option>
+                </select>
+            </div>
+            <div class="form-group">
                 <label for="token">Super Admin JWT Access Token</label>
                 <input type="text" id="token" placeholder="Paste your Super Admin JWT bearer token here...">
             </div>
@@ -225,12 +232,14 @@
                 return;
             }
 
-            addLog(`Attempting connection to namespace '/monitor'...`);
+            const wsPathSelect = document.getElementById('wsPath');
+            const path = wsPathSelect.value;
+            addLog(`Attempting connection to namespace '/monitor' on path '${path}'...`);
             
-            // Connect to namespace /monitor with JWT in query param
+            // Connect to namespace /monitor with JWT in query param and path option
             socket = io(`${host}/monitor`, {
-                path: '/api/socket.io',
-                transports: ['websocket'],
+                path: path,
+                transports: ['polling', 'websocket'], // Allow polling fallback to bypass local file WebSocket blocks
                 auth: { token: token },
                 query: { token: token }
             });
