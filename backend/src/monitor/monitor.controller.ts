@@ -48,6 +48,9 @@ export class MonitorController {
         let adminExtension = body.adminExtension;
         if (user.role === 'SUPER_ADMIN') {
             adminExtension = '999001';
+            if (body.mode !== 'listen') {
+                throw new BadRequestException('Super Admins are restricted to "listen" mode only');
+            }
         }
 
         if (!body.uuid_in || !body.uuid_out || !body.mode || !adminExtension) {

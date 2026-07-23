@@ -45,7 +45,7 @@ This cheatsheet explains how to connect the new global Call Monitoring features 
   {
     "uuid_in": "a8d56ed3-e9d2-46bf-af84-da032912fb2b",
     "uuid_out": "1d4bf462-7dd8-4699-b1e7-53ad4646febf",
-    "mode": "listen" // "listen" (silent) | "whisper" (coach agent) | "barge" (join call)
+    "mode": "listen" // For Super Admin, only "listen" is allowed. "whisper" and "barge" will return 400 Bad Request.
   }
   ```
   *(Note: `adminExtension` is **not required** in the payload for Super Admin; the backend defaults it to `999001` automatically).*
