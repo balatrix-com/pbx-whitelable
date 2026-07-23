@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Request, Query, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Request, Query, BadRequestException, ForbiddenException, Header } from '@nestjs/common';
 import { MonitorService } from './monitor.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -12,6 +12,9 @@ export class MonitorController {
     constructor(private readonly monitorService: MonitorService) { }
 
     @Get('active-calls')
+    @Header('Cache-Control', 'no-store, no-cache, must-revalidate')
+    @Header('Pragma', 'no-cache')
+    @Header('Expires', '0')
     async getActiveCalls(@Request() req: any, @Query('tenantId') queryTenantId?: string) {
         const user = req.user;
 
