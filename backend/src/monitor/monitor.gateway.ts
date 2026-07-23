@@ -69,6 +69,8 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
                         this.logger.log(`Emitting call_update to room ${room}`); // DEBUG
                         // Emit to specific tenant room
                         this.server.to(room).emit('call_update', callData);
+                        // Emit to global room for Super Admins
+                        this.server.to('tenant:all').emit('call_update', callData);
                     }
                 } catch (error) {
                     this.logger.error('Error processing call update:', error);
@@ -107,8 +109,16 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     }
 
     private async buildAnalyticsSnapshot(tenantId: string) {
-        const pattern = `customer:${tenantId}:call:*`;
-        const keys = await this.redisClient.keys(pattern);
+        const isAll = tenantId === 'all';
+        const pattern = isAll ? 'customer:*:call:*' : `customer:${tenantId}:call:*`;
+        const keys: string[] = [];
+
+        for await (const chunk of this.redisClient.scanIterator({
+            MATCH: pattern,
+            COUNT: 100
+        })) {
+            keys.push(...chunk);
+        }
 
         let ringing = 0;
         let answered = 0;

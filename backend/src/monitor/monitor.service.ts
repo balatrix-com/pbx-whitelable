@@ -14,12 +14,21 @@ export class MonitorService {
     ) { }
 
     /**
-     * Get all active calls for a specific tenant
+     * Get all active calls for a specific tenant (or all tenants)
      */
-    async getActiveCalls(tenantId: string) {
+    async getActiveCalls(tenantId?: string) {
         try {
-            const pattern = `customer:${tenantId}:call:*`;
-            const keys = await this.redisClient.keys(pattern);
+            const isAll = tenantId === 'all' || !tenantId;
+            const pattern = isAll ? 'customer:*:call:*' : `customer:${tenantId}:call:*`;
+            const keys: string[] = [];
+
+            for await (const chunk of this.redisClient.scanIterator({
+                MATCH: pattern,
+                COUNT: 100
+            })) {
+                keys.push(...chunk);
+            }
+
             const calls = [];
 
             for (const key of keys) {
@@ -39,6 +48,7 @@ export class MonitorService {
                         startTime: callData.start_ts ? new Date(parseInt(callData.start_ts) * 1000) : null,
                         answerTime: callData.answer_ts ? new Date(parseInt(callData.answer_ts) * 1000) : null,
                         duration: callData.duration ? parseInt(callData.duration) : 0,
+                        tenantId: callData.customer_id || key.split(':')[1] || tenantId || null,
                     });
                 }
             }
@@ -49,6 +59,20 @@ export class MonitorService {
         } catch (error) {
             this.logger.error(`Failed to get active calls for tenant ${tenantId}`, error);
             return [];
+        }
+    }
+
+    /**
+     * Verify if a call belongs to a specific tenant in Redis
+     */
+    async verifyCallTenant(uuid: string, tenantId: string): Promise<boolean> {
+        try {
+            const key = `customer:${tenantId}:call:${uuid}`;
+            const exists = await this.redisClient.exists(key);
+            return exists === 1;
+        } catch (error) {
+            this.logger.error(`Failed to verify call tenant ownership for ${uuid}: ${error.message}`);
+            return false;
         }
     }
 
