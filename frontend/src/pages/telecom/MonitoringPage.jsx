@@ -18,7 +18,7 @@ const MonitoringPage = () => {
     };
 
     const isSuperAdmin = user?.role === 'SUPER_ADMIN';
-    const targetTenantId = isSuperAdmin ? 'all' : user?.tenant?.id;
+    const targetTenantId = isSuperAdmin ? 'all' : user?.tenantId;
     // Prefer monitoring extension, fallback to standard extension
     const adminExtension = user?.monitoringExtension || user?.extension;
     const sipServer = '10.10.0.4'; // Could be env var but hardcoded for now as per .env
