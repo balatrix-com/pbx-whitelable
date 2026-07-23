@@ -35,14 +35,19 @@ export class MonitorController {
     }
 
     @Post('barge')
-    async initiateBarge(@Request() req: any, @Body() body: { uuid_in: string; uuid_out: string; mode: 'barge' | 'listen' | 'whisper', adminExtension: string }) {
+    async initiateBarge(@Request() req: any, @Body() body: { uuid_in: string; uuid_out: string; mode: 'barge' | 'listen' | 'whisper', adminExtension?: string }) {
         const user = req.user;
 
         if (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN' && !user.monitoringEnabled) {
             throw new ForbiddenException('Monitoring access restricted');
         }
 
-        if (!body.uuid_in || !body.uuid_out || !body.mode || !body.adminExtension) {
+        let adminExtension = body.adminExtension;
+        if (user.role === 'SUPER_ADMIN') {
+            adminExtension = '999001';
+        }
+
+        if (!body.uuid_in || !body.uuid_out || !body.mode || !adminExtension) {
             throw new BadRequestException('Missing required fields');
         }
 
@@ -60,7 +65,7 @@ export class MonitorController {
         const result = await this.monitorService.initiateBarge(
             body.uuid_in,
             body.uuid_out,
-            body.adminExtension,
+            adminExtension,
             body.mode
         );
 
