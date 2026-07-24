@@ -64,7 +64,7 @@ Have FreeSWITCH bridge the Super Admin into the call. The backend automatically 
   {
     "uuid_in": "<PASTE_CALL_UUID>",
     "uuid_out": "<PASTE_CALL_BUUID>",
-    "mode": "listen" // Options: "listen" | "whisper" | "barge"
+    "mode": "listen" // For Super Admin, only "listen" is allowed.
   }
   ```
 - **Verification:**
