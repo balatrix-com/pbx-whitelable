@@ -37,6 +37,19 @@ export class ExtensionsController {
     }
 
     /**
+     * GET /telecom/extensions/status
+     * Get real-time status of online extensions from Kamailio
+     */
+    @Get('status')
+    @Roles(Role.ADMIN, Role.SUPPORT, Role.SUPER_ADMIN)
+    getStatus(@GetUser() user: any, @Query('tenantId') tenantId?: string) {
+        const targetTenantId = (user.role === Role.SUPER_ADMIN || user.role === Role.SUPPORT) && tenantId
+            ? tenantId
+            : user.tenantId;
+        return this.extensionsService.getActiveStatus(targetTenantId);
+    }
+
+    /**
      * GET /telecom/extensions/next-number
      * Get next available extension number
      */

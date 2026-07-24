@@ -84,7 +84,7 @@ function ExtensionsPage() {
         try {
             await api.patch(`/users/${user.id}/permissions`, {
                 monitoringEnabled: false,
-                monitoringExtension: null, // Clear these too nicely
+                monitoringExtension: null,
                 monitoringSecret: null
             });
             fetchData();
@@ -320,10 +320,5 @@ function ExtensionsPage() {
         </div>
     );
 }
-
-// Simple wrapper modal reuse or similar? 
-// Actually MonitoringExtensionModal doesn't support "isEditing" or "initialExtension" yet in my previous code.
-// I should update MonitoringExtensionModal to support prepopulation for editing.
-
 
 export default ExtensionsPage;

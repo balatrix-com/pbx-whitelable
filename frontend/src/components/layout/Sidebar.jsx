@@ -38,6 +38,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const location = useLocation();
     const role = user?.role;
+
+    const [isExtensionsOpen, setIsExtensionsOpen] = useState(
+        location.pathname.startsWith('/extensions') || location.pathname.startsWith('/telecom/extensions')
+    );
     
     // Resolve branding (User's tenant partner or domain-resolved fallback)
     const currentBranding = user?.partner || branding;
@@ -56,6 +60,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { name: 'Audit Logs', href: '/admin/audit-logs', icon: Shield },
                     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
                     { name: 'Revenue', href: '/revenue', icon: BarChart3 },
+                    { name: 'Extension Status', href: '/admin/extension-status', icon: Activity },
                     { name: 'Rate Cards', href: '/super-admin/rate-cards', icon: CreditCard },
                     { name: 'Manage Numbers', href: '/super-admin/numbers', icon: Phone },
                     { name: 'Carriers & Gateways', href: '/super-admin/carriers', icon: Server },
@@ -68,7 +73,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
                     { name: 'Wallet', href: '/wallet', icon: Wallet },
                     { name: 'Phone Numbers', href: '/tfn', icon: Phone },
-                    { name: 'Extensions', href: '/extensions', icon: Users },
+                    { 
+                        name: 'Extensions', 
+                        icon: Users,
+                        hasSubmenu: true,
+                        subItems: [
+                            { name: 'Extension Settings', href: '/extensions' },
+                            { name: 'Extension Status', href: '/extensions/status' },
+                        ]
+                    },
                     { name: 'Ring Groups', href: '/telecom/ring-groups', icon: Users },
                     { name: 'IVR Menus', href: '/telecom/ivrs', icon: PhoneCall },
                     { name: 'Audio Library', href: '/telecom/audio', icon: Music },
@@ -87,7 +100,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
                     { name: 'Wallet', href: '/wallet', icon: Wallet },
                     { name: 'Phone Numbers', href: '/tfn', icon: Phone },
-                    { name: 'Extensions', href: '/telecom/extensions', icon: Users },
+                    { 
+                        name: 'Extensions', 
+                        icon: Users,
+                        hasSubmenu: true,
+                        subItems: [
+                            { name: 'Extension Settings', href: '/telecom/extensions' },
+                            { name: 'Extension Status', href: '/telecom/extensions/status' },
+                        ]
+                    },
                     { name: 'Ring Groups', href: '/telecom/ring-groups', icon: Users },
                     { name: 'IVR Menus', href: '/telecom/ivrs', icon: PhoneCall },
                     { name: 'Audio Library', href: '/telecom/audio', icon: Music },
@@ -180,6 +201,65 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     {navItems.map((item) => {
                         const isActive = location.pathname.startsWith(item.href) && (item.href !== '/dashboard' || location.pathname === '/dashboard');
                         const Icon = item.icon;
+
+                        if (item.hasSubmenu) {
+                            const isSubActive = location.pathname.startsWith(item.subItems[0].href) || location.pathname.startsWith(item.subItems[1].href);
+                            return (
+                                <div key={item.name} className="space-y-1">
+                                    <button
+                                        onClick={() => !isCollapsed && setIsExtensionsOpen(!isExtensionsOpen)}
+                                        className={clsx(
+                                            isSubActive && !isExtensionsOpen
+                                                ? 'bg-primary-50 text-primary-700'
+                                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+                                            'group flex w-full items-center rounded-xl px-3 py-2.5 text-[14px] font-bold transition-all duration-200 ease-in-out',
+                                            isCollapsed && 'justify-center px-0'
+                                        )}
+                                        title={isCollapsed ? item.name : undefined}
+                                    >
+                                        <Icon
+                                            className={clsx(
+                                                isSubActive ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-600',
+                                                isCollapsed ? 'mx-0' : 'mr-3',
+                                                'h-5 w-5 flex-shrink-0 transition-colors duration-200'
+                                            )}
+                                        />
+                                        {!isCollapsed && (
+                                            <div className="flex flex-1 justify-between items-center">
+                                                <span>{item.name}</span>
+                                                <span className="text-[10px] text-gray-400 font-normal">
+                                                    {isExtensionsOpen ? '▼' : '►'}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </button>
+                                    {!isCollapsed && isExtensionsOpen && (
+                                        <div className="pl-6 space-y-1">
+                                            {item.subItems.map((sub, sIdx) => {
+                                                const isSubItemActive = location.pathname === sub.href;
+                                                const prefix = sIdx === item.subItems.length - 1 ? '└── ' : '├── ';
+                                                return (
+                                                    <Link
+                                                        key={sub.name}
+                                                        to={sub.href}
+                                                        onClick={() => setIsOpen(false)}
+                                                        className={clsx(
+                                                            isSubItemActive
+                                                                ? 'text-primary-600 font-extrabold font-mono'
+                                                                : 'text-gray-500 hover:text-gray-900 font-mono',
+                                                            'flex items-center py-2 text-[13px] font-bold transition-colors'
+                                                        )}
+                                                    >
+                                                        <span className="text-gray-400 mr-1.5 whitespace-pre">{prefix}</span>
+                                                        <span>{sub.name}</span>
+                                                    </Link>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        }
 
                         return (
                             <Link

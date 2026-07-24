@@ -42,6 +42,11 @@ export const telecomService = {
         return response.data;
     },
 
+    getExtensionStatus: async (tenantId) => {
+        const response = await api.get('/telecom/extensions/status', { params: { tenantId } });
+        return response.data;
+    },
+
     // Monitoring
     getMonitoringStatus: async () => {
         const response = await api.get('/telecom/monitoring/live');

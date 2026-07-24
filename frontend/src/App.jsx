@@ -15,6 +15,7 @@ import WalletPage from './pages/billing/WalletPage';
 import PaymentMethodsPage from './pages/billing/PaymentMethodsPage';
 import TfnPage from './pages/telecom/TfnPage';
 import ExtensionsPage from './pages/telecom/Extensions/ExtensionsPage';
+import ExtensionsStatusPage from './pages/telecom/Extensions/ExtensionsStatusPage';
 import ExtensionForm from './pages/telecom/Extensions/ExtensionForm';
 import RingGroupsPage from './pages/telecom/RingGroups/RingGroupsPage';
 import RingGroupForm from './pages/telecom/RingGroups/RingGroupForm';
@@ -42,6 +43,7 @@ import NumbersManagement from './pages/admin/NumbersManagement';
 import PackagesPage from './pages/admin/PackagesPage';
 import CarriersGatewaysPage from './pages/admin/CarriersGatewaysPage';
 import BrandingSettingsPage from './pages/admin/BrandingSettingsPage';
+import ExtensionStatus from './pages/admin/ExtensionStatus';
 import OnboardingLayout from './pages/onboarding/OnboardingLayout';
 import TfnOnboardingPage from './pages/onboarding/TfnOnboardingPage';
 import PrivateLayout from './components/layout/PrivateLayout';
@@ -111,9 +113,11 @@ function App() {
                                         <Route path="/wallet/cards" element={<PaymentMethodsPage />} />
                                         <Route path="/tfn" element={<TfnPage />} />
                                         <Route path="/telecom/extensions" element={<ExtensionsPage />} />
+                                        <Route path="/telecom/extensions/status" element={<ExtensionsStatusPage />} />
                                         <Route path="/telecom/extensions/new" element={<ExtensionForm />} />
                                         <Route path="/telecom/extensions/:id/edit" element={<ExtensionForm />} />
                                         <Route path="/extensions" element={<ExtensionsPage />} />
+                                        <Route path="/extensions/status" element={<ExtensionsStatusPage />} />
                                         <Route path="/telecom/ring-groups" element={<RingGroupsPage />} />
                                         <Route path="/telecom/ring-groups/new" element={<RingGroupForm />} />
                                         <Route path="/telecom/ring-groups/:id/edit" element={<RingGroupForm />} />
@@ -162,6 +166,7 @@ function App() {
                                         <Route path="/super-admin/carriers" element={<CarriersGatewaysPage />} />
                                         <Route path="/tenants" element={<TenantsPage />} />
                                         <Route path="/revenue" element={<RevenuePage />} />
+                                        <Route path="/admin/extension-status" element={<ExtensionStatus />} />
                                     </Route>
                                 </Route>
 
