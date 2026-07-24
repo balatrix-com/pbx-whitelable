@@ -11,6 +11,9 @@ import * as crypto from 'crypto';
 
 import { FreeSwitchSyncService } from '../../freeswitch/freeswitch-sync.service';
 import { LookupRedisService } from '../../redis/lookup-redis.module';
+import { HttpService } from '@nestjs/axios';
+import { ConfigService } from '@nestjs/config';
+import { lastValueFrom } from 'rxjs';
 
 @Injectable()
 export class ExtensionsService {
@@ -20,6 +23,8 @@ export class ExtensionsService {
         private prisma: PrismaService,
         private readonly freeSwitchSync: FreeSwitchSyncService,
         private readonly lookupRedis: LookupRedisService,
+        private readonly httpService: HttpService,
+        private readonly configService: ConfigService,
     ) { }
 
     /**
@@ -172,7 +177,7 @@ export class ExtensionsService {
         }
 
         // Sync with Redis Lookup DB
-        await this.lookupRedis.updateExtensionLookup(extension.extensionNumber, tenantId);
+        await this.lookupRedis.updateExtensionLookup(tenantId);
 
         // Return extension with plaintext password (only shown once!)
         return {
@@ -229,7 +234,7 @@ export class ExtensionsService {
         this.logger.log(`Updated extension ${extension.extensionNumber}`);
 
         // Sync with Redis Lookup DB
-        await this.lookupRedis.updateExtensionLookup(updated.extensionNumber, tenantId);
+        await this.lookupRedis.updateExtensionLookup(tenantId);
 
         // Sync to FreeSWITCH — non-fatal if unreachable
         try {
@@ -360,4 +365,74 @@ export class ExtensionsService {
         return `${tenant.customerCode}${sequenceStr}`;
     }
 
+    /**
+     * Get active registered extensions for a tenant from Kamailio
+     */
+    async getActiveStatus(tenantId: string) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { customerCode: true }
+        });
+
+        if (!tenant || !tenant.customerCode) {
+            return { online_count: 0, extensions: [] };
+        }
+
+        const customerCode = tenant.customerCode.toLowerCase();
+        const kamailioHost = this.configService.get<string>('KAMAILIO_RPC_URL') || 'http://127.0.0.1:8080/rpc';
+
+        try {
+            const response = await lastValueFrom(
+                this.httpService.post(kamailioHost, {
+                    jsonrpc: "2.0",
+                    method: "ul.dump",
+                    id: 1
+                })
+            );
+
+            const result = response.data?.result;
+            if (!result || !result.Domains) {
+                return { online_count: 0, extensions: [] };
+            }
+
+            const activeExtensions = [];
+
+            for (const domainObj of result.Domains) {
+                const aors = domainObj.Domain?.AoRs || [];
+                for (const aorObj of aors) {
+                    const info = aorObj.Info;
+                    if (!info || !info.AoR) continue;
+
+                    const sipUsername = info.AoR.split('@')[0];
+                    // Filter: Only include extensions belonging to this tenant
+                    if (sipUsername.toLowerCase().startsWith(customerCode)) {
+                        const contacts = info.Contacts || [];
+                        const devices = contacts.map((c: any) => ({
+                            address: c.Contact?.Address,
+                            expires_in: c.Contact?.Expires,
+                            user_agent: c.Contact?.['User-Agent'],
+                            received_from: c.Contact?.Received,
+                            transport_socket: c.Contact?.Socket,
+                            state: c.Contact?.State
+                        }));
+
+                        activeExtensions.push({
+                            extension: sipUsername,
+                            domain: info.AoR.split('@')[1],
+                            aor: info.AoR,
+                            devices
+                        });
+                    }
+                }
+            }
+
+            return {
+                online_count: activeExtensions.length,
+                extensions: activeExtensions
+            };
+        } catch (error) {
+            this.logger.error(`Failed to fetch Kamailio extension status: ${error.message}`);
+            return { online_count: 0, extensions: [] };
+        }
+    }
 }

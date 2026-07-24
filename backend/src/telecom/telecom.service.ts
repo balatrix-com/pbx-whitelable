@@ -134,7 +134,7 @@ export class TelecomService implements OnModuleInit {
 
     async getMonitoringStatus(tenantId: string) {
         const state = await this.enforcementService.getServiceState(tenantId);
-        if (state !== ServiceState.SERVICE_ACTIVE) throw new ForbiddenException(`Monitoring unavailable: ${state}`);
+        if (state === ServiceState.PLAN_EXPIRED) throw new ForbiddenException(`Monitoring unavailable: ${state}`);
 
         const addon = await this.prisma.monitoringAddOn.findUnique({ where: { tenantId } });
         if (!addon || !addon.isActive) {

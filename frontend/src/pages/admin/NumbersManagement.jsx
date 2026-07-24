@@ -47,14 +47,21 @@ const NumbersManagement = () => {
     const handleAddNumber = async (e) => {
         e.preventDefault();
         try {
+            const numberList = newNumber.number.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+            if (numberList.length === 0) return;
+
             if (activeTab === 'tfn') {
-                await telecomService.adminAddTFN({ 
-                    number: newNumber.number, 
+                await telecomService.adminAddTFNBulk({ 
+                    numbers: numberList, 
                     price: parseFloat(newNumber.price),
                     isDemo: newNumber.isDemo 
                 });
             } else {
-                await telecomService.adminAddDID({ number: newNumber.number, monthlyFee: parseFloat(newNumber.price), provider: newNumber.provider });
+                await telecomService.adminAddDIDBulk({ 
+                    numbers: numberList, 
+                    monthlyFee: parseFloat(newNumber.price), 
+                    provider: newNumber.provider 
+                });
             }
             setShowAddModal(false);
             setNewNumber({ number: '', price: '2.00', provider: 'telnyx', isDemo: false });
@@ -288,11 +295,10 @@ const NumbersManagement = () => {
                         </div>
                         <form onSubmit={handleAddNumber} className="space-y-5">
                             <div className="space-y-1.5">
-                                <label className="text-xs font-extrabold text-gray-500 uppercase tracking-widest ml-1">Phone Number</label>
-                                <input
-                                    type="text"
-                                    placeholder="e.g. 18001234567"
-                                    className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl focus:ring-2 focus:ring-primary-500 font-bold text-lg"
+                                <label className="text-xs font-extrabold text-gray-500 uppercase tracking-widest ml-1">Phone Numbers (One per line)</label>
+                                <textarea
+                                    placeholder="+18001234567&#10;+18007654321"
+                                    className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl focus:ring-2 focus:ring-primary-500 font-bold text-lg h-32 resize-none"
                                     value={newNumber.number}
                                     onChange={e => setNewNumber({ ...newNumber, number: e.target.value })}
                                     required

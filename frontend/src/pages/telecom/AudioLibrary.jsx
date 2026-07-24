@@ -44,6 +44,11 @@ const AudioLibrary = () => {
         e.preventDefault();
         if (!selectedFile) return;
 
+        if (selectedFile.size > 10 * 1024 * 1024) {
+            alert('File size exceeds maximum limit of 10MB');
+            return;
+        }
+
         try {
             setUploading(true);
             const formData = new FormData();

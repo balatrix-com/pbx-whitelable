@@ -89,6 +89,18 @@ export class CarriersService {
       });
     }
 
+    // Resync tenants directly assigned to this endpoint when host/port changes
+    if (hostOrPortChanged) {
+      const assignedTenants = await this.prisma.tenant.findMany({
+        where: { outboundEndpointId: id },
+        select: { id: true },
+      });
+      for (const t of assignedTenants) {
+        await this.freeSwitchSync.syncTenantForwards(t.id);
+      }
+    }
+
+    // Resync system-default-reliant tenants when default status or host/port changes
     if (isNowDefault || (wasDefault && hostOrPortChanged) || (wasDefault && !isNowDefault)) {
       await this.freeSwitchSync.syncAllSystemDefaultForwards();
     }

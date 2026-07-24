@@ -34,7 +34,9 @@ export class AudioController {
      */
     @Post('upload')
     @Roles(Role.ADMIN, Role.SUPPORT, Role.SUPER_ADMIN)
-    @UseInterceptors(FileInterceptor('file'))
+    @UseInterceptors(FileInterceptor('file', {
+        limits: { fileSize: 50 * 1024 * 1024 } // 50MB
+    }))
     async uploadAudio(
         @GetUser() user: any,
         @UploadedFile() file: Express.Multer.File,

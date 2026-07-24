@@ -50,7 +50,8 @@ const TenantWizard = ({ onClose, onSuccess }) => {
     const [selectedTfns, setSelectedTfns] = useState([]);
 
     // Step 4: DIDs
-    const [didInput, setDidInput] = useState('');
+    const [availableDids, setAvailableDids] = useState([]);
+    const [selectedDids, setSelectedDids] = useState([]);
 
     // Step 5: Extensions
     const [extensions, setExtensions] = useState([
@@ -153,7 +154,7 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                 type: 'CREDIT',
                 description: walletDescription || 'Initial Funding'
             });
-            await fetchAvailableTfns();
+            await fetchAvailableTfnsAndDids();
             setCurrentStep(3);
         } catch (err) {
             setError('Failed to fund wallet: ' + (err.response?.data?.message || err.message));
@@ -162,12 +163,14 @@ const TenantWizard = ({ onClose, onSuccess }) => {
         }
     };
 
-    const fetchAvailableTfns = async () => {
+    const fetchAvailableTfnsAndDids = async () => {
         try {
-            const res = await api.get('/telecom/tfns/available');
-            setAvailableTfns(res.data || []);
+            const resTfn = await api.get('/telecom/tfns/available');
+            setAvailableTfns(resTfn.data || []);
+            const resDid = await api.get('/telecom/dids/available');
+            setAvailableDids(resDid.data || []);
         } catch (err) {
-            console.error('Failed to fetch TFNs', err);
+            console.error('Failed to fetch numbers', err);
         }
     };
 
@@ -189,24 +192,13 @@ const TenantWizard = ({ onClose, onSuccess }) => {
     };
 
     const handleAssignDids = async () => {
-        const didsToCreate = didInput.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
-        if (didsToCreate.length === 0) {
-            setCurrentStep(5);
-            return;
-        }
-
         setLoading(true);
         try {
-            for (const didNumber of didsToCreate) {
-                // Formatting: Ensure it starts with + if not present? Backend might handle it or we should strict format.
-                // For now, passing as-is or ensuring minimal format.
-                const formattedNumber = didNumber.startsWith('+') ? didNumber : `+${didNumber}`;
-
-                await api.post('/telecom/dids', {
-                    targetTenantId: createdTenantId,
-                    didNumber: formattedNumber
-                    // routeType optional now
-                });
+            if (selectedDids.length > 0) {
+                // Sequential assignment
+                for (const didId of selectedDids) {
+                    await api.post(`/telecom/dids/${didId}/assign`, { tenantId: createdTenantId });
+                }
             }
             setCurrentStep(5);
         } catch (err) {
@@ -487,19 +479,38 @@ const TenantWizard = ({ onClose, onSuccess }) => {
     const renderStep4 = () => (
         <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-900">Assign Standard Phone Numbers (DIDs)</h3>
-            <p className="text-sm text-gray-500">Enter phone numbers to assign to this tenant. These will be created as "Unassigned" DIDs.</p>
+            <p className="text-sm text-gray-500">Select available standard numbers for this tenant.</p>
 
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Numbers (one per line)</label>
-                <textarea
-                    className="w-full h-32 border rounded p-2 font-mono text-sm"
-                    placeholder="+15550001234&#10;+15550005678"
-                    value={didInput}
-                    onChange={e => setDidInput(e.target.value)}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                    Enter numbers in E.164 format (e.g. +14155552671). Supports list separated by newlines or commas.
-                </p>
+            <div className="border rounded-lg max-h-64 overflow-y-auto">
+                {availableDids.length === 0 ? (
+                    <div className="p-4 text-center text-gray-500">No available DIDs in inventory.</div>
+                ) : (
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 sticky top-0">
+                            <tr>
+                                <th className="p-3 w-10"><input type="checkbox" /></th>
+                                <th className="p-3 text-xs font-semibold text-gray-500 uppercase">Number</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                            {availableDids.map(did => (
+                                <tr key={did.id} className={selectedDids.includes(did.id) ? 'bg-blue-50' : ''}>
+                                    <td className="p-3">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedDids.includes(did.id)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) setSelectedDids([...selectedDids, did.id]);
+                                                else setSelectedDids(selectedDids.filter(id => id !== did.id));
+                                            }}
+                                        />
+                                    </td>
+                                    <td className="p-3 font-mono">{did.number}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
             </div>
 
             <div className="flex justify-between pt-4">

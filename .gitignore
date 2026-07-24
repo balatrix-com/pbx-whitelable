@@ -21,9 +21,9 @@ dist/
 coverage/
 
 # Specific project files
-# backend/.env
-# frontend/.env
-# frontend/.env.production
+backend/.env
+frontend/.env
+frontend/.env.production
 backend/dist/
 frontend/dist/
 backend/node_modules/

@@ -22,6 +22,7 @@ const BrandingSettingsPage = () => {
     // States for current branding settings
     const [currentBranding, setCurrentBranding] = useState({
         name: '',
+        domain: '',
         primaryColor: '#3d52a0',
         accentColor: '#ed8f55',
         logoMain: '',
@@ -29,6 +30,13 @@ const BrandingSettingsPage = () => {
         favicon: '',
         supportEmail: '',
         supportPhone: '',
+        smtpHost: '',
+        smtpPort: '',
+        smtpSecure: false,
+        smtpUser: '',
+        smtpPass: '',
+        smtpFromName: '',
+        smtpFromEmail: '',
     });
     const [loadingCurrent, setLoadingCurrent] = useState(true);
     const [savingCurrent, setSavingCurrent] = useState(false);
@@ -49,6 +57,7 @@ const BrandingSettingsPage = () => {
             if (response.data) {
                 setCurrentBranding({
                     name: response.data.name || '',
+                    domain: response.data.domain || '',
                     primaryColor: response.data.primaryColor || '#3d52a0',
                     accentColor: response.data.accentColor || '#ed8f55',
                     logoMain: response.data.logoMain || '',
@@ -56,6 +65,13 @@ const BrandingSettingsPage = () => {
                     favicon: response.data.favicon || '',
                     supportEmail: response.data.supportEmail || '',
                     supportPhone: response.data.supportPhone || '',
+                    smtpHost: response.data.smtpHost || '',
+                    smtpPort: response.data.smtpPort !== null ? String(response.data.smtpPort) : '',
+                    smtpSecure: response.data.smtpSecure || false,
+                    smtpUser: response.data.smtpUser || '',
+                    smtpPass: response.data.smtpPass || '',
+                    smtpFromName: response.data.smtpFromName || '',
+                    smtpFromEmail: response.data.smtpFromEmail || '',
                 });
             }
         } catch (error) {
@@ -160,6 +176,19 @@ const BrandingSettingsPage = () => {
                                         value={currentBranding.name}
                                         onChange={(e) => setCurrentBranding({...currentBranding, name: e.target.value})}
                                         placeholder="Cloud PBX"
+                                        className="w-full rounded-xl border-gray-200 focus:border-primary-500 focus:ring-primary-500 text-sm font-medium bg-gray-50/50"
+                                        required
+                                    />
+                                </div>
+
+                                {/* Platform Domain */}
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Platform Domain</label>
+                                    <input
+                                        type="text"
+                                        value={currentBranding.domain}
+                                        onChange={(e) => setCurrentBranding({...currentBranding, domain: e.target.value})}
+                                        placeholder="https://pbxwl.balatrix.com"
                                         className="w-full rounded-xl border-gray-200 focus:border-primary-500 focus:ring-primary-500 text-sm font-medium bg-gray-50/50"
                                         required
                                     />
@@ -320,6 +349,103 @@ const BrandingSettingsPage = () => {
                                         placeholder="+1-800-555-0199"
                                         className="w-full rounded-xl border-gray-200 focus:border-primary-500 focus:ring-primary-500 text-sm font-medium bg-gray-50/50"
                                     />
+                                </div>
+                            </div>
+
+                            {/* SMTP Mail Configuration Section */}
+                            <div className="flex items-center gap-2 border-t border-b border-gray-100 pt-6 pb-4 mt-8">
+                                <Mail className="text-slate-400 h-5 w-5" />
+                                <h2 className="text-lg font-bold text-gray-900">SMTP Mail Server Settings</h2>
+                            </div>
+
+                            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 flex items-center gap-2.5">
+                                <Info className="h-4 w-4 text-slate-500 flex-shrink-0" />
+                                <span>Configuring SMTP settings allows the platform to send custom email notifications (such as welcome, forgot password, and invitations) using your own mail server. If left blank, the system falls back to default ZeptoMail credentials.</span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* SMTP Host */}
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">SMTP Host</label>
+                                    <input
+                                        type="text"
+                                        value={currentBranding.smtpHost}
+                                        onChange={(e) => setCurrentBranding({...currentBranding, smtpHost: e.target.value})}
+                                        placeholder="smtp.mailtrap.io"
+                                        className="w-full rounded-xl border-gray-200 focus:border-primary-500 focus:ring-primary-500 text-sm font-medium bg-gray-50/50"
+                                    />
+                                </div>
+
+                                {/* SMTP Port */}
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">SMTP Port</label>
+                                    <input
+                                        type="text"
+                                        value={currentBranding.smtpPort}
+                                        onChange={(e) => setCurrentBranding({...currentBranding, smtpPort: e.target.value})}
+                                        placeholder="587"
+                                        className="w-full rounded-xl border-gray-200 focus:border-primary-500 focus:ring-primary-500 text-sm font-medium bg-gray-50/50"
+                                    />
+                                </div>
+
+                                {/* SMTP Username */}
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">SMTP Username</label>
+                                    <input
+                                        type="text"
+                                        value={currentBranding.smtpUser}
+                                        onChange={(e) => setCurrentBranding({...currentBranding, smtpUser: e.target.value})}
+                                        placeholder="smtp-username"
+                                        className="w-full rounded-xl border-gray-200 focus:border-primary-500 focus:ring-primary-500 text-sm font-medium bg-gray-50/50"
+                                    />
+                                </div>
+
+                                {/* SMTP Password */}
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">SMTP Password</label>
+                                    <input
+                                        type="password"
+                                        value={currentBranding.smtpPass}
+                                        onChange={(e) => setCurrentBranding({...currentBranding, smtpPass: e.target.value})}
+                                        placeholder="••••••••"
+                                        className="w-full rounded-xl border-gray-200 focus:border-primary-500 focus:ring-primary-500 text-sm font-medium bg-gray-50/50"
+                                    />
+                                </div>
+
+                                {/* Sender Display Name */}
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Sender Display Name</label>
+                                    <input
+                                        type="text"
+                                        value={currentBranding.smtpFromName}
+                                        onChange={(e) => setCurrentBranding({...currentBranding, smtpFromName: e.target.value})}
+                                        placeholder="Cloud PBX Portal"
+                                        className="w-full rounded-xl border-gray-200 focus:border-primary-500 focus:ring-primary-500 text-sm font-medium bg-gray-50/50"
+                                    />
+                                </div>
+
+                                {/* Sender Email Address */}
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Sender Email Address</label>
+                                    <input
+                                        type="email"
+                                        value={currentBranding.smtpFromEmail}
+                                        onChange={(e) => setCurrentBranding({...currentBranding, smtpFromEmail: e.target.value})}
+                                        placeholder="no-reply@telecom-platform.com"
+                                        className="w-full rounded-xl border-gray-200 focus:border-primary-500 focus:ring-primary-500 text-sm font-medium bg-gray-50/50"
+                                    />
+                                </div>
+
+                                {/* SMTP Secure Connection SSL/TLS */}
+                                <div className="space-y-2 md:col-span-2 flex items-center gap-3">
+                                    <input
+                                        type="checkbox"
+                                        id="smtpSecure"
+                                        checked={currentBranding.smtpSecure}
+                                        onChange={(e) => setCurrentBranding({...currentBranding, smtpSecure: e.target.checked})}
+                                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
+                                    />
+                                    <label htmlFor="smtpSecure" className="text-sm font-bold text-gray-700 cursor-pointer">Use Secure Connection (SSL/TLS - Check this for Port 465)</label>
                                 </div>
                             </div>
 

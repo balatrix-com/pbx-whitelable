@@ -612,9 +612,16 @@ model Partner {
   favicon      String?
   primaryColor String?
   accentColor  String?
-  supportEmail String?
-  supportPhone String?
-  createdAt    DateTime @default(now())
+  supportEmail  String?
+  supportPhone  String?
+  smtpHost      String?
+  smtpPort      Int?
+  smtpSecure    Boolean? @default(false)
+  smtpUser      String?
+  smtpPass      String?
+  smtpFromName  String?
+  smtpFromEmail String?
+  createdAt     DateTime @default(now())
   updatedAt    DateTime @updatedAt
   tenants      Tenant[]
   users        User[]

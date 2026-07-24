@@ -237,10 +237,10 @@ export class TenantsService {
                 realWallet.balance = new Prisma.Decimal(billingBalance.balance);
                 (realWallet as any).creditLimit = billingBalance.creditLimit;
             } else {
-                realWallet = { 
-                    balance: new Prisma.Decimal(billingBalance.balance), 
+                realWallet = {
+                    balance: new Prisma.Decimal(billingBalance.balance),
                     currency: billingBalance.currency,
-                    creditLimit: billingBalance.creditLimit 
+                    creditLimit: billingBalance.creditLimit
                 } as any;
             }
         } catch (error) {
@@ -366,7 +366,7 @@ export class TenantsService {
         const baseUrl = process.env.CACHE_FLUSH_URL || 'http://localhost:8000';
         const token = process.env.CACHE_FLUSH_TOKEN || 'PBX_FLUSH_2026_acaJOOAJjasojoa';
         const url = `${baseUrl}/admin/cache/flush/carrier?customer=${customerCode}`;
-        
+
         try {
             const response = await fetch(url, {
                 method: 'POST',
@@ -587,7 +587,7 @@ export class TenantsService {
     async deleteTenant(id: string) {
         // 0. Cleanup external telecom dependencies (FreeSWITCH / Kamailio)
         // We fetch the entities first before deleting them from Prisma
-        
+
         const tenant = await this.prisma.tenant.findUnique({ where: { id } });
         if (!tenant) throw new NotFoundException('Tenant not found');
 
@@ -615,6 +615,9 @@ export class TenantsService {
         if (tenant.customerCode) {
             await this.freeSwitchSync.bulkDeleteTenantData(tenant.customerCode);
         }
+
+        // 0.2 Cleanup Redis lookups
+        await this.lookupRedis.deleteTenantLookups(id);
 
         // Proceed to delete local database records via single transaction
         return this.prisma.$transaction(async (prisma) => {

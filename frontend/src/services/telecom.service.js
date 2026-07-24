@@ -22,6 +22,14 @@ export const telecomService = {
         const response = await api.get('/telecom/dids');
         return response.data;
     },
+    getAvailableDids: async () => {
+        const response = await api.get('/telecom/dids/available');
+        return response.data;
+    },
+    assignDID: async (id, tenantId) => {
+        const response = await api.post(`/telecom/dids/${id}/assign`, { tenantId });
+        return response.data;
+    },
 
     // Extensions
     listExtensions: async () => {
@@ -31,6 +39,11 @@ export const telecomService = {
 
     createExtension: async () => {
         const response = await api.post('/telecom/extensions', {});
+        return response.data;
+    },
+
+    getExtensionStatus: async (tenantId) => {
+        const response = await api.get('/telecom/extensions/status', { params: { tenantId } });
         return response.data;
     },
 
@@ -161,8 +174,16 @@ export const telecomService = {
         const response = await api.post('/admin/numbers/tfn', data);
         return response.data;
     },
+    adminAddTFNBulk: async (data) => {
+        const response = await api.post('/admin/numbers/tfn/bulk', data);
+        return response.data;
+    },
     adminAddDID: async (data) => {
         const response = await api.post('/admin/numbers/did', data);
+        return response.data;
+    },
+    adminAddDIDBulk: async (data) => {
+        const response = await api.post('/admin/numbers/did/bulk', data);
         return response.data;
     },
     adminAssignNumber: async (data) => {

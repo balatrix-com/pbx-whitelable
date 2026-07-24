@@ -18,11 +18,11 @@ const AUDIO_NOINPUT = '/opt/ivr_audio/system/ivr_no_input.wav';
 export class DialplanGeneratorService {
   private readonly logger = new Logger(DialplanGeneratorService.name);
   private readonly sipServer: string;
-  private readonly outboundGateway: string;
+  private readonly fsRecordingPath: string;
 
   constructor(private readonly configService?: ConfigService) {
     this.sipServer = this.configService?.get<string>('SIP_SERVER') || process.env.SIP_SERVER || 'localhost';
-    this.outboundGateway = this.configService?.get<string>('OUTBOUND_GATEWAY') || process.env.OUTBOUND_GATEWAY || 'localhost:5060';
+    this.fsRecordingPath = this.configService?.get<string>('FS_RECORDING_PATH') || process.env.FS_RECORDING_PATH || '/mnt/freeswitch-recordings/recordings';
   }
 
   /**
@@ -49,7 +49,7 @@ export class DialplanGeneratorService {
     const server = sipServer || this.sipServer;
     const recordingVariables = enableRecording && customerCode ? this.getRecordingVariablesBlock() : '';
     const executeOnAnswer = enableRecording && customerCode
-      ? `,execute_on_answer='record_session /mnt/freeswitch-recordings/recordings/${customerCode}/\${uuid}.mp3'`
+      ? `,execute_on_answer='record_session ${this.fsRecordingPath}/${customerCode}/\${uuid}.mp3'`
       : '';
 
     return `<?xml version="1.0" encoding="UTF-8"?>
@@ -76,6 +76,7 @@ export class DialplanGeneratorService {
   /**
    * Generate XML for Extension with Forwarding (CFNA)
    * Ref: XML_FORMATS_REFERENCE.txt Section 2
+   * @param gateway Optional - when provided, forward leg uses sofia/external via this gateway (external forwarding)
    */
   generateExtensionForwardingXML(
     dialplanKey: string,
@@ -84,13 +85,20 @@ export class DialplanGeneratorService {
     timeout: number = 20,
     sipServer?: string,
     enableRecording: boolean = false,
-    customerCode: string = ''
+    customerCode: string = '',
+    gateway?: string
   ): string {
     const server = sipServer || this.sipServer;
     const recordingVariables = enableRecording && customerCode ? this.getRecordingVariablesBlock() : '';
     const executeOnAnswerString = enableRecording && customerCode
-      ? `,execute_on_answer='record_session /mnt/freeswitch-recordings/recordings/${customerCode}/\${uuid}.mp3'`
+      ? `,execute_on_answer='record_session ${this.fsRecordingPath}/${customerCode}/\${uuid}.mp3'`
       : '';
+
+    // When gateway is provided, forward to external number via outbound gateway
+    // Otherwise, forward to internal extension
+    const forwardBridge = gateway
+      ? `sofia/external/${forwardDestination}@${gateway}`
+      : forwardDestination;
 
     return `<?xml version="1.0" encoding="UTF-8"?>
 <document type="freeswitch/xml">
@@ -107,7 +115,7 @@ export class DialplanGeneratorService {
           <action application="answer"/>
           <action application="sleep" data="200"/>
           <action application="playback" data="${AUDIO_NOINPUT}"/>
-          <action application="bridge" data="{ignore_early_media=true${executeOnAnswerString}}${forwardDestination}"/>
+          <action application="bridge" data="{ignore_early_media=true${executeOnAnswerString}}${forwardBridge}"/>
           <!-- Fallback -->
           <action application="answer"/>
           <action application="sleep" data="200"/>
@@ -123,18 +131,26 @@ export class DialplanGeneratorService {
   /**
    * Generate XML for Extension Unconditional Forwarding (CFU)
    * Ref: XML_FORMATS_REFERENCE.txt Section 3
+   * @param gateway Optional - when provided, forward leg uses sofia/external via this gateway (external forwarding)
    */
   generateExtensionCFUXML(
     dialplanKey: string,
     forwardDestination: string,
     sipServer?: string,
     enableRecording: boolean = false,
-    customerCode: string = ''
+    customerCode: string = '',
+    gateway?: string
   ): string {
     const recordingVariables = enableRecording && customerCode ? this.getRecordingVariablesBlock() : '';
     const executeOnAnswer = enableRecording && customerCode
-      ? `,execute_on_answer='record_session /mnt/freeswitch-recordings/recordings/${customerCode}/\${uuid}.mp3'`
+      ? `,execute_on_answer='record_session ${this.fsRecordingPath}/${customerCode}/\${uuid}.mp3'`
       : '';
+
+    // When gateway is provided, forward to external number via outbound gateway
+    // Otherwise, forward to internal extension
+    const forwardBridge = gateway
+      ? `sofia/external/${forwardDestination}@${gateway}`
+      : forwardDestination;
 
     return `<?xml version="1.0" encoding="UTF-8"?>
 <document type="freeswitch/xml">
@@ -145,7 +161,7 @@ export class DialplanGeneratorService {
           <action application="set" data="continue_on_fail=true"/>
           <action application="set" data="call_timeout=30"/>
           <action application="set" data="ignore_early_media=true"/>${recordingVariables}
-          <action application="bridge" data="{ignore_early_media=true${executeOnAnswer}}${forwardDestination}"/>
+          <action application="bridge" data="{ignore_early_media=true${executeOnAnswer}}${forwardBridge}"/>
           <action application="answer"/>
           <action application="sleep" data="200"/>
           <action application="playback" data="${AUDIO_UNAVAILABLE}"/>
@@ -178,7 +194,7 @@ export class DialplanGeneratorService {
     const server = sipServer || this.sipServer;
     const recordingVariables = enableRecording && customerCode ? this.getRecordingVariablesBlock() : '';
     const executeOnAnswerString = enableRecording && customerCode
-      ? `,execute_on_answer='record_session /mnt/freeswitch-recordings/recordings/${customerCode}/\${uuid}.mp3'`
+      ? `,execute_on_answer='record_session ${this.fsRecordingPath}/${customerCode}/\${uuid}.mp3'`
       : '';
 
     let typeSuffix = '';
@@ -264,13 +280,10 @@ ${actions}
   /**
    * Generate XML for DID Forward (External Number)
    * Ref: XML_FORMATS_REFERENCE.txt Section 4
+   * @param gateway Required - resolved from DB by the caller (FreeSwitchSyncService)
    */
-  /**
-   * Generate XML for DID Forward (External Number)
-   * Ref: XML_FORMATS_REFERENCE.txt Section 4
-   */
-  generateDIDForwardXML(dialplanKey: string, destination: string, gateway?: string): string {
-    const gw = gateway || this.outboundGateway;
+  generateDIDForwardXML(dialplanKey: string, destination: string, gateway: string): string {
+    const gw = gateway;
     return `<?xml version="1.0" encoding="UTF-8"?>
 <document type="freeswitch/xml">
   <section name="dialplan">
@@ -281,7 +294,7 @@ ${actions}
           <action application="set" data="call_timeout=30"/>
           <action application="set" data="ignore_early_media=true"/>
           <!-- Forward to external number, preserving original caller ID -->
-          <action application="bridge" data="{ignore_early_media=true}sofia/internal/${destination}@${gw}"/>
+          <action application="bridge" data="{ignore_early_media=true}sofia/external/${destination}@${gw}"/>
           <!-- Fallback if forward fails -->
           <action application="answer"/>
           <action application="sleep" data="200"/>
@@ -521,6 +534,10 @@ ${actions}
     } else if (action.type === 'schedule') {
       // Target is "sched1_1001"
       // Condition is "^sched1_1001$"
+      dest = action.target;
+    } else if (action.type === 'did_forward' || action.type === 'forward') {
+      // Target is "fwd1_1001"
+      // Condition is "^fwd1_1001$"
       dest = action.target;
     } else if (action.type === 'external') {
       // External number (handled via bridge usually, but here we might need a gateway or just bridge string?)

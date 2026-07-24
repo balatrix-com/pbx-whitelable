@@ -28,10 +28,7 @@ const useAnalyticsSocket = () => {
 
         const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/api\/?$/, '');
         const socketUrl = `${baseUrl.replace(/\/$/, '')}/monitor`;
-        const socketPath =
-            import.meta.env.MODE === 'production' || !baseUrl.includes('localhost')
-                ? '/api/socket.io'
-                : '/socket.io';
+        const socketPath = '/api/socket.io';
 
         const socket = io(socketUrl, {
             path: socketPath,

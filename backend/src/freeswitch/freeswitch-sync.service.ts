@@ -47,10 +47,15 @@ export class FreeSwitchSyncService {
 
         if (ext.forwardAllEnabled && ext.forwardAllDestination) {
             // CFU (Call Forward Unconditional)
-            const dest = ext.forwardAllType === 'extension' ? `ext_${ext.forwardAllDestination}_direct` : ext.forwardAllDestination;
-            xml = this.dialplanGenerator.generateExtensionCFUXML(key, ext.forwardAllDestination, undefined, enableRecording, customerCode);
+            // Resolve gateway for external forwarding (same logic as DID forwarding)
+            const isExternalCFU = ext.forwardAllType !== 'extension';
+            const cfuGateway = isExternalCFU ? await this.resolveOutboundGatewayForTenant(ext.tenantId) : undefined;
+            xml = this.dialplanGenerator.generateExtensionCFUXML(key, ext.forwardAllDestination, undefined, enableRecording, customerCode, cfuGateway);
         } else if (ext.forwardNoAnswerEnabled && ext.forwardNoAnswerDestination) {
             // CFNA (Call Forward No Answer)
+            // Resolve gateway for external forwarding (same logic as DID forwarding)
+            const isExternalCFNA = ext.forwardNoAnswerType !== 'extension';
+            const cfnaGateway = isExternalCFNA ? await this.resolveOutboundGatewayForTenant(ext.tenantId) : undefined;
             xml = this.dialplanGenerator.generateExtensionForwardingXML(
                 key,
                 ext.extensionNumber,
@@ -58,7 +63,8 @@ export class FreeSwitchSyncService {
                 ext.forwardNoAnswerTimeout,
                 undefined,
                 enableRecording,
-                customerCode
+                customerCode,
+                cfnaGateway
             );
         } else {
             xml = this.dialplanGenerator.generateSimpleExtensionXML(key, ext.extensionNumber, undefined, enableRecording, customerCode);
@@ -603,8 +609,8 @@ export class FreeSwitchSyncService {
         if (!forward) return;
 
         const key = `fwd${forward.sequenceId}_${forward.tenant.customerCode}`;
-        // Use static gateway from generator default or config
-        const xml = this.dialplanGenerator.generateDIDForwardXML(key, forward.destinationNumber);
+        const gateway = await this.resolveOutboundGatewayForTenant(forward.tenantId);
+        const xml = this.dialplanGenerator.generateDIDForwardXML(key, forward.destinationNumber, gateway);
 
         await this.freeswitchDB.upsertDialplan(key, xml);
         this.logger.log(`Synced DID Forward ${key}`);
@@ -675,7 +681,7 @@ export class FreeSwitchSyncService {
             });
             return sched ? `sched${sched.sequenceId}_${sched.tenant.customerCode}` : '';
         }
-        if (type === 'did_forward') {
+        if (type === 'did_forward' || type === 'forward') {
             const forward = await client.dIDForward.findUnique({
                 where: { id: targetId },
                 include: { tenant: true }
@@ -752,7 +758,7 @@ export class FreeSwitchSyncService {
             const item = resolved[key];
             if (item.type === 'submenu' && item.children) {
                 item.children = await this.resolveMenuTargets(item.children, tenantId);
-            } else if (['extension', 'ring_group', 'ivr', 'schedule'].includes(item.type)) {
+            } else if (['extension', 'ring_group', 'ivr', 'schedule', 'did_forward', 'forward'].includes(item.type)) {
                 if (item.target) {
                     let dialplanKey = '';
 
@@ -785,32 +791,62 @@ export class FreeSwitchSyncService {
      * Uses tenant's assigned gateway, or falls back to system default database gateway.
      */
     async resolveOutboundGatewayForTenant(tenantId: string | null): Promise<string> {
+        this.logger.log(`resolveOutboundGatewayForTenant called for tenantId: "${tenantId}"`);
         if (!tenantId) {
-            return await this.getDefaultSystemGateway();
+            const gw = await this.getDefaultSystemGateway();
+            this.logger.log(`resolveOutboundGatewayForTenant: No tenantId provided. Using system default: "${gw}"`);
+            return gw;
         }
         const tenant = await this.prisma.tenant.findUnique({
             where: { id: tenantId },
             include: { outboundEndpoint: true }
         });
+        this.logger.log(`resolveOutboundGatewayForTenant: Tenant lookup result: customerCode="${tenant?.customerCode}", outboundEndpointId=${tenant?.outboundEndpointId}`);
         if (tenant?.outboundEndpoint) {
             const { sipHost, sipPort } = tenant.outboundEndpoint;
-            return `${sipHost}:${sipPort}`;
+            const gw = `${sipHost}:${sipPort}`;
+            this.logger.log(`resolveOutboundGatewayForTenant: Tenant has assigned outbound endpoint: "${gw}"`);
+            return gw;
         }
-        return await this.getDefaultSystemGateway();
+        const gw = await this.getDefaultSystemGateway();
+        this.logger.log(`resolveOutboundGatewayForTenant: Tenant has no assigned outbound endpoint. Using system default: "${gw}"`);
+        return gw;
     }
 
     /**
      * Resolves the system default outbound gateway from database.
-     * Falls back to process.env.OUTBOUND_GATEWAY or 'localhost:5060'.
+     * Priority: isSystemDefault endpoint → any active endpoint → env fallback.
      */
     async getDefaultSystemGateway(): Promise<string> {
+        // 1. Look for the endpoint explicitly marked as system default
         const defaultEndpoint = await this.prisma.outboundEndpoint.findFirst({
-            where: { isSystemDefault: true }
+            where: { isSystemDefault: true, isActive: true }
         });
         if (defaultEndpoint) {
-            return `${defaultEndpoint.sipHost}:${defaultEndpoint.sipPort}`;
+            const gw = `${defaultEndpoint.sipHost}:${defaultEndpoint.sipPort}`;
+            this.logger.log(`getDefaultSystemGateway: Found active system default endpoint (id=${defaultEndpoint.id}, name="${defaultEndpoint.name}"): "${gw}"`);
+            return gw;
         }
-        return process.env.OUTBOUND_GATEWAY || 'localhost:5060';
+
+        // 2. Fallback: pick the first active endpoint if none is marked as default
+        const anyEndpoint = await this.prisma.outboundEndpoint.findFirst({
+            where: { isActive: true },
+            orderBy: { id: 'asc' },
+        });
+        if (anyEndpoint) {
+            const gw = `${anyEndpoint.sipHost}:${anyEndpoint.sipPort}`;
+            this.logger.warn(
+                `getDefaultSystemGateway: No active system-default outbound endpoint found. Using first active endpoint (id=${anyEndpoint.id}, name="${anyEndpoint.name}"): "${gw}"`
+            );
+            return gw;
+        }
+
+        // 3. Last resort: env variable (should not happen in production)
+        const envGateway = process.env.OUTBOUND_GATEWAY || 'localhost:5060';
+        this.logger.error(
+            `getDefaultSystemGateway: No active outbound endpoints found in the database! Falling back to OUTBOUND_GATEWAY env variable (value: "${process.env.OUTBOUND_GATEWAY}"). Resolved to: "${envGateway}"`
+        );
+        return envGateway;
     }
 
     /**
@@ -818,13 +854,17 @@ export class FreeSwitchSyncService {
      */
     async syncTenantForwards(tenantId: string): Promise<void> {
         this.logger.log(`Syncing forwarding routes for tenant: ${tenantId}`);
-        const [dids, tfns] = await Promise.all([
+        const [dids, tfns, forwards] = await Promise.all([
             this.prisma.dID.findMany({
                 where: { tenantId, routeType: 'forward' },
                 select: { id: true }
             }),
             this.prisma.tFN.findMany({
                 where: { tenantId, routeType: 'forward' },
+                select: { id: true }
+            }),
+            this.prisma.dIDForward.findMany({
+                where: { tenantId },
                 select: { id: true }
             })
         ]);
@@ -834,6 +874,9 @@ export class FreeSwitchSyncService {
         }
         for (const tfn of tfns) {
             await this.syncTFN(tfn.id);
+        }
+        for (const fwd of forwards) {
+            await this.syncDIDForward(fwd.id);
         }
     }
 
@@ -848,7 +891,7 @@ export class FreeSwitchSyncService {
         });
         const tenantIds = tenantsWithoutGateway.map(t => t.id);
 
-        const [dids, tfns] = await Promise.all([
+        const [dids, tfns, forwards] = await Promise.all([
             this.prisma.dID.findMany({
                 where: {
                     tenantId: { in: tenantIds },
@@ -862,16 +905,23 @@ export class FreeSwitchSyncService {
                     routeType: 'forward'
                 },
                 select: { id: true }
+            }),
+            this.prisma.dIDForward.findMany({
+                where: { tenantId: { in: tenantIds } },
+                select: { id: true }
             })
         ]);
 
-        this.logger.log(`Found ${dids.length} DIDs and ${tfns.length} TFNs relying on system default. Syncing...`);
+        this.logger.log(`Found ${dids.length} DIDs, ${tfns.length} TFNs, and ${forwards.length} Forwards relying on system default. Syncing...`);
 
         for (const did of dids) {
             await this.syncDID(did.id);
         }
         for (const tfn of tfns) {
             await this.syncTFN(tfn.id);
+        }
+        for (const fwd of forwards) {
+            await this.syncDIDForward(fwd.id);
         }
         this.logger.log('Bulk resync of system-default forwarding XMLs completed.');
     }

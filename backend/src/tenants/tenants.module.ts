@@ -7,9 +7,10 @@ import { FreeswitchModule } from '../freeswitch/freeswitch.module';
 import { AdminModule } from '../admin/admin.module';
 import { LookupRedisModule } from '../redis/lookup-redis.module';
 import { WalletModule } from '../wallet/wallet.module';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
-    imports: [FreeswitchModule, AdminModule, LookupRedisModule, WalletModule],
+    imports: [FreeswitchModule, AdminModule, LookupRedisModule, WalletModule, MailModule],
     controllers: [TenantsController],
     providers: [TenantsService, PrismaService],
     exports: [TenantsService],

@@ -45,6 +45,31 @@ export class DIDsService {
     }
 
     /**
+     * Find all available DIDs
+     */
+    async findAvailable() {
+        return this.prisma.dID.findMany({
+            where: { tenantId: null },
+            orderBy: { createdAt: 'desc' }
+        });
+    }
+
+    /**
+     * Assign an available DID to a tenant
+     */
+    async assign(id: string, tenantId: string) {
+        const updated = await this.prisma.dID.update({
+            where: { id },
+            data: { tenantId }
+        });
+
+        // Update Redis Lookup DB
+        await this.lookupRedis.updateNumberLookup(updated.number, tenantId);
+
+        return updated;
+    }
+
+    /**
      * Create a new DID
      * Includes routing validation
      */

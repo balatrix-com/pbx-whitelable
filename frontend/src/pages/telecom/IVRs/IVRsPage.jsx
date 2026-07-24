@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Edit2, Trash2, Clock, Volume2, ShieldAlert, GitMerge } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, Clock, Volume2, ShieldAlert, GitMerge, Eye, X } from 'lucide-react';
 import api from '../../../services/api';
 import { useAuth } from '../../../context/AuthContext';
+import VisualIVRFlow from '../../../components/telecom/VisualIVRFlow';
 
 function IVRsPage() {
     const navigate = useNavigate();
@@ -11,6 +12,7 @@ function IVRsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [viewingIvr, setViewingIvr] = useState(null);
 
     const ivrLimit = user?.tenant?.tenantFeatures?.ivrLimit ?? 10;
     const isLimitReached = ivrs.length >= ivrLimit;
@@ -163,6 +165,12 @@ function IVRsPage() {
 
                                 <div className="flex items-center justify-end gap-2 px-6 py-4 bg-gray-50/50 border-t border-gray-100 rounded-b-2xl">
                                     <button
+                                        onClick={() => setViewingIvr(ivr)}
+                                        className="inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm font-bold text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 transition-colors focus:outline-none ring-1 ring-transparent hover:ring-emerald-100"
+                                    >
+                                        <Eye className="h-4 w-4 mr-1.5" /> View
+                                    </button>
+                                    <button
                                         onClick={() => navigate(`/telecom/ivrs/${ivr.id}/edit`)}
                                         className="inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm font-bold text-gray-700 hover:text-primary-600 hover:bg-primary-50 transition-colors focus:outline-none ring-1 ring-transparent hover:ring-primary-100"
                                     >
@@ -180,6 +188,28 @@ function IVRsPage() {
                     })
                 )}
             </div>
+
+            {viewingIvr && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-gray-900/60 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/80">
+                            <h2 className="text-lg font-extrabold text-gray-900 flex items-center gap-2">
+                                <GitMerge className="w-5 h-5 text-primary-500" />
+                                {viewingIvr.name} Flowchart
+                            </h2>
+                            <button
+                                onClick={() => setViewingIvr(null)}
+                                className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-colors focus:outline-none"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="flex-1 p-2 bg-gray-50/30">
+                            <VisualIVRFlow ivrName={viewingIvr.name} menu={viewingIvr.menu} />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

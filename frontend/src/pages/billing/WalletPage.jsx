@@ -91,6 +91,7 @@ const WalletPage = () => {
     );
 
     const isReadOnly = isSupport;
+    const isAdmin = user?.role === 'ADMIN' || user?.role === 'admin';
 
     return (
         <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8">
@@ -103,38 +104,42 @@ const WalletPage = () => {
                     <p className="text-gray-500 mt-1 font-medium text-sm md:text-base">Manage your account balance and payment methods</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
-                    <button
-                        onClick={() => navigate('/wallet/cards')}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-all focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
-                        disabled={isReadOnly}
-                        title={isReadOnly ? "Restricted for Support users" : ""}
-                    >
-                        <CreditCard size={18} className="text-gray-500" />
-                        Manage Cards
-                    </button>
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <div className="relative flex-1 sm:flex-initial">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
-                            <input
-                                type="number"
-                                value={rechargeAmount}
-                                onChange={(e) => setRechargeAmount(e.target.value)}
-                                min="1"
-                                step="1"
-                                className="w-full sm:w-24 pl-7 pr-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm font-bold text-gray-900 bg-white"
-                                placeholder="50.00"
-                            />
-                        </div>
-                        <button
-                            onClick={() => handleAddFunds(rechargeAmount)}
-                            disabled={addingFunds || isReadOnly || !rechargeAmount || rechargeAmount <= 0}
-                            title={isReadOnly ? "Restricted for Support users" : ""}
-                            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-primary-700 transition-all focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                        >
-                            {addingFunds ? <RotateCw size={18} className="animate-spin" /> : <RotateCw size={18} />}
-                            Add Funds
-                        </button>
-                    </div>
+                    {!isAdmin && (
+                        <>
+                            <button
+                                onClick={() => navigate('/wallet/cards')}
+                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-all focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+                                disabled={isReadOnly}
+                                title={isReadOnly ? "Restricted for Support users" : ""}
+                            >
+                                <CreditCard size={18} className="text-gray-500" />
+                                Manage Cards
+                            </button>
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                                <div className="relative flex-1 sm:flex-initial">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
+                                    <input
+                                        type="number"
+                                        value={rechargeAmount}
+                                        onChange={(e) => setRechargeAmount(e.target.value)}
+                                        min="1"
+                                        step="1"
+                                        className="w-full sm:w-24 pl-7 pr-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm font-bold text-gray-900 bg-white"
+                                        placeholder="50.00"
+                                    />
+                                </div>
+                                <button
+                                    onClick={() => handleAddFunds(rechargeAmount)}
+                                    disabled={addingFunds || isReadOnly || !rechargeAmount || rechargeAmount <= 0}
+                                    title={isReadOnly ? "Restricted for Support users" : ""}
+                                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-primary-700 transition-all focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                                >
+                                    {addingFunds ? <RotateCw size={18} className="animate-spin" /> : <RotateCw size={18} />}
+                                    Add Funds
+                                </button>
+                            </div>
+                        </>
+                    )}
                 </div>
             </header>
 

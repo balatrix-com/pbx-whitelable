@@ -27,7 +27,6 @@ export class DIDsController {
      * List all DIDs for tenant
      */
     @Get()
-    @Get()
     @Roles(Role.ADMIN, Role.SUPPORT, Role.SUPER_ADMIN)
     findAll(@GetUser() user: any, @Query('tenantId') tenantId?: string) {
         const targetTenantId = (user.role === Role.SUPER_ADMIN || user.role === Role.SUPPORT) && tenantId
@@ -44,6 +43,26 @@ export class DIDsController {
     @Roles(Role.ADMIN, Role.SUPPORT)
     findOne(@GetUser() user: any, @Param('id') id: string) {
         return this.didsService.findOne(user.tenantId, id);
+    }
+
+    /**
+     * GET /telecom/dids/available
+     * Get unassigned DIDs
+     */
+    @Get('available')
+    @Roles(Role.SUPER_ADMIN)
+    findAvailable() {
+        return this.didsService.findAvailable();
+    }
+
+    /**
+     * POST /telecom/dids/:id/assign
+     * Assign DID to tenant
+     */
+    @Post(':id/assign')
+    @Roles(Role.SUPER_ADMIN)
+    assign(@Param('id') id: string, @Body('tenantId') tenantId: string) {
+        return this.didsService.assign(id, tenantId);
     }
 
     /**
