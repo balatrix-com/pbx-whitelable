@@ -3,6 +3,7 @@ import { HttpService } from '@nestjs/axios';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import type { RedisClientType } from 'redis';
 import { firstValueFrom } from 'rxjs';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class MonitorService {
@@ -11,6 +12,7 @@ export class MonitorService {
     constructor(
         @Inject(REDIS_CLIENT) private readonly redisClient: RedisClientType,
         private readonly httpService: HttpService,
+        private readonly prisma: PrismaService,
     ) { }
 
     /**
@@ -18,8 +20,18 @@ export class MonitorService {
      */
     async getActiveCalls(tenantId?: string) {
         try {
-            const isAll = tenantId === 'all' || !tenantId;
-            const pattern = isAll ? 'customer:*:call:*' : `customer:${tenantId}:call:*`;
+            let resolvedTenantId = tenantId;
+            if (tenantId && tenantId !== 'all') {
+                const tenant = await this.prisma.tenant.findUnique({
+                    where: { id: tenantId },
+                    select: { customerCode: true }
+                });
+                if (tenant?.customerCode) {
+                    resolvedTenantId = tenant.customerCode;
+                }
+            }
+            const isAll = resolvedTenantId === 'all' || !resolvedTenantId;
+            const pattern = isAll ? 'customer:*:call:*' : `customer:${resolvedTenantId}:call:*`;
             const keys: string[] = [];
 
             for await (const chunk of this.redisClient.scanIterator({
@@ -48,7 +60,7 @@ export class MonitorService {
                         startTime: callData.start_ts ? new Date(parseInt(callData.start_ts) * 1000) : null,
                         answerTime: callData.answer_ts ? new Date(parseInt(callData.answer_ts) * 1000) : null,
                         duration: callData.duration ? parseInt(callData.duration) : 0,
-                        tenantId: callData.customer_id || key.split(':')[1] || tenantId || null,
+                        tenantId: callData.customer_id || key.split(':')[1] || resolvedTenantId || null,
                     });
                 }
             }
@@ -67,7 +79,17 @@ export class MonitorService {
      */
     async verifyCallTenant(uuid: string, tenantId: string): Promise<boolean> {
         try {
-            const key = `customer:${tenantId}:call:${uuid}`;
+            let resolvedTenantId = tenantId;
+            if (tenantId && tenantId !== 'all') {
+                const tenant = await this.prisma.tenant.findUnique({
+                    where: { id: tenantId },
+                    select: { customerCode: true }
+                });
+                if (tenant?.customerCode) {
+                    resolvedTenantId = tenant.customerCode;
+                }
+            }
+            const key = `customer:${resolvedTenantId}:call:${uuid}`;
             const exists = await this.redisClient.exists(key);
             return exists === 1;
         } catch (error) {

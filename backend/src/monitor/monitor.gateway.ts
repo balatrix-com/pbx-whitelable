@@ -13,6 +13,7 @@ import { Server, Socket } from 'socket.io';
 import { REDIS_SUBSCRIBER, REDIS_CLIENT } from '../redis/redis.module';
 import type { RedisClientType } from 'redis';
 import { JwtService } from '@nestjs/jwt';
+import { PrismaService } from '../prisma/prisma.service';
 
 const ANALYTICS_INTERVAL_MS = 30_000; // 30 seconds
 
@@ -35,6 +36,7 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
         @Inject(REDIS_SUBSCRIBER) private readonly redisSubscriber: RedisClientType,
         @Inject(REDIS_CLIENT) private readonly redisClient: RedisClientType,
         private readonly jwtService: JwtService,
+        private readonly prismaService: PrismaService,
     ) { }
 
     async afterInit() {
@@ -191,7 +193,7 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     }
 
     @SubscribeMessage('join_room')
-    handleJoinRoom(@MessageBody() tenantId: string, @ConnectedSocket() client: Socket) {
+    async handleJoinRoom(@MessageBody() tenantId: string, @ConnectedSocket() client: Socket) {
         this.logger.log(`Received join_room request for tenant: ${tenantId}`); // DEBUG
         const user = client.data.user;
         if (!user) {
@@ -209,35 +211,58 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
             return;
         }
 
-        client.join(`tenant:${tenantId}`);
+        // Resolve database UUID to customerCode
+        let resolvedTenantId = tenantId;
+        if (tenantId !== 'all') {
+            const tenant = await this.prismaService.tenant.findUnique({
+                where: { id: tenantId },
+                select: { customerCode: true }
+            });
+            if (tenant?.customerCode) {
+                resolvedTenantId = tenant.customerCode;
+            }
+        }
+
+        client.join(`tenant:${resolvedTenantId}`);
 
         // Track this socket in the tenantRooms map
-        if (!this.tenantRooms.has(tenantId)) {
-            this.tenantRooms.set(tenantId, new Set());
+        if (!this.tenantRooms.has(resolvedTenantId)) {
+            this.tenantRooms.set(resolvedTenantId, new Set());
         }
-        this.tenantRooms.get(tenantId)!.add(client.id);
+        this.tenantRooms.get(resolvedTenantId)!.add(client.id);
 
-        this.logger.log(`Client ${client.id} joined room tenant:${tenantId} for user ${user.sub}`);
-        client.emit('room_joined', { room: `tenant:${tenantId}` });
+        this.logger.log(`Client ${client.id} joined room tenant:${resolvedTenantId} for user ${user.sub}`);
+        client.emit('room_joined', { room: `tenant:${resolvedTenantId}` });
 
         // Emit an immediate snapshot so the client doesn't wait 30s
-        this.buildAnalyticsSnapshot(tenantId)
+        this.buildAnalyticsSnapshot(resolvedTenantId)
             .then(snapshot => client.emit('analytics_snapshot', snapshot))
             .catch(err => this.logger.warn(`Immediate snapshot failed: ${err.message}`));
     }
 
     @SubscribeMessage('leave_room')
-    handleLeaveRoom(@MessageBody() tenantId: string, @ConnectedSocket() client: Socket) {
-        client.leave(`tenant:${tenantId}`);
-
-        const socketIds = this.tenantRooms.get(tenantId);
-        if (socketIds) {
-            socketIds.delete(client.id);
-            if (socketIds.size === 0) this.tenantRooms.delete(tenantId);
+    async handleLeaveRoom(@MessageBody() tenantId: string, @ConnectedSocket() client: Socket) {
+        let resolvedTenantId = tenantId;
+        if (tenantId !== 'all') {
+            const tenant = await this.prismaService.tenant.findUnique({
+                where: { id: tenantId },
+                select: { customerCode: true }
+            });
+            if (tenant?.customerCode) {
+                resolvedTenantId = tenant.customerCode;
+            }
         }
 
-        this.logger.log(`Client ${client.id} left room tenant:${tenantId}`);
-        client.emit('room_left', { room: `tenant:${tenantId}` });
+        client.leave(`tenant:${resolvedTenantId}`);
+
+        const socketIds = this.tenantRooms.get(resolvedTenantId);
+        if (socketIds) {
+            socketIds.delete(client.id);
+            if (socketIds.size === 0) this.tenantRooms.delete(resolvedTenantId);
+        }
+
+        this.logger.log(`Client ${client.id} left room tenant:${resolvedTenantId}`);
+        client.emit('room_left', { room: `tenant:${resolvedTenantId}` });
     }
 
     @SubscribeMessage('ping')
