@@ -25,7 +25,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 
 const AdminDashboard = () => {
     const { user } = useAuth();
-    
+
     // Queries
     const { data: wallet, isLoading: walletLoading, isFetching: refreshing } = useWalletQuery();
     const { data: subscription, isLoading: subLoading } = useSubscriptionQuery();
@@ -128,8 +128,8 @@ const AdminDashboard = () => {
             {/* Enforcement Banner */}
             {enforcement.show && (
                 <div className={`rounded-2xl p-6 border-l-4 shadow-sm ${enforcement.color === 'red'
-                        ? 'bg-red-50 border-red-500'
-                        : 'bg-yellow-50 border-yellow-400'
+                    ? 'bg-red-50 border-red-500'
+                    : 'bg-yellow-50 border-yellow-400'
                     }`}>
                     <div className="flex items-start">
                         <div className="flex-shrink-0">
@@ -150,8 +150,8 @@ const AdminDashboard = () => {
                                     <Link
                                         to={enforcement.action.link}
                                         className={`inline-flex items-center rounded-lg px-4 py-2 text-sm font-bold text-white shadow-sm transition-colors ${enforcement.color === 'red'
-                                                ? 'bg-red-600 hover:bg-red-700'
-                                                : 'bg-yellow-600 hover:bg-yellow-700'
+                                            ? 'bg-red-600 hover:bg-red-700'
+                                            : 'bg-yellow-600 hover:bg-yellow-700'
                                             }`}
                                     >
                                         {enforcement.action.text}
@@ -208,7 +208,7 @@ const AdminDashboard = () => {
                     </div>
                     <div className="relative z-10 flex items-center justify-between">
                         <div className={`rounded-xl p-3 shadow-sm ${intelligence.health.status === 'SAFE' ? 'bg-green-50 text-green-600' :
-                                intelligence.health.status === 'WARNING' ? 'bg-yellow-50 text-yellow-600' : 'bg-red-50 text-red-600'
+                            intelligence.health.status === 'WARNING' ? 'bg-yellow-50 text-yellow-600' : 'bg-red-50 text-red-600'
                             }`}>
                             {intelligence.health.status === 'SAFE' ? (
                                 <CheckCircle className="h-6 w-6" />
@@ -219,7 +219,7 @@ const AdminDashboard = () => {
                             )}
                         </div>
                         <span className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border ${intelligence.health.status === 'SAFE' ? 'text-green-700 bg-green-50 border-green-200' :
-                                intelligence.health.status === 'WARNING' ? 'text-yellow-700 bg-yellow-50 border-yellow-200' : 'text-red-700 bg-red-50 border-red-200'
+                            intelligence.health.status === 'WARNING' ? 'text-yellow-700 bg-yellow-50 border-yellow-200' : 'text-red-700 bg-red-50 border-red-200'
                             }`}>
                             {intelligence.health.status}
                         </span>
@@ -251,7 +251,7 @@ const AdminDashboard = () => {
                     <div className="relative z-10 mt-6">
                         <div className="flex items-center justify-between">
                             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Available Balance</h3>
-                            <button 
+                            <button
                                 onClick={() => refreshWallet()}
                                 disabled={refreshing}
                                 className={`p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-primary-600 ${refreshing ? 'animate-spin' : ''}`}
@@ -297,7 +297,7 @@ const AdminDashboard = () => {
                             <span className="text-lg font-bold text-gray-400 uppercase">/ {intelligence.usage.totalMins} min</span>
                         </p>
                         <div className="mt-4 w-full bg-gray-100 rounded-full h-2 overflow-hidden shadow-inner">
-                            <div 
+                            <div
                                 className={`h-full transition-all duration-1000 ${intelligence.usage.usedPercent > 90 ? 'bg-red-500' : intelligence.usage.usedPercent > 75 ? 'bg-amber-500' : 'bg-primary-600'}`}
                                 style={{ width: `${intelligence.usage.usedPercent}%` }}
                             ></div>
@@ -327,7 +327,7 @@ const AdminDashboard = () => {
                                     <p className="text-sm font-extrabold text-gray-900">Call Recording</p>
                                     <p className="text-xs text-gray-500 mt-1">Record all inbound and outbound calls</p>
                                 </div>
-                                <button 
+                                <button
                                     onClick={handleToggleRecording}
                                     disabled={toggling}
                                     className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 ${recordingEnabled ? 'bg-primary-600' : 'bg-gray-200'} ${toggling ? 'opacity-50 cursor-not-allowed' : ''}`}
