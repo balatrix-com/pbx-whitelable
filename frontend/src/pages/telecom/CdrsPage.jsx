@@ -6,25 +6,15 @@ import { useWalletQuery, useSubscriptionQuery } from '../../hooks/useBillingQuer
 import { useBillingIntelligence } from '../../hooks/useBillingIntelligence';
 import { Wallet, Info } from 'lucide-react';
 
-const PlaybackButton = ({ uuid }) => {
-    const [status, setStatus] = useState('checking');
+const PlaybackButton = ({ uuid, hasRecording }) => {
+    const [status, setStatus] = useState(hasRecording ? 'available' : 'none');
     const [audioUrl, setAudioUrl] = useState(null);
     const [downloading, setDownloading] = useState(false);
     const audioRef = React.useRef(null);
 
     useEffect(() => {
-        if (!uuid) {
-            setStatus('none');
-            return;
-        }
-        telecomService.checkRecording(uuid).then(res => {
-            if (res.hasRecording) {
-                setStatus('available');
-            } else {
-                setStatus('none');
-            }
-        }).catch(() => setStatus('none'));
-    }, [uuid]);
+        setStatus(hasRecording ? 'available' : 'none');
+    }, [hasRecording]);
 
     const handlePlay = async () => {
         if (status === 'playing') {
@@ -151,7 +141,8 @@ const CdrsPage = () => {
                 cost: cdr.bill_amount || 0,
                 status: cdr.status || 'COMPLETED',
                 destType: cdr.dest_type,
-                destValue: cdr.dest_value
+                destValue: cdr.dest_value,
+                hasRecording: cdr.has_recording ?? false
             }));
             
             setCdrs(mapped);
@@ -440,7 +431,7 @@ const CdrsPage = () => {
                                                 </div>
                                             </td>
                                             <td className="whitespace-nowrap px-3 py-4">
-                                                <PlaybackButton uuid={cdr.uuid} />
+                                                <PlaybackButton uuid={cdr.uuid} hasRecording={cdr.hasRecording} />
                                             </td>
                                         </tr>
                                     ))}
