@@ -146,6 +146,7 @@ const RateCardsPage = () => {
     );
 
     const filteredRecRateCards = recRateCards.filter(card =>
+        ['7_days_standard', '15_days_standard', '30_days_standard'].includes(card.name.toLowerCase()) &&
         card.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
@@ -169,16 +170,6 @@ const RateCardsPage = () => {
                             : 'Configure recording storage and rates per minute, then assign to tenants'}
                     </p>
                 </div>
-                <button
-                    onClick={() => {
-                        setEditingCard(null);
-                        setShowModal(true);
-                    }}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary-600/20 hover:bg-primary-700 transition-all w-full sm:w-auto"
-                >
-                    <Plus size={20} />
-                    {activeTab === 'standard' ? 'Add New Rate Card' : 'Add Recording Rate Card'}
-                </button>
             </header>
 
             {/* Tabs Selector */}
@@ -769,7 +760,8 @@ const AddEditRecRateCardModal = ({ card, onClose, onSave, loading }) => {
                             <label className="text-sm font-black text-gray-700 uppercase tracking-wider">Card Name</label>
                             <input
                                 required
-                                className="w-full rounded-2xl border-gray-200 bg-gray-50/50 focus:ring-2 focus:ring-primary-500 focus:border-transparent py-3 px-4 font-bold text-gray-900"
+                                disabled={!!card}
+                                className="w-full rounded-2xl border-gray-200 bg-gray-50/50 focus:ring-2 focus:ring-primary-500 focus:border-transparent py-3 px-4 font-bold text-gray-900 disabled:opacity-60 disabled:bg-gray-100 disabled:cursor-not-allowed"
                                 value={formData.name}
                                 onChange={e => setFormData({ ...formData, name: e.target.value })}
                                 placeholder="e.g. 7_days_0.001"
@@ -779,7 +771,8 @@ const AddEditRecRateCardModal = ({ card, onClose, onSave, loading }) => {
                             <label className="text-sm font-black text-gray-700 uppercase tracking-wider">Currency</label>
                             <input
                                 required
-                                className="w-full rounded-2xl border-gray-200 bg-gray-50/50 focus:ring-2 focus:ring-primary-500 focus:border-transparent py-3 px-4 font-bold text-gray-900"
+                                disabled={!!card}
+                                className="w-full rounded-2xl border-gray-200 bg-gray-50/50 focus:ring-2 focus:ring-primary-500 focus:border-transparent py-3 px-4 font-bold text-gray-900 disabled:opacity-60 disabled:bg-gray-100 disabled:cursor-not-allowed"
                                 value={formData.currency}
                                 onChange={e => setFormData({ ...formData, currency: e.target.value.toUpperCase() })}
                                 placeholder="USD"
@@ -800,14 +793,17 @@ const AddEditRecRateCardModal = ({ card, onClose, onSave, loading }) => {
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-sm font-black text-gray-700 uppercase tracking-wider">Retention Period (Days)</label>
-                            <input
-                                type="number"
+                            <select
                                 required
-                                className="w-full rounded-2xl border-gray-200 bg-gray-50/50 focus:ring-2 focus:ring-primary-500 focus:border-transparent py-3 px-4 font-bold text-gray-900"
+                                disabled={!!card}
+                                className="w-full rounded-2xl border-gray-200 bg-gray-50/50 focus:ring-2 focus:ring-primary-500 focus:border-transparent py-3 px-4 font-bold text-gray-900 disabled:opacity-60 disabled:bg-gray-100 disabled:cursor-not-allowed"
                                 value={formData.retention_period}
-                                onChange={e => setFormData({ ...formData, retention_period: e.target.value })}
-                                placeholder="7"
-                            />
+                                onChange={e => setFormData({ ...formData, retention_period: parseInt(e.target.value) })}
+                            >
+                                <option value={7}>7 Days</option>
+                                <option value={15}>15 Days</option>
+                                <option value={30}>30 Days</option>
+                            </select>
                         </div>
                     </div>
 
