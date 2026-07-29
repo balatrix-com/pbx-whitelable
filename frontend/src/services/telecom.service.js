@@ -85,11 +85,6 @@ export const telecomService = {
         return response.data;
     },
 
-    checkRecording: async (callUuid) => {
-        const response = await api.get(`/telecom/recordings/${callUuid}/check`);
-        return response.data;
-    },
-
     playRecording: async (callUuid) => {
         const response = await api.get(`/telecom/recordings/${callUuid}/play`, { responseType: 'blob' });
         return response.data;

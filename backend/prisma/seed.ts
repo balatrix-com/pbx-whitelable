@@ -54,27 +54,70 @@ async function main() {
 
     // 3. Seed Super Admin
     const superAdminEmail = 'superadmin@example.com';
-    const existingAdmin = await prisma.user.findUnique({
-        where: { email: superAdminEmail }
+    const hashedPassword = await bcrypt.hash('SuperAdmin123!', 10);
+    
+    await prisma.user.upsert({
+        where: { email: superAdminEmail },
+        update: {
+            monitoringEnabled: true,
+            monitoringExtension: '999001',
+            monitoringSecret: 'SuperSecret123!'
+        },
+        create: {
+            email: superAdminEmail,
+            password: hashedPassword,
+            role: 'SUPER_ADMIN',
+            status: 'ACTIVE',
+            name: 'Super Admin',
+            monitoringEnabled: true,
+            monitoringExtension: '999001',
+            monitoringSecret: 'SuperSecret123!'
+        }
     });
+    console.log('Seeded/Updated Super Admin user with monitoring extension 999001');
 
-    if (!existingAdmin) {
-        const hashedPassword = await bcrypt.hash('SuperAdmin123!', 10);
-        await prisma.user.create({
-            data: {
-                email: superAdminEmail,
-                password: hashedPassword,
-                role: 'SUPER_ADMIN',
-                status: 'ACTIVE',
-                name: 'Super Admin'
-            }
-        });
-        console.log('Seeded Super Admin user');
-    }
-
-
+    // Sync Super Admin monitoring extension to Kamailio subscriber database
+    await syncKamailioSubscriber('999001', 'SuperSecret123!');
 
     console.log('Seeding complete.');
+}
+
+async function syncKamailioSubscriber(username: string, passwordPlain: string) {
+    const { Client } = require('pg');
+    const crypto = require('crypto');
+    
+    const realm = process.env.SIP_REALM || 'wlabel.balatrix.com';
+    const client = new Client({
+        host: process.env.FS_DB_HOST || '10.30.0.61',
+        port: parseInt(process.env.FS_DB_PORT || '5432', 10),
+        database: process.env.KAMAILIO_DB_NAME || 'kamailio',
+        user: process.env.FS_DB_USER || 'freeswitch',
+        password: process.env.FS_DB_PASSWORD || 'OnidaMaruti1)',
+    });
+
+    try {
+        await client.connect();
+        const ha1 = crypto.createHash('md5')
+            .update(`${username}:${realm}:${passwordPlain}`)
+            .digest('hex');
+        const ha1b = ha1;
+
+        const query = `
+            INSERT INTO subscriber (username, domain, password, ha1, ha1b)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (username, domain)
+            DO UPDATE SET
+                password = EXCLUDED.password,
+                ha1 = EXCLUDED.ha1,
+                ha1b = EXCLUDED.ha1b
+        `;
+        await client.query(query, [username, realm, passwordPlain, ha1, ha1b]);
+        console.log(`Synced Kamailio subscriber: ${username}@${realm}`);
+    } catch (err) {
+        console.error(`Failed to sync Kamailio subscriber ${username}:`, err.message);
+    } finally {
+        await client.end();
+    }
 }
 
 main()

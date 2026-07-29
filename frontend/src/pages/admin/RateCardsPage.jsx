@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { 
-    CreditCard, 
-    Plus, 
-    Search, 
-    Edit2, 
-    Save, 
-    X, 
-    Globe, 
-    PhoneIncoming, 
+import {
+    CreditCard,
+    Plus,
+    Search,
+    Edit2,
+    Save,
+    X,
+    Globe,
+    PhoneIncoming,
     PhoneOutgoing,
     Info,
     CheckCircle,
@@ -22,15 +22,15 @@ import clsx from 'clsx';
 const RateCardsPage = () => {
     const { isSuperAdmin } = useAuth();
     const [activeTab, setActiveTab] = useState('standard'); // 'standard' or 'recording'
-    
+
     // Standard Rate Card States
     const [rateCards, setRateCards] = useState([]);
     const [mappings, setMappings] = useState([]);
-    
+
     // Recording Rate Card States
     const [recRateCards, setRecRateCards] = useState([]);
     const [recMappings, setRecMappings] = useState([]);
-    
+
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [mappingSearchQuery, setMappingSearchQuery] = useState('');
@@ -135,21 +135,21 @@ const RateCardsPage = () => {
     }
 
     // Filter calculations depending on activeTab
-    const filteredRateCards = rateCards.filter(card => 
+    const filteredRateCards = rateCards.filter(card =>
         card.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         card.country?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const filteredMappings = mappings.filter(m => 
+    const filteredMappings = mappings.filter(m =>
         m.customer_id.toLowerCase().includes(mappingSearchQuery.toLowerCase()) ||
         m.customer_email.toLowerCase().includes(mappingSearchQuery.toLowerCase())
     );
 
-    const filteredRecRateCards = recRateCards.filter(card => 
+    const filteredRecRateCards = recRateCards.filter(card =>
         card.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const filteredRecMappings = recMappings.filter(m => 
+    const filteredRecMappings = recMappings.filter(m =>
         String(m.customer_id).toLowerCase().includes(mappingSearchQuery.toLowerCase()) ||
         String(m.customer_email || '').toLowerCase().includes(mappingSearchQuery.toLowerCase())
     );
@@ -164,8 +164,8 @@ const RateCardsPage = () => {
                         {activeTab === 'standard' ? 'Rate Card Management' : 'Recording Rate Cards'}
                     </h1>
                     <p className="text-gray-500 mt-1 font-medium text-sm md:text-base">
-                        {activeTab === 'standard' 
-                            ? 'Configure call rates and assign them to customers' 
+                        {activeTab === 'standard'
+                            ? 'Configure call rates and assign them to customers'
                             : 'Configure recording storage and rates per minute, then assign to tenants'}
                     </p>
                 </div>
@@ -191,8 +191,8 @@ const RateCardsPage = () => {
                     }}
                     className={clsx(
                         "px-6 py-2.5 rounded-xl text-sm font-extrabold transition-all duration-200",
-                        activeTab === 'standard' 
-                            ? "bg-white text-primary-600 shadow-md shadow-gray-200/50 ring-1 ring-gray-100" 
+                        activeTab === 'standard'
+                            ? "bg-white text-primary-600 shadow-md shadow-gray-200/50 ring-1 ring-gray-100"
                             : "text-gray-500 hover:text-gray-900"
                     )}
                 >
@@ -206,8 +206,8 @@ const RateCardsPage = () => {
                     }}
                     className={clsx(
                         "px-6 py-2.5 rounded-xl text-sm font-extrabold transition-all duration-200",
-                        activeTab === 'recording' 
-                            ? "bg-white text-primary-600 shadow-md shadow-gray-200/50 ring-1 ring-gray-100" 
+                        activeTab === 'recording'
+                            ? "bg-white text-primary-600 shadow-md shadow-gray-200/50 ring-1 ring-gray-100"
                             : "text-gray-500 hover:text-gray-900"
                     )}
                 >

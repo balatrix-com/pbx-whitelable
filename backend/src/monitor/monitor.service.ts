@@ -3,6 +3,7 @@ import { HttpService } from '@nestjs/axios';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import type { RedisClientType } from 'redis';
 import { firstValueFrom } from 'rxjs';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class MonitorService {
@@ -11,15 +12,35 @@ export class MonitorService {
     constructor(
         @Inject(REDIS_CLIENT) private readonly redisClient: RedisClientType,
         private readonly httpService: HttpService,
+        private readonly prisma: PrismaService,
     ) { }
 
     /**
-     * Get all active calls for a specific tenant
+     * Get all active calls for a specific tenant (or all tenants)
      */
-    async getActiveCalls(tenantId: string) {
+    async getActiveCalls(tenantId?: string) {
         try {
-            const pattern = `customer:${tenantId}:call:*`;
-            const keys = await this.redisClient.keys(pattern);
+            let resolvedTenantId = tenantId;
+            if (tenantId && tenantId !== 'all') {
+                const tenant = await this.prisma.tenant.findUnique({
+                    where: { id: tenantId },
+                    select: { customerCode: true }
+                });
+                if (tenant?.customerCode) {
+                    resolvedTenantId = tenant.customerCode;
+                }
+            }
+            const isAll = resolvedTenantId === 'all' || !resolvedTenantId;
+            const pattern = isAll ? 'customer:*:call:*' : `customer:${resolvedTenantId}:call:*`;
+            const keys: string[] = [];
+
+            for await (const chunk of this.redisClient.scanIterator({
+                MATCH: pattern,
+                COUNT: 100
+            })) {
+                keys.push(...chunk);
+            }
+
             const calls = [];
 
             for (const key of keys) {
@@ -39,6 +60,7 @@ export class MonitorService {
                         startTime: callData.start_ts ? new Date(parseInt(callData.start_ts) * 1000) : null,
                         answerTime: callData.answer_ts ? new Date(parseInt(callData.answer_ts) * 1000) : null,
                         duration: callData.duration ? parseInt(callData.duration) : 0,
+                        tenantId: callData.customer_id || key.split(':')[1] || resolvedTenantId || null,
                     });
                 }
             }
@@ -49,6 +71,30 @@ export class MonitorService {
         } catch (error) {
             this.logger.error(`Failed to get active calls for tenant ${tenantId}`, error);
             return [];
+        }
+    }
+
+    /**
+     * Verify if a call belongs to a specific tenant in Redis
+     */
+    async verifyCallTenant(uuid: string, tenantId: string): Promise<boolean> {
+        try {
+            let resolvedTenantId = tenantId;
+            if (tenantId && tenantId !== 'all') {
+                const tenant = await this.prisma.tenant.findUnique({
+                    where: { id: tenantId },
+                    select: { customerCode: true }
+                });
+                if (tenant?.customerCode) {
+                    resolvedTenantId = tenant.customerCode;
+                }
+            }
+            const key = `customer:${resolvedTenantId}:call:${uuid}`;
+            const exists = await this.redisClient.exists(key);
+            return exists === 1;
+        } catch (error) {
+            this.logger.error(`Failed to verify call tenant ownership for ${uuid}: ${error.message}`);
+            return false;
         }
     }
 

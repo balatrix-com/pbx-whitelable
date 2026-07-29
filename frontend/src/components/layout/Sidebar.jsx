@@ -42,7 +42,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     const [isExtensionsOpen, setIsExtensionsOpen] = useState(
         location.pathname.startsWith('/extensions') || location.pathname.startsWith('/telecom/extensions')
     );
-    
+
     // Resolve branding (User's tenant partner or domain-resolved fallback)
     const currentBranding = user?.partner || branding;
 
@@ -60,8 +60,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { name: 'Audit Logs', href: '/admin/audit-logs', icon: Shield },
                     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
                     { name: 'Revenue', href: '/revenue', icon: BarChart3 },
-                    { name: 'Extension Status', href: '/admin/extension-status', icon: Activity },
                     { name: 'Rate Cards', href: '/super-admin/rate-cards', icon: CreditCard },
+                    { name: 'Extension Status', href: '/admin/extension-status', icon: Activity },
+                    { name: 'Call Monitoring', href: '/monitoring', icon: Activity },
+                    { name: 'Call Records', href: '/cdrs', icon: PhoneCall },
                     { name: 'Manage Numbers', href: '/super-admin/numbers', icon: Phone },
                     { name: 'Carriers & Gateways', href: '/super-admin/carriers', icon: Server },
                     { name: 'User Management', href: '/super-admin/users', icon: Users },
@@ -73,8 +75,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
                     { name: 'Wallet', href: '/wallet', icon: Wallet },
                     { name: 'Phone Numbers', href: '/tfn', icon: Phone },
-                    { 
-                        name: 'Extensions', 
+                    {
+                        name: 'Extensions',
                         icon: Users,
                         hasSubmenu: true,
                         subItems: [
@@ -100,8 +102,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
                     { name: 'Wallet', href: '/wallet', icon: Wallet },
                     { name: 'Phone Numbers', href: '/tfn', icon: Phone },
-                    { 
-                        name: 'Extensions', 
+                    {
+                        name: 'Extensions',
                         icon: Users,
                         hasSubmenu: true,
                         subItems: [
@@ -185,7 +187,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     onClick={() => setIsOpen(false)}
                     className="p-2 -mr-2 text-gray-500 hover:text-gray-900 lg:hidden focus:outline-none"
                 >
-                    <X className="h-5 w-5" /> 
+                    <X className="h-5 w-5" />
                 </button>
                 {/* Desktop Collapse Toggle */}
                 <button
@@ -195,13 +197,12 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                 </button>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
                 <nav className="space-y-1.5">
                     {navItems.map((item) => {
                         const isActive = location.pathname.startsWith(item.href) && (item.href !== '/dashboard' || location.pathname === '/dashboard');
                         const Icon = item.icon;
-
                         if (item.hasSubmenu) {
                             const isSubActive = location.pathname.startsWith(item.subItems[0].href) || location.pathname.startsWith(item.subItems[1].href);
                             return (
