@@ -223,15 +223,6 @@ export class AdminService {
         }
     }
 
-    async createRecRateCard(data: any) {
-        try {
-            const response = await lastValueFrom(this.httpService.post(`${this.subBillingUrl}/rec-rate-cards`, data));
-            return response.data;
-        } catch (error: any) {
-            this.handleProxyError(error, 'createRecRateCard');
-        }
-    }
-
     async updateRecRateCard(id: string, data: any) {
         try {
             const response = await lastValueFrom(this.httpService.put(`${this.subBillingUrl}/rec-rate-cards/${id}`, data));

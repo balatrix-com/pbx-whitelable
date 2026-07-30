@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { seedRateCards } from './rate_card';
 const prisma = new PrismaClient();
 
 async function main() {
@@ -78,6 +79,9 @@ async function main() {
 
     // Sync Super Admin monitoring extension to Kamailio subscriber database
     await syncKamailioSubscriber('999001', 'SuperSecret123!');
+
+    // 4. Seed Rate Cards (Standard & Recording Rate Cards: 7, 15, 30 days)
+    await seedRateCards();
 
     console.log('Seeding complete.');
 }
