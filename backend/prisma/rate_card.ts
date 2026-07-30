@@ -73,9 +73,9 @@ export async function seedRateCards() {
 
   const dbHost = process.env.DB_HOST || '10.30.0.61';
   const dbPort = parseInt(process.env.PORT || '5432', 10);
-  const dbUser = process.env.DB_USER || 'subadmin';
-  const dbPassword = process.env.DB_PASSWORD || 'OnidaMaruti1)';
-  const dbName = process.env.DB_NAME || 'subtest';
+  const dbUser = process.env.DB_USER || 'bill_eng1';
+  const dbPassword = process.env.DB_PASSWORD || 'Bill2k26x';
+  const dbName = process.env.DB_NAME || 'bala_billing';
 
   const client = new Client({
     host: dbHost,
@@ -151,7 +151,7 @@ export async function seedRateCards() {
   } catch (err: any) {
     console.error(`Database Seeding error: ${err.message}`);
   } finally {
-    await client.end().catch(() => {});
+    await client.end().catch(() => { });
   }
 }
 
