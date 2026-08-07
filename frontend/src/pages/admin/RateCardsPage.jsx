@@ -170,6 +170,18 @@ const RateCardsPage = () => {
                             : 'Configure recording storage and rates per minute, then assign to tenants'}
                     </p>
                 </div>
+                {activeTab === 'standard' && (
+                    <button
+                        onClick={() => {
+                            setEditingCard(null);
+                            setShowModal(true);
+                        }}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary-600/20 hover:bg-primary-700 transition-all w-full sm:w-auto"
+                    >
+                        <Plus size={20} />
+                        Add New Rate Card
+                    </button>
+                )}
             </header>
 
             {/* Tabs Selector */}
