@@ -12,11 +12,13 @@ export const analyticsService = {
         });
         return response.data;
     },
-    getGlobalDashboard: async (range = 'today') => {
+    getGlobalDashboard: async (range = 'today', customerId = 'all') => {
+        const params = { range };
+        if (customerId && customerId !== 'all') {
+            params.customer_id = customerId;
+        }
         const response = await api.get('/telecom/analytics/global/dashboard', {
-            params: {
-                range: range
-            }
+            params
         });
         return response.data;
     }

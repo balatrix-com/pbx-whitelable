@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import telecomService from '../../services/telecom.service';
 import api from '../../services/api';
-import { Phone, Mic, Volume2, Shield, Activity, RotateCw, Globe, Building2 } from 'lucide-react';
+import { Phone, Mic, Volume2, Shield, Activity, RotateCw, Globe, Building2, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const MonitoringPage = () => {
@@ -215,20 +215,22 @@ const MonitoringPage = () => {
                 {/* Control Panel Box */}
                 <div className="bg-white rounded-2xl shadow-sm ring-1 ring-indigo-200/60 p-3 px-4 flex flex-wrap items-center gap-3 md:gap-4 mx-4 sm:mx-0 shadow-indigo-500/5">
                     {isSuperAdmin && (
-                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-2.5 py-1.5 shadow-xs">
-                            <Globe className="h-4 w-4 text-blue-600 shrink-0" />
+                        <div className="relative bg-slate-50 border border-slate-200/80 shadow-xs rounded-xl flex items-center px-3 py-1.5 gap-2 hover:border-slate-300 transition-all">
+                            <Building2 className="h-4 w-4 text-slate-500 shrink-0" />
                             <select
                                 value={selectedTenantId}
                                 onChange={(e) => setSelectedTenantId(e.target.value)}
-                                className="bg-transparent text-xs font-bold text-gray-800 focus:outline-none cursor-pointer pr-1"
+                                className="bg-transparent text-xs font-bold text-gray-800 pr-5 py-0.5 focus:outline-none cursor-pointer border-none ring-0 appearance-none font-sans"
+                                style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
                             >
-                                <option value="all">All Tenants</option>
+                                <option value="all">🌐 All Tenants</option>
                                 {tenants.map((t) => (
                                     <option key={t.id} value={t.id}>
-                                        {t.name}
+                                        🏢 {t.name}
                                     </option>
                                 ))}
                             </select>
+                            <ChevronDown className="h-3.5 w-3.5 text-slate-400 pointer-events-none -ml-4" />
                         </div>
                     )}
 
