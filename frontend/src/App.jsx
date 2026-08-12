@@ -44,6 +44,8 @@ import PackagesPage from './pages/admin/PackagesPage';
 import CarriersGatewaysPage from './pages/admin/CarriersGatewaysPage';
 import BrandingSettingsPage from './pages/admin/BrandingSettingsPage';
 import ExtensionStatus from './pages/admin/ExtensionStatus';
+import SubscriptionsPage from './pages/admin/SubscriptionsPage';
+import CreatePlanPage from './pages/admin/CreatePlanPage';
 import OnboardingLayout from './pages/onboarding/OnboardingLayout';
 import TfnOnboardingPage from './pages/onboarding/TfnOnboardingPage';
 import PrivateLayout from './components/layout/PrivateLayout';
@@ -85,7 +87,7 @@ function App() {
                     <ToastProvider>
                         <ThemeProvider>
                             <BrowserRouter>
-                                <div className="min-h-screen bg-gray-50 font-sans text-slate-900">
+                                <div className="h-screen w-screen overflow-hidden bg-gray-50 font-sans text-slate-900">
                                     <Routes>
                                         {/* Public Routes */}
                                         <Route path="/login" element={<LoginPage />} />
@@ -147,6 +149,8 @@ function App() {
                                                     </MonitoringRoute>
                                                 } />
                                                 <Route path="/cdrs" element={<CdrsPage />} />
+                                                <Route path="/subscriptions" element={<SubscriptionsPage />} />
+                                                <Route path="/subscriptions/plans/new" element={<CreatePlanPage />} />
                                             </Route>
 
                                             {/* Admin Only */}
@@ -165,6 +169,8 @@ function App() {
                                                 <Route path="/super-admin/rate-cards" element={<RateCardsPage />} />
                                                 <Route path="/super-admin/numbers" element={<NumbersManagement />} />
                                                 <Route path="/super-admin/packages" element={<PackagesPage />} />
+                                                <Route path="/super-admin/subscriptions" element={<SubscriptionsPage />} />
+                                                <Route path="/super-admin/plans/new" element={<CreatePlanPage />} />
                                                 <Route path="/super-admin/carriers" element={<CarriersGatewaysPage />} />
                                                 <Route path="/tenants" element={<TenantsPage />} />
                                                 <Route path="/revenue" element={<RevenuePage />} />

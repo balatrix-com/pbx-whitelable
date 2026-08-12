@@ -107,6 +107,13 @@ const WalletPage = () => {
                     {!isAdmin && (
                         <>
                             <button
+                                onClick={() => navigate('/subscriptions')}
+                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-bold text-gray-700 dark:text-slate-200 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 transition-all focus:outline-none w-full sm:w-auto"
+                            >
+                                <CreditCard size={18} className="text-indigo-500" />
+                                Subscriptions & Add-ons
+                            </button>
+                            <button
                                 onClick={() => navigate('/wallet/cards')}
                                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-bold text-gray-700 dark:text-slate-200 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 transition-all focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
                                 disabled={isReadOnly}
@@ -164,7 +171,7 @@ const WalletPage = () => {
                             <span>{intelligence.usage.usedMins} / {intelligence.usage.totalMins} Mins Used</span>
                         </div>
                         <div className="mt-2 w-full bg-purple-100/60 dark:bg-purple-900/50 rounded-full h-1 overflow-hidden">
-                            <div 
+                            <div
                                 className="h-full bg-purple-600 dark:bg-purple-400 transition-all duration-1000"
                                 style={{ width: `${intelligence.usage.usedPercent}%` }}
                             ></div>
@@ -182,7 +189,7 @@ const WalletPage = () => {
                                 </div>
                                 <dt className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Current Balance</dt>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => { refreshWallet(); fetchPaymentDetails(); }}
                                 disabled={walletRefreshing}
                                 className={`p-1 rounded-md hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors text-gray-400 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 ${walletRefreshing ? 'animate-spin' : ''}`}
@@ -305,7 +312,7 @@ const WalletPage = () => {
                             <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                 <DollarSign className="text-emerald-500 h-5 w-5" /> Stripe Payment History
                             </h3>
-                            <button 
+                            <button
                                 onClick={fetchPaymentDetails}
                                 disabled={paymentDetailsLoading}
                                 className={`p-1 rounded-md hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors text-gray-400 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 ${paymentDetailsLoading ? 'animate-spin' : ''}`}
