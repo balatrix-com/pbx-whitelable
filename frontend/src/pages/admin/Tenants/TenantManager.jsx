@@ -84,12 +84,12 @@ const TenantManager = ({ tenantId, onClose }) => {
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
-                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${isActive
-                                        ? 'bg-primary-50 text-primary-700 shadow-sm ring-1 ring-inset ring-primary-600/20'
-                                        : 'text-gray-600 hover:bg-white hover:text-gray-900 hover:shadow-sm hover:ring-1 hover:ring-inset hover:ring-gray-200'
+                                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-extrabold transition-all ${isActive
+                                        ? 'bg-indigo-600 text-white shadow-md font-bold'
+                                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-transparent'
                                         }`}
                                 >
-                                    <Icon size={18} className={isActive ? 'text-primary-600' : 'text-gray-400'} />
+                                    <Icon size={18} className={isActive ? 'text-white' : 'text-slate-500'} />
                                     {tab.label}
                                 </button>
                             );
@@ -123,7 +123,6 @@ const OverviewTab = ({ tenant }) => (
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white p-5 rounded-2xl shadow-sm ring-1 ring-gray-200/50 relative overflow-hidden group hover:shadow-md transition-all">
-                <Info className="absolute -bottom-4 -right-4 h-24 w-24 text-gray-50/50 transform -rotate-12 group-hover:scale-110 transition-transform duration-500 pointer-events-none" />
                 <div className="relative z-10">
                     <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
                         <div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>
@@ -134,7 +133,6 @@ const OverviewTab = ({ tenant }) => (
             </div>
 
             <div className="bg-white p-5 rounded-2xl shadow-sm ring-1 ring-gray-200/50 relative overflow-hidden group hover:shadow-md transition-all">
-                <Info className="absolute -bottom-4 -right-4 h-24 w-24 text-gray-50/50 transform -rotate-12 group-hover:scale-110 transition-transform duration-500 pointer-events-none" />
                 <div className="relative z-10">
                     <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
                         <div className="h-1.5 w-1.5 rounded-full bg-purple-500"></div>
@@ -147,7 +145,6 @@ const OverviewTab = ({ tenant }) => (
             </div>
 
             <div className="bg-white p-5 rounded-2xl shadow-sm ring-1 ring-gray-200/50 relative overflow-hidden group hover:shadow-md transition-all">
-                <Info className="absolute -bottom-4 -right-4 h-24 w-24 text-gray-50/50 transform -rotate-12 group-hover:scale-110 transition-transform duration-500 pointer-events-none" />
                 <div className="relative z-10">
                     <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
                         <div className={`h-1.5 w-1.5 rounded-full ${tenant.serviceBlocked ? 'bg-red-500' : 'bg-green-500'}`}></div>
@@ -163,7 +160,6 @@ const OverviewTab = ({ tenant }) => (
             </div>
 
             <div className="bg-white p-5 rounded-2xl shadow-sm ring-1 ring-gray-200/50 relative overflow-hidden group hover:shadow-md transition-all">
-                <Users className="absolute -bottom-4 -right-4 h-24 w-24 text-gray-50/50 transform -rotate-12 group-hover:scale-110 transition-transform duration-500 pointer-events-none" />
                 <div className="relative z-10">
                     <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
                         <div className="h-1.5 w-1.5 rounded-full bg-indigo-500"></div>
@@ -253,7 +249,6 @@ const WalletTab = ({ tenant, onUpdate }) => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Administrative Adjustment Card */}
                 <div className="bg-gray-50/50 p-6 sm:p-8 rounded-2xl ring-1 ring-inset ring-gray-100 shadow-sm relative overflow-hidden">
-                    <Wallet className="absolute -top-12 -right-12 h-48 w-48 text-gray-100/50 transform -rotate-12 pointer-events-none" />
                     <div className="relative z-10">
                         <h4 className="text-base font-extrabold text-gray-900 mb-6 flex items-center gap-2 tracking-tight">
                             <CreditCard className="h-5 w-5 text-primary-500" /> Administrative Adjustment
@@ -319,7 +314,6 @@ const WalletTab = ({ tenant, onUpdate }) => {
 
                 {/* Edit Credit Limit Card */}
                 <div className="bg-gray-50/50 p-6 sm:p-8 rounded-2xl ring-1 ring-inset ring-gray-100 shadow-sm relative overflow-hidden">
-                    <Wallet className="absolute -top-12 -right-12 h-48 w-48 text-gray-100/50 transform -rotate-12 pointer-events-none" />
                     <div className="relative z-10">
                         <h4 className="text-base font-extrabold text-gray-900 mb-6 flex items-center gap-2 tracking-tight">
                             <CreditCard className="h-5 w-5 text-primary-500" /> Credit Limit Control

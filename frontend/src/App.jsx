@@ -51,6 +51,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import PlatformDashboard from './pages/platform/PlatformDashboard';
 import GlobalAnalyticsDashboard from './pages/platform/GlobalAnalyticsDashboard';
 import { useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 const DashboardRedirect = () => {
     const { user } = useAuth();
@@ -82,102 +83,104 @@ function App() {
             <BrandingProvider>
                 <AuthProvider>
                     <ToastProvider>
-                        <BrowserRouter>
-                            <div className="min-h-screen bg-gray-50 font-sans text-slate-900">
-                            <Routes>
-                                {/* Public Routes */}
-                                <Route path="/login" element={<LoginPage />} />
-                                <Route path="/reset" element={<ResetPasswordPage />} />
-                                {/* <Route path="/signup" element={<SignupPage />} /> */}
-                                <Route path="/invite/accept" element={<AcceptInvitePage />} />
-                                <Route path="/impersonate" element={<ImpersonateLoader />} />
-                                <Route path="/auth/change-password" element={<ChangePasswordPage />} />
-                                 {/* Onboarding Routes */}
-                                <Route element={<OnboardingLayout />}>
-                                    <Route path="/onboarding/select-tfn" element={<TfnOnboardingPage />} />
-                                </Route>
+                        <ThemeProvider>
+                            <BrowserRouter>
+                                <div className="min-h-screen bg-gray-50 font-sans text-slate-900">
+                                    <Routes>
+                                        {/* Public Routes */}
+                                        <Route path="/login" element={<LoginPage />} />
+                                        <Route path="/reset" element={<ResetPasswordPage />} />
+                                        {/* <Route path="/signup" element={<SignupPage />} /> */}
+                                        <Route path="/invite/accept" element={<AcceptInvitePage />} />
+                                        <Route path="/impersonate" element={<ImpersonateLoader />} />
+                                        <Route path="/auth/change-password" element={<ChangePasswordPage />} />
+                                        {/* Onboarding Routes */}
+                                        <Route element={<OnboardingLayout />}>
+                                            <Route path="/onboarding/select-tfn" element={<TfnOnboardingPage />} />
+                                        </Route>
 
-                                {/* Protected Routes */}
-                                {/* Protected Routes */}
-                                <Route element={
-                                    <GlobalMetricsProvider>
-                                        <PrivateLayout />
-                                    </GlobalMetricsProvider>
-                                }>
-                                    {/* Dashboard: All Authenticated Users (Redirect Super Admin) */}
-                                    <Route path="/dashboard" element={<DashboardRedirect />} />
+                                        {/* Protected Routes */}
+                                        {/* Protected Routes */}
+                                        <Route element={
+                                            <GlobalMetricsProvider>
+                                                <PrivateLayout />
+                                            </GlobalMetricsProvider>
+                                        }>
+                                            {/* Dashboard: All Authenticated Users (Redirect Super Admin) */}
+                                            <Route path="/dashboard" element={<DashboardRedirect />} />
 
-                                    {/* Admin & Support Access */}
-                                    <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPPORT', 'SUPER_ADMIN']} />}>
-                                        <Route path="/wallet" element={<WalletPage />} />
-                                        <Route path="/wallet/cards" element={<PaymentMethodsPage />} />
-                                        <Route path="/tfn" element={<TfnPage />} />
-                                        <Route path="/telecom/extensions" element={<ExtensionsPage />} />
-                                        <Route path="/telecom/extensions/status" element={<ExtensionsStatusPage />} />
-                                        <Route path="/telecom/extensions/new" element={<ExtensionForm />} />
-                                        <Route path="/telecom/extensions/:id/edit" element={<ExtensionForm />} />
-                                        <Route path="/extensions" element={<ExtensionsPage />} />
-                                        <Route path="/extensions/status" element={<ExtensionsStatusPage />} />
-                                        <Route path="/telecom/ring-groups" element={<RingGroupsPage />} />
-                                        <Route path="/telecom/ring-groups/new" element={<RingGroupForm />} />
-                                        <Route path="/telecom/ring-groups/:id/edit" element={<RingGroupForm />} />
-                                        <Route path="/telecom/ivrs" element={<IVRsPage />} />
-                                        <Route path="/telecom/ivrs/new" element={<IVRForm />} />
-                                        <Route path="/telecom/ivrs/:id/edit" element={<IVRForm />} />
-                                        <Route path="/telecom/dids" element={<DIDsPage />} />
-                                        <Route path="/telecom/dids/new" element={<DIDForm />} />
-                                        <Route path="/telecom/dids/:id/edit" element={<DIDForm />} />
-                                        <Route path="/telecom/did-forwards" element={<DIDForwardsPage />} />
-                                        <Route path="/telecom/did-forwards/new" element={<DIDForwardForm />} />
-                                        <Route path="/telecom/did-forwards/:id/edit" element={<DIDForwardForm />} />
-                                        {/* Monitor */}
+                                            {/* Admin & Support Access */}
+                                            <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPPORT', 'SUPER_ADMIN']} />}>
+                                                <Route path="/wallet" element={<WalletPage />} />
+                                                <Route path="/wallet/cards" element={<PaymentMethodsPage />} />
+                                                <Route path="/tfn" element={<TfnPage />} />
+                                                <Route path="/telecom/extensions" element={<ExtensionsPage />} />
+                                                <Route path="/telecom/extensions/status" element={<ExtensionsStatusPage />} />
+                                                <Route path="/telecom/extensions/new" element={<ExtensionForm />} />
+                                                <Route path="/telecom/extensions/:id/edit" element={<ExtensionForm />} />
+                                                <Route path="/extensions" element={<ExtensionsPage />} />
+                                                <Route path="/extensions/status" element={<ExtensionsStatusPage />} />
+                                                <Route path="/telecom/ring-groups" element={<RingGroupsPage />} />
+                                                <Route path="/telecom/ring-groups/new" element={<RingGroupForm />} />
+                                                <Route path="/telecom/ring-groups/:id/edit" element={<RingGroupForm />} />
+                                                <Route path="/telecom/ivrs" element={<IVRsPage />} />
+                                                <Route path="/telecom/ivrs/new" element={<IVRForm />} />
+                                                <Route path="/telecom/ivrs/:id/edit" element={<IVRForm />} />
+                                                <Route path="/telecom/dids" element={<DIDsPage />} />
+                                                <Route path="/telecom/dids/new" element={<DIDForm />} />
+                                                <Route path="/telecom/dids/:id/edit" element={<DIDForm />} />
+                                                <Route path="/telecom/did-forwards" element={<DIDForwardsPage />} />
+                                                <Route path="/telecom/did-forwards/new" element={<DIDForwardForm />} />
+                                                <Route path="/telecom/did-forwards/:id/edit" element={<DIDForwardForm />} />
+                                                {/* Monitor */}
 
-                                        {/* Fallback route */}
-                                        <Route path="/telecom/schedules" element={<SchedulesPage />} />
-                                        <Route path="/telecom/schedules/new" element={<ScheduleForm />} />
-                                        <Route path="/telecom/schedules/:id/edit" element={<ScheduleForm />} />
-                                        <Route path="/telecom/schedules/:id/edit" element={<ScheduleForm />} />
-                                        <Route path="/telecom/audio" element={<AudioLibrary />} />
-                                        <Route path="/analytics" element={<AnalyticsPageDispatcher />} />
-                                        <Route path="/monitoring" element={
-                                            <MonitoringRoute>
-                                                <MonitoringPage />
-                                            </MonitoringRoute>
-                                        } />
-                                        <Route path="/cdrs" element={<CdrsPage />} />
-                                    </Route>
+                                                {/* Fallback route */}
+                                                <Route path="/telecom/schedules" element={<SchedulesPage />} />
+                                                <Route path="/telecom/schedules/new" element={<ScheduleForm />} />
+                                                <Route path="/telecom/schedules/:id/edit" element={<ScheduleForm />} />
+                                                <Route path="/telecom/schedules/:id/edit" element={<ScheduleForm />} />
+                                                <Route path="/telecom/audio" element={<AudioLibrary />} />
+                                                <Route path="/analytics" element={<AnalyticsPageDispatcher />} />
+                                                <Route path="/monitoring" element={
+                                                    <MonitoringRoute>
+                                                        <MonitoringPage />
+                                                    </MonitoringRoute>
+                                                } />
+                                                <Route path="/cdrs" element={<CdrsPage />} />
+                                            </Route>
 
-                                    {/* Admin Only */}
-                                    <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']} />}>
-                                        <Route path="/users" element={<UserManagement />} />
-                                        <Route path="/settings" element={<BrandingSettingsPage />} />
-                                    </Route>
+                                            {/* Admin Only */}
+                                            <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']} />}>
+                                                <Route path="/users" element={<UserManagement />} />
+                                                <Route path="/settings" element={<BrandingSettingsPage />} />
+                                            </Route>
 
 
-                                    {/* Super Admin Only */}
-                                    <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
-                                        <Route path="/platform" element={<PlatformDashboard />} />
-                                        <Route path="/admin/users" element={<AllUsersPage />} />
-                                        <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
-                                        <Route path="/super-admin/users" element={<SuperAdminUsers />} />
-                                        <Route path="/super-admin/rate-cards" element={<RateCardsPage />} />
-                                        <Route path="/super-admin/numbers" element={<NumbersManagement />} />
-                                        <Route path="/super-admin/packages" element={<PackagesPage />} />
-                                        <Route path="/super-admin/carriers" element={<CarriersGatewaysPage />} />
-                                        <Route path="/tenants" element={<TenantsPage />} />
-                                        <Route path="/revenue" element={<RevenuePage />} />
-                                        <Route path="/admin/extension-status" element={<ExtensionStatus />} />
-                                    </Route>
-                                </Route>
+                                            {/* Super Admin Only */}
+                                            <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
+                                                <Route path="/platform" element={<PlatformDashboard />} />
+                                                <Route path="/admin/users" element={<AllUsersPage />} />
+                                                <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
+                                                <Route path="/super-admin/users" element={<SuperAdminUsers />} />
+                                                <Route path="/super-admin/rate-cards" element={<RateCardsPage />} />
+                                                <Route path="/super-admin/numbers" element={<NumbersManagement />} />
+                                                <Route path="/super-admin/packages" element={<PackagesPage />} />
+                                                <Route path="/super-admin/carriers" element={<CarriersGatewaysPage />} />
+                                                <Route path="/tenants" element={<TenantsPage />} />
+                                                <Route path="/revenue" element={<RevenuePage />} />
+                                                <Route path="/admin/extension-status" element={<ExtensionStatus />} />
+                                            </Route>
+                                        </Route>
 
-                                {/* Default redirect */}
-                                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                            </Routes>
-                        </div>
-                    </BrowserRouter>
-                </ToastProvider>
-            </AuthProvider>
+                                        {/* Default redirect */}
+                                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                                    </Routes>
+                                </div>
+                            </BrowserRouter>
+                        </ThemeProvider>
+                    </ToastProvider>
+                </AuthProvider>
             </BrandingProvider>
         </QueryProvider>
     );

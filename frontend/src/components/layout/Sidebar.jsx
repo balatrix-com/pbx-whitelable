@@ -5,10 +5,12 @@ import { useAuth } from '../../context/AuthContext';
 import { useBranding } from '../../context/BrandingContext';
 import {
     LayoutDashboard,
+    LayoutGrid,
     CreditCard,
     Wallet,
     Phone,
     Users,
+    UserCheck,
     BarChart3,
     Settings,
     Activity,
@@ -25,7 +27,14 @@ import {
     Server,
     ChevronLeft,
     ChevronRight,
-    X
+    X,
+    Clock,
+    Headphones,
+    DollarSign,
+    ListTree,
+    Hash,
+    History,
+    Radio
 } from 'lucide-react';
 import { Menu, Transition } from '@headlessui/react';
 import { Fragment, useState } from 'react';
@@ -55,15 +64,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         switch (role) {
             case 'SUPER_ADMIN':
                 items = [
-                    { name: 'Platform Dashboard', href: '/platform', icon: LayoutDashboard },
+                    { name: 'Platform Dashboard', href: '/platform', icon: LayoutGrid },
                     { name: 'Tenants', href: '/tenants', icon: Building2 },
-                    { name: 'Audit Logs', href: '/admin/audit-logs', icon: Shield },
+                    { name: 'Audit Logs', href: '/admin/audit-logs', icon: ScrollText },
                     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-                    { name: 'Revenue', href: '/revenue', icon: BarChart3 },
+                    { name: 'Revenue', href: '/revenue', icon: DollarSign },
                     { name: 'Rate Cards', href: '/super-admin/rate-cards', icon: CreditCard },
-                    { name: 'Extension Status', href: '/admin/extension-status', icon: Activity },
+                    { name: 'Extension Status', href: '/admin/extension-status', icon: Radio },
                     { name: 'Call Monitoring', href: '/monitoring', icon: Activity },
-                    { name: 'Call Records', href: '/cdrs', icon: PhoneCall },
+                    { name: 'Call Records', href: '/cdrs', icon: History },
                     { name: 'Manage Numbers', href: '/super-admin/numbers', icon: Phone },
                     { name: 'Carriers & Gateways', href: '/super-admin/carriers', icon: Server },
                     { name: 'User Management', href: '/super-admin/users', icon: Users },
@@ -72,7 +81,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 break;
             case 'ADMIN':
                 items = [
-                    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+                    { name: 'Dashboard', href: '/dashboard', icon: LayoutGrid },
                     { name: 'Wallet', href: '/wallet', icon: Wallet },
                     { name: 'Phone Numbers', href: '/tfn', icon: Phone },
                     {
@@ -84,22 +93,22 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                             { name: 'Extension Status', href: '/extensions/status' },
                         ]
                     },
-                    { name: 'Ring Groups', href: '/telecom/ring-groups', icon: Users },
-                    { name: 'IVR Menus', href: '/telecom/ivrs', icon: PhoneCall },
+                    { name: 'Ring Groups', href: '/telecom/ring-groups', icon: UserCheck },
+                    { name: 'IVR Menus', href: '/telecom/ivrs', icon: ListTree },
                     { name: 'Audio Library', href: '/telecom/audio', icon: Music },
-                    { name: 'DIDs', href: '/telecom/dids', icon: Phone },
+                    { name: 'DIDs', href: '/telecom/dids', icon: Hash },
                     { name: 'DID Forwards', href: '/telecom/did-forwards', icon: PhoneForwarded },
-                    { name: 'Schedules', href: '/telecom/schedules', icon: Activity },
+                    { name: 'Operational Time', href: '/telecom/schedules', icon: Clock },
                     { name: 'Call Monitoring', href: '/monitoring', icon: Activity },
-                    { name: 'Call Records', href: '/cdrs', icon: PhoneCall },
+                    { name: 'Call Records', href: '/cdrs', icon: History },
                     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-                    { name: 'User Management', href: '/users', icon: Settings },
+                    { name: 'User Management', href: '/users', icon: Users },
                 ];
                 break;
 
             case 'SUPPORT':
                 items = [
-                    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+                    { name: 'Dashboard', href: '/dashboard', icon: LayoutGrid },
                     { name: 'Wallet', href: '/wallet', icon: Wallet },
                     { name: 'Phone Numbers', href: '/tfn', icon: Phone },
                     {
@@ -111,14 +120,14 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                             { name: 'Extension Status', href: '/telecom/extensions/status' },
                         ]
                     },
-                    { name: 'Ring Groups', href: '/telecom/ring-groups', icon: Users },
-                    { name: 'IVR Menus', href: '/telecom/ivrs', icon: PhoneCall },
+                    { name: 'Ring Groups', href: '/telecom/ring-groups', icon: UserCheck },
+                    { name: 'IVR Menus', href: '/telecom/ivrs', icon: ListTree },
                     { name: 'Audio Library', href: '/telecom/audio', icon: Music },
-                    { name: 'DIDs', href: '/telecom/dids', icon: Phone },
+                    { name: 'DIDs', href: '/telecom/dids', icon: Hash },
                     { name: 'DID Forwards', href: '/telecom/did-forwards', icon: PhoneForwarded },
-                    { name: 'Schedules', href: '/telecom/schedules', icon: Activity },
+                    { name: 'Schedules', href: '/telecom/schedules', icon: Clock },
                     { name: 'Call Monitoring', href: '/monitoring', icon: Activity },
-                    { name: 'Call Records', href: '/cdrs', icon: PhoneCall },
+                    { name: 'Call Records', href: '/cdrs', icon: History },
                 ];
                 break;
             default:
@@ -198,8 +207,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
-                <nav className="space-y-1.5">
+            <div className="flex-1 overflow-y-auto px-3 py-4 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+                <nav className="space-y-1">
                     {navItems.map((item) => {
                         const isActive = location.pathname.startsWith(item.href) && (item.href !== '/dashboard' || location.pathname === '/dashboard');
                         const Icon = item.icon;
@@ -211,17 +220,20 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                                         onClick={() => !isCollapsed && setIsExtensionsOpen(!isExtensionsOpen)}
                                         className={clsx(
                                             isSubActive && !isExtensionsOpen
-                                                ? 'bg-primary-50 text-primary-700'
-                                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-                                            'group flex w-full items-center rounded-xl px-3 py-2.5 text-[14px] font-bold transition-all duration-200 ease-in-out',
+                                                ? 'bg-indigo-50/90 border border-indigo-200/80 text-indigo-900 font-bold shadow-sm'
+                                                : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 font-semibold border border-transparent',
+                                            'group flex w-full items-center rounded-xl px-3.5 py-2.5 text-[14px] transition-all duration-200 ease-in-out relative',
                                             isCollapsed && 'justify-center px-0'
                                         )}
                                         title={isCollapsed ? item.name : undefined}
                                     >
+                                        {isSubActive && (
+                                            <span className="absolute left-0 top-2 bottom-2 w-1 bg-indigo-600 rounded-r-md" />
+                                        )}
                                         <Icon
                                             className={clsx(
-                                                isSubActive ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-600',
-                                                isCollapsed ? 'mx-0' : 'mr-3',
+                                                isSubActive ? 'text-indigo-600' : 'text-slate-600 group-hover:text-slate-900',
+                                                isCollapsed ? 'mx-0' : 'mr-3.5',
                                                 'h-5 w-5 flex-shrink-0 transition-colors duration-200'
                                             )}
                                         />
@@ -246,9 +258,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                                                         onClick={() => setIsOpen(false)}
                                                         className={clsx(
                                                             isSubItemActive
-                                                                ? 'text-primary-600 font-extrabold font-mono'
-                                                                : 'text-gray-500 hover:text-gray-900 font-mono',
-                                                            'flex items-center py-2 text-[13px] font-bold transition-colors'
+                                                                ? 'bg-indigo-50/90 border border-indigo-200/80 text-indigo-900 font-extrabold px-2.5 py-1.5 rounded-lg shadow-sm font-mono'
+                                                                : 'text-gray-500 hover:text-gray-900 font-mono py-2',
+                                                            'flex items-center text-[13px] transition-colors'
                                                         )}
                                                     >
                                                         <span className="text-gray-400 mr-1.5 whitespace-pre">{prefix}</span>
@@ -269,17 +281,20 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                                 onClick={() => setIsOpen(false)} // Close sidebar on link click (mobile)
                                 className={clsx(
                                     isActive
-                                        ? 'bg-primary-600 text-white shadow-md shadow-primary-600/20'
-                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-                                    'group flex items-center rounded-xl px-3 py-2.5 text-[14px] font-bold transition-all duration-200 ease-in-out',
+                                        ? 'bg-indigo-50/90 border border-indigo-200/80 text-indigo-900 font-bold shadow-sm relative'
+                                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 font-semibold border border-transparent',
+                                    'group flex items-center rounded-xl px-3.5 py-2.5 text-[14px] transition-all duration-200 ease-in-out relative',
                                     isCollapsed && 'justify-center px-0'
                                 )}
                                 title={isCollapsed ? item.name : undefined}
                             >
+                                {isActive && (
+                                    <span className="absolute left-0 top-2 bottom-2 w-1 bg-indigo-600 rounded-r-md" />
+                                )}
                                 <Icon
                                     className={clsx(
-                                        isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-600',
-                                        isCollapsed ? 'mx-0' : 'mr-3',
+                                        isActive ? 'text-indigo-600' : 'text-slate-600 group-hover:text-slate-900',
+                                        isCollapsed ? 'mx-0' : 'mr-3.5',
                                         'h-5 w-5 flex-shrink-0 transition-colors duration-200'
                                     )}
                                 />

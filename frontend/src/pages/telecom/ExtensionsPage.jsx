@@ -87,29 +87,27 @@ const ExtensionsPage = () => {
             </div>
 
             {/* Tabs */}
-            <div className="border-b border-gray-200">
-                <nav className="-mb-px flex space-x-8">
-                    <button
-                        onClick={() => setActiveTab('settings')}
-                        className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm ${
-                            activeTab === 'settings'
-                                ? 'border-primary-500 text-primary-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        }`}
-                    >
-                        Extension Settings
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('status')}
-                        className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm ${
-                            activeTab === 'status'
-                                ? 'border-primary-500 text-primary-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        }`}
-                    >
-                        Extension Status
-                    </button>
-                </nav>
+            <div className="flex bg-slate-100/80 p-1.5 rounded-2xl w-fit border border-slate-200/60 gap-1">
+                <button
+                    onClick={() => setActiveTab('settings')}
+                    className={`py-2.5 px-5 rounded-xl font-extrabold text-sm transition-all duration-200 ${
+                        activeTab === 'settings'
+                            ? 'bg-white text-indigo-900 shadow-sm border border-indigo-200/80 ring-1 ring-indigo-500/10'
+                            : 'text-slate-500 hover:text-slate-900'
+                    }`}
+                >
+                    Extension Settings
+                </button>
+                <button
+                    onClick={() => setActiveTab('status')}
+                    className={`py-2.5 px-5 rounded-xl font-extrabold text-sm transition-all duration-200 ${
+                        activeTab === 'status'
+                            ? 'bg-white text-indigo-900 shadow-sm border border-indigo-200/80 ring-1 ring-indigo-500/10'
+                            : 'text-slate-500 hover:text-slate-900'
+                    }`}
+                >
+                    Extension Status
+                </button>
             </div>
 
             {activeTab === 'settings' ? (

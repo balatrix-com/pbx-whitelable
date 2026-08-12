@@ -113,7 +113,7 @@ const GlobalAnalyticsDashboard = () => {
     }
 
     return (
-        <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-10 bg-[#f8fafc] min-h-screen font-sans animate-in fade-in duration-700">
+        <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-10 bg-transparent min-h-screen font-sans animate-in fade-in duration-700">
 
             {/* Minimal Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -408,25 +408,14 @@ const GlobalAnalyticsDashboard = () => {
     );
 };
 
-const KPICard = ({ title, value, icon: Icon, trend, isUp, color, subtitle }) => {
-    const colorMap = {
-        primary: 'primary',
-        emerald: 'emerald',
-        rose: 'rose',
-        amber: 'amber',
-    };
-
-    const c = colorMap[color];
-
+const KPICard = ({ title, value, icon: Icon, trend, isUp, subtitle }) => {
     return (
-        <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-7 shadow-sm border border-slate-200/60 hover:shadow-xl hover:-translate-y-1 transition-all group relative overflow-hidden">
-            <div className={`absolute -right-4 -bottom-4 opacity-[0.02] group-hover:scale-110 transition-transform duration-700`}>
-                <Icon className="h-32 w-32" />
-            </div>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col relative overflow-hidden group hover:shadow-md transition-all duration-300">
+            <Icon className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />
 
-            <div className="flex items-center justify-between mb-6 relative z-10">
-                <div className={`h-12 w-12 rounded-2xl bg-${c === 'primary' ? 'primary' : c}-50 flex items-center justify-center border border-${c === 'primary' ? 'primary' : c}-100 shadow-sm`}>
-                    <Icon className={`h-6 w-6 text-${c === 'primary' ? 'primary' : c}-600`} />
+            <div className="flex items-center justify-between mb-2 relative z-10">
+                <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                    <Icon className="h-4 w-4 stroke-[2.2]" />
                 </div>
                 <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black uppercase ${isUp ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                     {isUp ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
@@ -435,9 +424,9 @@ const KPICard = ({ title, value, icon: Icon, trend, isUp, color, subtitle }) => 
             </div>
 
             <div className="relative z-10">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{title}</h3>
-                <p className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight tabular-nums">{value}</p>
-                <p className="text-[10px] font-bold text-slate-400 mt-2 italic uppercase tracking-widest">{subtitle}</p>
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{title}</h3>
+                <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums mt-2">{value}</p>
+                {subtitle && <p className="text-xs font-medium text-slate-400 mt-1 uppercase tracking-widest">{subtitle}</p>}
             </div>
         </div>
     );

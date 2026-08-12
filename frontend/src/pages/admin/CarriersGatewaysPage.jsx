@@ -7,7 +7,7 @@ import { Plus, Trash, Edit, Server, ChevronDown, ChevronUp, Shield } from 'lucid
 const CarriersGatewaysPage = () => {
     const { isSuperAdmin } = useAuth();
     const { addToast } = useToast();
-    
+
     const [activeTab, setActiveTab] = useState('outbound'); // 'outbound' or 'inbound'
     const [carriers, setCarriers] = useState([]);
     const [inboundEntries, setInboundEntries] = useState([]);
@@ -171,25 +171,23 @@ const CarriersGatewaysPage = () => {
             </div>
 
             {/* Navigation Tabs */}
-            <div className="flex border-b border-gray-200 mb-6">
+            <div className="flex bg-slate-100/80 p-1.5 rounded-2xl w-fit border border-slate-200/60 mb-6 gap-1">
                 <button
                     onClick={() => setActiveTab('outbound')}
-                    className={`py-3 px-6 font-semibold border-b-2 transition-all duration-200 flex items-center gap-2 ${
-                        activeTab === 'outbound'
-                            ? 'border-blue-600 text-blue-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
+                    className={`py-2.5 px-5 font-extrabold text-sm rounded-xl transition-all duration-200 flex items-center gap-2 ${activeTab === 'outbound'
+                            ? 'bg-white text-indigo-900 shadow-sm border border-indigo-200/80 ring-1 ring-indigo-500/10'
+                            : 'text-slate-500 hover:text-slate-900'
+                        }`}
                 >
                     <Server size={18} />
                     Outbound Gateways
                 </button>
                 <button
                     onClick={() => setActiveTab('inbound')}
-                    className={`py-3 px-6 font-semibold border-b-2 transition-all duration-200 flex items-center gap-2 ${
-                        activeTab === 'inbound'
-                            ? 'border-blue-600 text-blue-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
+                    className={`py-2.5 px-5 font-extrabold text-sm rounded-xl transition-all duration-200 flex items-center gap-2 ${activeTab === 'inbound'
+                            ? 'bg-white text-indigo-900 shadow-sm border border-indigo-200/80 ring-1 ring-indigo-500/10'
+                            : 'text-slate-500 hover:text-slate-900'
+                        }`}
                 >
                     <Shield size={18} />
                     Inbound ACL (IP Whitelist)
@@ -221,7 +219,7 @@ const CarriersGatewaysPage = () => {
                     ) : (
                         <div className="space-y-4">
                             {carriers.map(carrier => (
-                                <div key={carrier.id} className="bg-white border rounded-lg shadow-sm overflow-hidden transition hover:shadow">
+                                <div key={carrier.id} className={`bg-white border rounded-lg shadow-sm overflow-hidden transition ${expandedCarrier === carrier.id ? 'card-active' : 'hover:shadow card-hover'}`}>
                                     <div className="p-4 flex items-center justify-between bg-gray-50 border-b">
                                         <div className="flex items-center gap-3">
                                             <button onClick={() => setExpandedCarrier(expandedCarrier === carrier.id ? null : carrier.id)}>
@@ -328,7 +326,7 @@ const CarriersGatewaysPage = () => {
                     <div className="flex justify-between items-center mb-4">
                         <div>
                             <h2 className="text-lg font-semibold text-gray-800">Global Inbound Whitelist</h2>
-                            <p className="text-sm text-gray-500">Add trusted carrier source IP addresses to allow inbound SIP traffic to hit Kamailio.</p>
+                            <p className="text-sm text-gray-500">Add trusted carrier source IP addresses to allow inbound SIP traffic.</p>
                         </div>
                         <button
                             onClick={() => { setEditingInbound(null); setInboundForm({ ipAddress: '', port: 5060, tag: '' }); setShowInboundModal(true); }}

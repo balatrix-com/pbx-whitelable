@@ -52,3 +52,536 @@
     -moz-osx-font-smoothing: grayscale;
   }
 }
+
+@layer components {
+  /* ==========================================================================
+     Global Active Selection & Indicator Styles (Zero Movement / Pure Highlight)
+     ========================================================================== */
+
+  /* Pre-reserve 4px left border on first cell of all table rows so width NEVER shifts */
+  table tbody tr td:first-child {
+    border-left: 4px solid transparent;
+    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+  }
+
+  /* Hover state ONLY for non-active table rows (Light Mode) */
+  html:not(.dark) table tbody tr:not(.table-row-selected):not(.selected):not(.active):not([data-selected="true"]):not(.row-active):hover {
+    background-color: rgba(248, 250, 252, 0.95);
+  }
+
+  html:not(.dark) table tbody tr:not(.table-row-selected):not(.selected):not(.active):not([data-selected="true"]):not(.row-active):hover td:first-child {
+    border-left-color: #5968ef;
+  }
+
+  /* Active / Selected Table Rows (Light Mode) */
+  html:not(.dark) table tbody tr.table-row-selected,
+  html:not(.dark) table tbody tr.selected,
+  html:not(.dark) table tbody tr.active,
+  html:not(.dark) table tbody tr[data-selected="true"],
+  html:not(.dark) .table-row-selected,
+  html:not(.dark) .row-active,
+  html:not(.dark) table tbody tr.table-row-selected:hover,
+  html:not(.dark) table tbody tr.selected:hover,
+  html:not(.dark) table tbody tr.active:hover,
+  html:not(.dark) table tbody tr[data-selected="true"]:hover,
+  html:not(.dark) .table-row-selected:hover,
+  html:not(.dark) .row-active:hover {
+    background-color: rgba(238, 242, 255, 0.85) !important;
+    font-weight: 600;
+  }
+
+  /* Active indicator color change (no border width change = zero movement) */
+  table tbody tr.table-row-selected td:first-child,
+  table tbody tr.selected td:first-child,
+  table tbody tr.active td:first-child,
+  table tbody tr[data-selected="true"] td:first-child,
+  .table-row-selected td:first-child,
+  .row-active td:first-child,
+  table tbody tr.table-row-selected:hover td:first-child,
+  table tbody tr.selected:hover td:first-child,
+  table tbody tr.active:hover td:first-child,
+  table tbody tr[data-selected="true"]:hover td:first-child,
+  .table-row-selected:hover td:first-child,
+  .row-active:hover td:first-child {
+    border-left-color: #4f46e5 !important;
+  }
+
+  /* Cards, List Items & Sections: Reserve 4px transparent left border by default to prevent movement */
+  .list-item-hover,
+  .section-hover,
+  .card-hover,
+  .list-item-active,
+  .section-active,
+  .card-active {
+    border-left: 4px solid transparent;
+    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+  }
+
+  html:not(.dark) .list-item-active,
+  html:not(.dark) .section-active,
+  html:not(.dark) .card-active,
+  html:not(.dark) [data-active="true"],
+  html:not(.dark) .list-item-active:hover,
+  html:not(.dark) .section-active:hover,
+  html:not(.dark) .card-active:hover,
+  html:not(.dark) [data-active="true"]:hover {
+    border-left-color: #4f46e5 !important;
+    background-color: rgba(238, 242, 255, 0.85) !important;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  }
+
+  html:not(.dark) .list-item-hover:not(.list-item-active):not(.card-active):not(.section-active):not([data-active="true"]):hover,
+  html:not(.dark) .section-hover:not(.list-item-active):not(.card-active):not(.section-active):not([data-active="true"]):hover,
+  html:not(.dark) .card-hover:not(.list-item-active):not(.card-active):not(.section-active):not([data-active="true"]):hover {
+    border-left-color: #818cf8;
+    background-color: rgba(248, 250, 252, 0.95);
+  }
+}
+
+/* ─── Dark Mode Theme ────────────────────────────────────────────────────────
+   All dark overrides use the `html.dark` selector applied by ThemeContext.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark :root,
+html.dark {
+  --color-primary: #818cf8;
+  --color-secondary: #6366f1;
+  --color-accent: #f59e0b;
+  --color-muted: #94a3b8;
+  --color-card-bg: #0c0d12;
+  --color-bg: #000000;
+  --color-text: #f8fafc;
+  --color-surface: rgba(12, 13, 18, 0.95);
+
+  --color-primary-50: #0f111d;
+  --color-primary-100: #181b30;
+  --color-primary-200: #252a4e;
+  --color-primary-300: #373e73;
+  --color-primary-400: #4f58a3;
+  --color-primary-500: #6366f1;
+  --color-primary-600: #818cf8;
+  --color-primary-700: #a5b4fc;
+  --color-primary-800: #c7d2fe;
+  --color-primary-900: #e0e7ff;
+  --color-primary-950: #f0f3ff;
+
+  --color-success: #10b981;
+  --color-warning: #fbbf24;
+  --color-error: #f43f5e;
+  --color-info: #38bdf8;
+
+  --color-primary-deep: #373e73;
+  --color-brand-dark-900: #0f111d;
+  --color-ink: #f8fafc;
+  --color-ink-secondary: #cbd5e1;
+  --color-ink-mute: #94a3b8;
+  --color-canvas-soft: #12141c;
+  --color-hairline: rgba(255, 255, 255, 0.08);
+  --color-ruby: #f43f5e;
+  --color-lemon: #fbbf24;
+  --color-primary-soft: #a5b4fc;
+  --color-primary-bg-subdued-hover: #181b30;
+}
+
+/* Dark body background */
+html.dark body {
+  background-color: #000000 !important;
+  color: #f8fafc !important;
+}
+
+/* Background subtle ambient glows */
+html.dark body::before {
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.08) 0%, rgba(0, 0, 0, 0) 70%);
+  opacity: 0.6;
+}
+
+html.dark body::after {
+  background: radial-gradient(circle, rgba(129, 140, 248, 0.05) 0%, rgba(0, 0, 0, 0) 70%);
+  opacity: 0.5;
+}
+
+/* Dark card styling & glassmorphism */
+html.dark .card-glow,
+html.dark .bg-white.rounded-xl,
+html.dark .bg-white.rounded-2xl,
+html.dark .bg-white.rounded-3xl,
+html.dark .bg-white {
+  background-color: #0c0d12 !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
+  box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.7) !important;
+}
+
+html.dark .card-glow:hover,
+html.dark .bg-white.rounded-xl:hover,
+html.dark .bg-white.rounded-2xl:hover,
+html.dark .bg-white.rounded-3xl:hover {
+  border-color: rgba(129, 140, 248, 0.25) !important;
+  box-shadow: 0 12px 32px -8px rgba(99, 102, 241, 0.15) !important;
+}
+
+/* Dark Mode Hover on Table Rows, Lists, Cards & Sections */
+html.dark table tbody tr:not(.table-row-selected):not(.selected):not(.active):hover,
+html.dark .list-item-hover:hover,
+html.dark .section-hover:hover,
+html.dark .card-hover:hover,
+html.dark li:not([class*="no-hover"]):hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  color: #f8fafc !important;
+}
+
+html.dark table tbody tr:not(.table-row-selected):not(.selected):not(.active):hover td:first-child {
+  border-left-color: #6366f1 !important;
+}
+
+/* Dark active selection override for tables and list items */
+html.dark table tbody tr.table-row-selected,
+html.dark table tbody tr.selected,
+html.dark table tbody tr.active,
+html.dark table tbody tr[data-selected="true"],
+html.dark .table-row-selected,
+html.dark .row-active,
+html.dark .list-item-active,
+html.dark .section-active,
+html.dark .card-active,
+html.dark [data-active="true"] {
+  background-color: #141829 !important;
+  color: #f8fafc !important;
+}
+
+html.dark table tbody tr.table-row-selected td,
+html.dark table tbody tr.table-row-selected span,
+html.dark table tbody tr.table-row-selected p,
+html.dark table tbody tr.table-row-selected a {
+  color: #f8fafc !important;
+}
+
+html.dark table tbody tr.table-row-selected td:first-child,
+html.dark table tbody tr.selected td:first-child,
+html.dark table tbody tr.active td:first-child,
+html.dark table tbody tr[data-selected="true"] td:first-child,
+html.dark .table-row-selected td:first-child,
+html.dark .row-active td:first-child,
+html.dark .list-item-active,
+html.dark .section-active,
+html.dark .card-active,
+html.dark [data-active="true"] {
+  border-left-color: #818cf8 !important;
+}
+
+/* Dark table headers & cells */
+html.dark thead,
+html.dark th,
+html.dark .bg-gray-50\/50,
+html.dark .bg-gray-50 {
+  background-color: #07070a !important;
+  color: #94a3b8 !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+html.dark td {
+  border-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Dark Mode Icon Containers & Badges (Soft dark squircle for standalone icon containers, excluding nav links) */
+html.dark div[class*="rounded-"][class*="bg-"]:has(> svg.lucide),
+html.dark span[class*="rounded-"][class*="bg-"]:has(> svg.lucide),
+html.dark div.h-8.w-8:has(> svg.lucide),
+html.dark div.h-10.w-10:has(> svg.lucide),
+html.dark div.h-12.w-12:has(> svg.lucide),
+html.dark div.h-14.w-14:has(> svg.lucide),
+html.dark div.h-16.w-16:has(> svg.lucide) {
+  background-color: #12141c !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.04), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Icon stroke colors in Dark Mode - Vibrant Electric Blue */
+html.dark svg.lucide,
+html.dark .lucide {
+  color: #3b82f6 !important;
+  stroke: #3b82f6 !important;
+}
+
+/* Icons in active selection states */
+html.dark .table-row-selected svg.lucide,
+html.dark .table-row-selected .lucide,
+html.dark .list-item-active svg.lucide,
+html.dark .list-item-active .lucide,
+html.dark .card-active svg.lucide,
+html.dark .card-active .lucide,
+html.dark [data-active="true"] svg.lucide {
+  color: #60a5fa !important;
+  stroke: #60a5fa !important;
+}
+
+/* Background Watermark Icons in Dark Mode (Restored for Platform Dashboard stat cards) */
+html.dark svg.lucide.absolute.pointer-events-none,
+html.dark svg.lucide.pointer-events-none[class*="absolute"],
+html.dark .group svg.lucide[class*="-bottom-"],
+html.dark .group svg.lucide[class*="-right-"] {
+  display: block !important;
+  opacity: 0.15 !important;
+  color: #3b82f6 !important;
+  stroke: #3b82f6 !important;
+  pointer-events: none;
+}
+
+/* Status functional icon colors */
+html.dark svg.lucide[class*="text-green"],
+html.dark svg.lucide[class*="text-emerald"] {
+  color: #10b981 !important;
+  stroke: #10b981 !important;
+}
+
+html.dark svg.lucide[class*="text-red"],
+html.dark svg.lucide[class*="text-rose"] {
+  color: #f43f5e !important;
+  stroke: #f43f5e !important;
+}
+
+html.dark svg.lucide[class*="text-amber"],
+html.dark svg.lucide[class*="text-yellow"] {
+  color: #fbbf24 !important;
+  stroke: #fbbf24 !important;
+}
+
+/* Dark button overrides */
+html.dark button[class*="bg-primary"],
+html.dark button[class*="bg-indigo"] {
+  background-color: #4f46e5 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3) !important;
+}
+
+html.dark button[class*="bg-primary"]:hover,
+html.dark button[class*="bg-indigo"]:hover {
+  background-color: #4338ca !important;
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45) !important;
+}
+
+html.dark button[class*="bg-white"] {
+  background-color: #12141c !important;
+  color: #f8fafc !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+html.dark button[class*="bg-white"]:hover {
+  background-color: #1a1d28 !important;
+  border-color: rgba(129, 140, 248, 0.4) !important;
+}
+
+/* Toggle Switch Inner Knob Override (Ensures knob circle remains crisp white in Dark Mode) */
+html.dark button span.bg-white,
+html.dark [role="switch"] span,
+html.dark button[class*="rounded-full"] span.bg-white,
+html.dark button span[class*="translate-x"] {
+  background-color: #ffffff !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Dark mode text color overrides */
+html.dark .text-gray-900,
+html.dark .text-slate-900,
+html.dark .text-gray-800,
+html.dark .text-slate-800 {
+  color: #d3dee9 !important;
+}
+
+html.dark .text-gray-700,
+html.dark .text-slate-700,
+html.dark .text-gray-600,
+html.dark .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+html.dark .text-gray-500,
+html.dark .text-slate-500,
+html.dark .text-gray-400,
+html.dark .text-slate-400 {
+  color: #748eb4 !important;
+}
+
+/* Sidebar Dark Mode Clean Flat Overrides (No box borders on unselected items) */
+html.dark nav button:not([class*="bg-indigo-50"]),
+html.dark nav a:not([class*="bg-indigo-50"]) {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: #cbd5e1 !important;
+}
+
+html.dark nav button:not([class*="bg-indigo-50"]):hover,
+html.dark nav a:not([class*="bg-indigo-50"]):hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: #f8fafc !important;
+}
+
+html.dark nav button:not([class*="bg-indigo-50"]) svg.lucide,
+html.dark nav a:not([class*="bg-indigo-50"]) svg.lucide {
+  color: #3b82f6 !important;
+  stroke: #3b82f6 !important;
+}
+
+html.dark nav .bg-indigo-50\/90,
+html.dark nav a[class*="bg-indigo-50"],
+html.dark nav button[class*="bg-indigo-50"] {
+  background-color: #161a2e !important;
+  border-color: rgba(129, 140, 248, 0.25) !important;
+  color: #f8fafc !important;
+}
+
+html.dark nav .bg-indigo-50\/90 span,
+html.dark nav a[class*="bg-indigo-50"] span,
+html.dark nav button[class*="bg-indigo-50"] span {
+  color: #f8fafc !important;
+}
+
+html.dark nav .bg-indigo-50\/90 svg,
+html.dark nav a[class*="bg-indigo-50"] svg,
+html.dark nav button[class*="bg-indigo-50"] svg {
+  color: #818cf8 !important;
+  stroke: #818cf8 !important;
+}
+
+/* Modal Sidebar & Dialog Tab Overrides (Clean & Flat, no box borders around unselected items) */
+html.dark .w-56 button:not([class*="bg-indigo-600"]):not([class*="bg-indigo-50"]),
+html.dark .modal-tabs button:not([class*="bg-indigo-600"]):not([class*="bg-indigo-50"]) {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: #cbd5e1 !important;
+}
+
+html.dark .w-56 button:not([class*="bg-indigo-600"]):hover,
+html.dark .modal-tabs button:not([class*="bg-indigo-600"]):hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: transparent !important;
+  color: #f8fafc !important;
+}
+
+html.dark .w-56 button[class*="bg-indigo-600"],
+html.dark .modal-tabs button[class*="bg-white"],
+html.dark .modal-tabs button[class*="bg-indigo"] {
+  background-color: #4f46e5 !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4) !important;
+}
+
+html.dark .w-56 button[class*="bg-indigo-600"] svg.lucide,
+html.dark .modal-tabs button[class*="bg-white"] svg.lucide {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+html.dark nav .pl-6 a[class*="bg-indigo-50"] {
+  background-color: #181d36 !important;
+  border-color: rgba(129, 140, 248, 0.3) !important;
+  color: #818cf8 !important;
+}
+
+html.dark .border-t.border-gray-100 {
+  border-top-color: rgba(255, 255, 255, 0.07) !important;
+  background-color: #0c0d12 !important;
+}
+
+/* Dark mode bg overrides */
+html.dark header,
+html.dark [class*="bg-white/90"],
+html.dark [class*="bg-white/80"],
+html.dark [class*="bg-white/95"],
+html.dark .bg-white\/90 {
+  background-color: rgba(6, 6, 9, 0.92) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #f8fafc !important;
+}
+
+html.dark .bg-primary-50 {
+  background-color: rgba(99, 102, 241, 0.15) !important;
+  color: #a5b4fc !important;
+}
+
+html.dark .text-primary-700 {
+  color: #a5b4fc !important;
+}
+
+html.dark .bg-gray-100,
+html.dark .bg-slate-100 {
+  background-color: #12141c !important;
+}
+
+html.dark .bg-slate-50,
+html.dark [class*="bg-[#f8fafc]"],
+html.dark [class*="bg-[#f7f9fc]"] {
+  background-color: #000000 !important;
+}
+
+/* Dark mode border & divide overrides */
+html.dark .border-gray-200,
+html.dark [class*="border-gray-200"],
+html.dark .border-gray-100,
+html.dark .border-gray-300,
+html.dark .border-slate-200 {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html.dark .divide-gray-200>*+*,
+html.dark .divide-gray-100>*+* {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+html.dark .ring-gray-200,
+html.dark .ring-gray-300 {
+  --tw-ring-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+/* Dark mode inputs & selects */
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: #090a0f !important;
+  color: #f8fafc !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+html.dark select option {
+  background-color: #0c0d12 !important;
+  color: #f8fafc !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+html.dark input:focus,
+html.dark select:focus,
+html.dark textarea:focus {
+  --tw-ring-color: #6366f1 !important;
+  border-color: #6366f1 !important;
+}
+
+/* Dark scrollbar */
+html.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+html.dark ::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: #1e202c;
+  border-radius: 4px;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #313548;
+}

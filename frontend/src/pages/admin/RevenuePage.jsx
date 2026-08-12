@@ -78,48 +78,48 @@ const RevenuePage = () => {
             {/* KPIs Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 {/* Total Volume */}
-                <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 p-6 flex flex-col relative overflow-hidden group hover:shadow-md transition-all">
-                    <DollarSign className="absolute -bottom-4 -right-4 h-24 w-24 transform -rotate-12 text-emerald-500/10 group-hover:scale-110 transition-transform duration-500" />
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                    <DollarSign className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />
                     <div className="relative z-10">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 rounded-lg text-emerald-600 bg-emerald-50 ring-emerald-600/20">
-                                <DollarSign className="h-5 w-5" />
+                        <div className="flex items-center gap-2.5 mb-2">
+                            <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                                <DollarSign className="h-4 w-4 stroke-[2.2]" />
                             </div>
-                            <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">Total Sales Volume</p>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Sales Volume</p>
                         </div>
-                        <div className="text-3xl font-extrabold font-mono text-gray-900 mt-2">
+                        <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">
                             ${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
                     </div>
                 </div>
 
                 {/* Total Checkout Payments Count */}
-                <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 p-6 flex flex-col relative overflow-hidden group hover:shadow-md transition-all">
-                    <CreditCard className="absolute -bottom-4 -right-4 h-24 w-24 transform -rotate-12 text-blue-500/10 group-hover:scale-110 transition-transform duration-500" />
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                    <CreditCard className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />
                     <div className="relative z-10">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 rounded-lg text-blue-600 bg-blue-50 ring-blue-600/20">
-                                <CreditCard className="h-5 w-5" />
+                        <div className="flex items-center gap-2.5 mb-2">
+                            <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                                <CreditCard className="h-4 w-4 stroke-[2.2]" />
                             </div>
-                            <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">Total Transactions</p>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Transactions</p>
                         </div>
-                        <div className="text-3xl font-extrabold font-mono text-gray-900 mt-2">
+                        <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">
                             {totalPaymentsCount}
                         </div>
                     </div>
                 </div>
 
                 {/* Average Ticket Value */}
-                <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 p-6 flex flex-col relative overflow-hidden group hover:shadow-md transition-all">
-                    <TrendingUp className="absolute -bottom-4 -right-4 h-24 w-24 transform -rotate-12 text-purple-500/10 group-hover:scale-110 transition-transform duration-500" />
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                    <TrendingUp className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />
                     <div className="relative z-10">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 rounded-lg text-purple-600 bg-purple-50 ring-purple-600/20">
-                                <TrendingUp className="h-5 w-5" />
+                        <div className="flex items-center gap-2.5 mb-2">
+                            <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                                <TrendingUp className="h-4 w-4 stroke-[2.2]" />
                             </div>
-                            <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">Average Ticket Size</p>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Average Ticket Size</p>
                         </div>
-                        <div className="text-3xl font-extrabold font-mono text-gray-900 mt-2">
+                        <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">
                             ${averagePayment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
                     </div>
