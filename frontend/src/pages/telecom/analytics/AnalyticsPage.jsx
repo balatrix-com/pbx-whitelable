@@ -74,18 +74,18 @@ const LiveStatBadge = ({ icon: Icon, label, value, color, pulse }) => (
 // ---------------------------------------------------------------------------
 // KPI Summary Card
 // ---------------------------------------------------------------------------
-const KpiCard = ({ icon: Icon, label, value, sub, iconBg, iconColor, bgIcon: BgIcon }) => (
-    <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 p-6 flex flex-col relative overflow-hidden group hover:shadow-md hover:ring-gray-300 transition-all">
-        {BgIcon && <BgIcon className="absolute -bottom-4 -right-4 h-24 w-24 opacity-[0.04] transform -rotate-12 group-hover:scale-110 transition-transform duration-500" />}
+const KpiCard = ({ icon: Icon, label, value, sub, bgIcon: BgIcon }) => (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col relative overflow-hidden group hover:shadow-md transition-all duration-300">
+        {BgIcon && <BgIcon className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />}
         <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-3">
-                <div className={`p-2.5 rounded-xl ${iconBg}`}>
-                    <Icon className={`h-5 w-5 ${iconColor}`} />
+            <div className="flex items-center gap-2.5 mb-2">
+                <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                    <Icon className="h-4 w-4 stroke-[2.2]" />
                 </div>
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">{label}</h3>
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">{label}</h3>
             </div>
-            <div className="text-3xl font-extrabold font-mono text-gray-900">{value}</div>
-            {sub && <p className="text-xs font-medium text-gray-400 mt-1.5">{sub}</p>}
+            <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">{value}</div>
+            {sub && <p className="text-xs font-medium text-slate-400 mt-1 tracking-wide">{sub}</p>}
         </div>
     </div>
 );
@@ -319,8 +319,6 @@ const AnalyticsPage = () => {
                         label="Total Calls"
                         value={formatNumber(summary.totalCalls)}
                         sub={`${dateRange}-day window`}
-                        iconBg="bg-blue-50"
-                        iconColor="text-blue-600"
                     />
                     <KpiCard
                         icon={CheckCircle2}
@@ -328,8 +326,6 @@ const AnalyticsPage = () => {
                         label="Answered"
                         value={formatNumber(summary.answeredCalls)}
                         sub={`${summary.answerRate}% answer rate`}
-                        iconBg="bg-green-50"
-                        iconColor="text-green-600"
                     />
                     <KpiCard
                         icon={PhoneOff}
@@ -337,8 +333,6 @@ const AnalyticsPage = () => {
                         label="Missed"
                         value={formatNumber(summary.missedCalls)}
                         sub={`${summary.totalCalls > 0 ? ((summary.missedCalls / summary.totalCalls) * 100).toFixed(1) : 0}% miss rate`}
-                        iconBg="bg-red-50"
-                        iconColor="text-red-600"
                     />
                     <KpiCard
                         icon={Clock}
@@ -346,8 +340,6 @@ const AnalyticsPage = () => {
                         label="Avg Duration"
                         value={formatDuration(summary.averageDuration)}
                         sub="per answered call"
-                        iconBg="bg-amber-50"
-                        iconColor="text-amber-600"
                     />
                 </div>
             )}

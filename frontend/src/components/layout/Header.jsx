@@ -1,13 +1,15 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useGlobalMetrics } from '../../context/GlobalMetricsContext';
-import { Bell, LogOut, Activity, Menu, X } from 'lucide-react';
+import { Bell, LogOut, Activity, Menu, X, Sun, Moon } from 'lucide-react';
 import NotificationPanel from './NotificationPanel';
 import { formatCustomerId } from '../../utils/billing.utils';
+import { useTheme } from '../../context/ThemeContext';
 
 const Header = ({ onMenuClick }) => {
     const { user, logout, isImpersonating, exitImpersonation } = useAuth();
     const { balance, activeCallsCount, queueDepth, socketStatus } = useGlobalMetrics();
+    const { isDark, toggleTheme } = useTheme();
 
     return (
         <header className="flex h-16 w-full items-center justify-between border-b border-gray-200/80 bg-white/90 backdrop-blur-xl px-4 md:px-6 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.05)] sticky top-0 z-40 transition-all">
@@ -82,6 +84,29 @@ const Header = ({ onMenuClick }) => {
 
                 {/* Notifications */}
                 <NotificationPanel />
+
+                {/* Dark Mode Toggle */}
+                <button
+                    onClick={toggleTheme}
+                    className="relative inline-flex items-center justify-center h-9 w-9 rounded-xl border border-[var(--color-hairline)] bg-[var(--color-canvas-soft)] text-[var(--color-ink-mute)] hover:text-amber-500 hover:border-amber-400/50 dark:hover:text-amber-400 dark:hover:border-amber-500/40 transition-all duration-200 focus:outline-none shadow-xs active:scale-95"
+                    title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                    id="dark-mode-toggle"
+                >
+                    <div className="relative h-5 w-5 flex items-center justify-center">
+                        <Sun
+                            className={`absolute inset-0 h-5 w-5 transition-all duration-300 ${isDark
+                                ? 'opacity-100 rotate-0 scale-100 text-amber-400'
+                                : 'opacity-0 rotate-90 scale-0'
+                                }`}
+                        />
+                        <Moon
+                            className={`absolute inset-0 h-5 w-5 transition-all duration-300 ${isDark
+                                ? 'opacity-0 -rotate-90 scale-0'
+                                : 'opacity-100 rotate-0 scale-100 text-slate-600'
+                                }`}
+                        />
+                    </div>
+                </button>
 
                 {/* Logout Button */}
                 <button

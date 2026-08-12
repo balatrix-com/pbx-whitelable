@@ -153,41 +153,56 @@ const UserManagement = () => {
             </div>
 
             {/* Quick Stats Summary */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white p-6 rounded-3xl shadow-sm ring-1 ring-gray-100 flex items-center gap-5">
-                    <div className="p-3 rounded-2xl bg-primary-50">
-                        <Shield className="h-6 w-6 text-primary-600" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Admins</p>
-                        <p className="text-2xl font-black text-gray-900">{users.filter(u => u.role === 'ADMIN').length}</p>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-3xl shadow-sm ring-1 ring-gray-100 flex items-center gap-5">
-                    <div className="p-3 rounded-2xl bg-blue-50">
-                        <Users className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Support Team</p>
-                        <p className="text-2xl font-black text-gray-900">{users.filter(u => u.role === 'SUPPORT').length}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                    <Shield className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2.5 mb-2">
+                            <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                                <Shield className="h-4 w-4 stroke-[2.2]" />
+                            </div>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Admins</p>
+                        </div>
+                        <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">{users.filter(u => u.role === 'ADMIN').length}</div>
                     </div>
                 </div>
-                <div className="bg-white p-6 rounded-3xl shadow-sm ring-1 ring-gray-100 flex items-center gap-5">
-                    <div className="p-3 rounded-2xl bg-emerald-50">
-                        <UserPlus className="h-6 w-6 text-emerald-600" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Active Now</p>
-                        <p className="text-2xl font-black text-gray-900">{users.filter(u => u.status === 'ACTIVE').length}</p>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                    <Users className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2.5 mb-2">
+                            <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                                <Users className="h-4 w-4 stroke-[2.2]" />
+                            </div>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Support Team</p>
+                        </div>
+                        <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">{users.filter(u => u.role === 'SUPPORT').length}</div>
                     </div>
                 </div>
-                <div className="bg-white p-6 rounded-3xl shadow-sm ring-1 ring-gray-100 flex items-center gap-5">
-                    <div className="p-3 rounded-2xl bg-red-50">
-                        <Ban className="h-6 w-6 text-red-600" />
+
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                    <UserPlus className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2.5 mb-2">
+                            <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                                <UserPlus className="h-4 w-4 stroke-[2.2]" />
+                            </div>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Now</p>
+                        </div>
+                        <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">{users.filter(u => u.status === 'ACTIVE').length}</div>
                     </div>
-                    <div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Suspended</p>
-                        <p className="text-2xl font-black text-gray-900">{users.filter(u => u.status === 'SUSPENDED').length}</p>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                    <Ban className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2.5 mb-2">
+                            <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                                <Ban className="h-4 w-4 stroke-[2.2]" />
+                            </div>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Suspended</p>
+                        </div>
+                        <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">{users.filter(u => u.status === 'SUSPENDED').length}</div>
                     </div>
                 </div>
             </div>
@@ -285,8 +300,8 @@ const UserRow = ({ user, currentUserId, onUpdateStatus, onToggleMonitoring, onVi
 
     return (
         <tr className={clsx(
-            "hover:bg-gray-50/50 transition-all duration-200 group",
-            isSelf && "bg-primary-50/30"
+            "transition-all duration-200 group cursor-pointer",
+            isSelf && "table-row-selected"
         )}>
             <td className="px-6 py-5 whitespace-nowrap">
                 <div className="flex items-center gap-4">

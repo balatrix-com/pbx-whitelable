@@ -140,16 +140,16 @@ const NumbersManagement = () => {
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+            <div className="flex gap-1 bg-slate-100/80 p-1.5 rounded-2xl w-fit border border-slate-200/60">
                 <button
                     onClick={() => setActiveTab('tfn')}
-                    className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'tfn' ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`px-6 py-2.5 rounded-xl text-sm font-extrabold transition-all duration-200 ${activeTab === 'tfn' ? 'bg-white text-indigo-900 shadow-sm border border-indigo-200/80 ring-1 ring-indigo-500/10' : 'text-slate-500 hover:text-slate-900'}`}
                 >
                     Toll-Free (TFN)
                 </button>
                 <button
                     onClick={() => setActiveTab('did')}
-                    className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'did' ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`px-6 py-2.5 rounded-xl text-sm font-extrabold transition-all duration-200 ${activeTab === 'did' ? 'bg-white text-indigo-900 shadow-sm border border-indigo-200/80 ring-1 ring-indigo-500/10' : 'text-slate-500 hover:text-slate-900'}`}
                 >
                     Direct Dial (DID)
                 </button>

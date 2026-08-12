@@ -108,32 +108,43 @@ const TenantsPage = () => {
             </div>
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white p-6 rounded-3xl shadow-sm ring-1 ring-gray-100 flex items-center gap-5">
-                    <div className="p-3 rounded-2xl bg-primary-50">
-                        <Building2 className="h-6 w-6 text-primary-600" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Tenants</p>
-                        <p className="text-2xl font-black text-gray-900">{pagination.total}</p>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-3xl shadow-sm ring-1 ring-gray-100 flex items-center gap-5">
-                    <div className="p-3 rounded-2xl bg-emerald-50">
-                        <Users className="h-6 w-6 text-emerald-600" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Platform Users</p>
-                        <p className="text-2xl font-black text-gray-900">{stats.totalUsers}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                    <Building2 className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2.5 mb-2">
+                            <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                                <Building2 className="h-4 w-4 stroke-[2.2]" />
+                            </div>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Tenants</p>
+                        </div>
+                        <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">{pagination.total}</div>
                     </div>
                 </div>
-                <div className="bg-white p-6 rounded-3xl shadow-sm ring-1 ring-gray-100 flex items-center gap-5">
-                    <div className="p-3 rounded-2xl bg-blue-50">
-                        <BarChart3 className="h-6 w-6 text-blue-600" />
+
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                    <Users className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2.5 mb-2">
+                            <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                                <Users className="h-4 w-4 stroke-[2.2]" />
+                            </div>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Platform Users</p>
+                        </div>
+                        <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">{stats.totalUsers}</div>
                     </div>
-                    <div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Revenue</p>
-                        <p className="text-2xl font-black text-gray-900">${parseFloat(stats.totalWalletBalance || 0).toFixed(2)}</p>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                    <BarChart3 className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2.5 mb-2">
+                            <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                                <BarChart3 className="h-4 w-4 stroke-[2.2]" />
+                            </div>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Revenue</p>
+                        </div>
+                        <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">${parseFloat(stats.totalWalletBalance || 0).toFixed(2)}</div>
                     </div>
                 </div>
             </div>
