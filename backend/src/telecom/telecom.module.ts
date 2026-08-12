@@ -15,6 +15,8 @@ import { FreeswitchModule } from '../freeswitch/freeswitch.module';
 import { TFNsModule } from './tfns/tfns.module';
 import { DIDForwardsModule } from './did-forwards/did-forwards.module';
 
+import { TeardownEnforcerService } from './teardown-enforcer.service';
+
 @Module({
   imports: [
     PrismaModule,
@@ -32,6 +34,6 @@ import { DIDForwardsModule } from './did-forwards/did-forwards.module';
     DIDForwardsModule,
   ],
   controllers: [TelecomController],
-  providers: [TelecomService],
+  providers: [TelecomService, TeardownEnforcerService],
 })
 export class TelecomModule { }

@@ -227,15 +227,21 @@ export class LookupRedisService {
                     password: password,
                     database: db,
                     socket: {
-                        connectTimeout: 5000,
+                        connectTimeout: 10000,
                         reconnectStrategy: (retries) => {
-                            if (retries > 3) return new Error('Lookup Redis connection failed');
-                            return 500;
+                            if (retries > 20) return new Error('Lookup Redis connection failed');
+                            return Math.min(retries * 200, 3000);
                         }
                     }
                 });
 
-                client.on('error', (err) => console.error('Lookup Redis Client Error', err));
+                client.on('error', (err) => {
+                    if (err?.message?.includes('Connection timeout')) {
+                        console.warn('Lookup Redis Client connection timed out, reconnecting...');
+                    } else {
+                        console.error('Lookup Redis Client Error:', err?.message || err);
+                    }
+                });
 
                 try {
                     await client.connect();
