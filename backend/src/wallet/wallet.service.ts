@@ -219,23 +219,44 @@ export class WalletService {
             const subBillingData = response.data?.data;
             const subBillingSubId = subBillingData?.subscription_id || subBillingData?.id;
 
-            await this.prisma.subscription.upsert({
-                where: { tenantId },
-                create: {
-                    tenantId,
-                    planId,
-                    subBillingSubscriptionId: subBillingSubId || undefined,
-                    status: 'ACTIVE',
-                    startDate: new Date(),
-                    endDate
-                },
-                update: {
-                    planId,
-                    subBillingSubscriptionId: subBillingSubId || undefined,
-                    status: 'ACTIVE',
-                    updatedAt: new Date()
-                }
+            // Find matching local plan in Prisma DB
+            let localPlan = await this.prisma.plan.findFirst({
+                where: { OR: [{ id: planId }, { name: { equals: planId, mode: 'insensitive' } }] }
             });
+            if (!localPlan) {
+                localPlan = await this.prisma.plan.findFirst();
+            }
+            const localPlanIdToUse = localPlan ? localPlan.id : planId;
+            const freeMins = localPlan?.freeMinutes || 500;
+
+            const existingSub = await this.prisma.subscription.findFirst({
+                where: { tenantId }
+            });
+
+            if (existingSub) {
+                await this.prisma.subscription.update({
+                    where: { id: existingSub.id },
+                    data: {
+                        planId: localPlanIdToUse,
+                        subBillingSubscriptionId: subBillingSubId || existingSub.subBillingSubscriptionId,
+                        status: 'ACTIVE',
+                        remainingFreeMinutes: freeMins,
+                        updatedAt: new Date()
+                    }
+                });
+            } else {
+                await this.prisma.subscription.create({
+                    data: {
+                        tenantId,
+                        planId: localPlanIdToUse,
+                        subBillingSubscriptionId: subBillingSubId || undefined,
+                        status: 'ACTIVE',
+                        startDate: new Date(),
+                        endDate,
+                        remainingFreeMinutes: freeMins
+                    }
+                });
+            }
 
             return response.data;
         } catch (error) {
