@@ -5,15 +5,9 @@ import { subscriptionService } from '../../services/subscription.service';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import {
-    Package,
     Plus,
     RefreshCw,
     CheckCircle2,
-    Zap,
-    Radio,
-    Phone,
-    HardDrive,
-    Activity,
     CreditCard,
     Loader2,
     ArrowUpRight,
@@ -21,7 +15,6 @@ import {
     ShieldCheck
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import AddonPurchaseModal from '../../components/subscription/AddonPurchaseModal';
 import PlanSwitchModal from '../../components/subscription/PlanSwitchModal';
 import PlanFormModal from '../../components/subscription/PlanFormModal';
 
@@ -43,35 +36,19 @@ const SubscriptionsPage = () => {
     const [showModal, setShowModal] = useState(false);
     const [editingCard, setEditingCard] = useState(null);
 
-    // Addons Catalog State
-    const [catalog, setCatalog] = useState([]);
-    const [catalogLoading, setCatalogLoading] = useState(true);
-
-    // Addon Quote & Purchase Modal State
-    const [quantityMap, setQuantityMap] = useState({});
-    const [quotingAddonId, setQuotingAddonId] = useState(null);
-    const [quoteData, setQuoteData] = useState(null);
-    const [addonModalOpen, setAddonModalOpen] = useState(false);
-
     useEffect(() => {
         loadData();
     }, []);
 
     const loadData = async () => {
-        setCatalogLoading(true);
         setPlansLoading(true);
         try {
-            const [addonsData, plansData] = await Promise.all([
-                subscriptionService.getCatalog(),
-                subscriptionService.getPlans()
-            ]);
-            setCatalog(addonsData || []);
+            const plansData = await subscriptionService.getPlans();
             setPlans(plansData || []);
         } catch (err) {
             console.error('Failed to load subscriptions data:', err);
             addToast('error', 'Failed to load subscription items');
         } finally {
-            setCatalogLoading(false);
             setPlansLoading(false);
         }
     };
@@ -82,59 +59,19 @@ const SubscriptionsPage = () => {
     const creditUsed = Number(wallet?.creditUsed || 0);
     const availablePurchasingPower = fiatBalance + creditLimit - creditUsed;
 
-    const getQuantity = (addonId) => quantityMap[addonId] || 1;
-
-    const handleQuantityChange = (addonId, val) => {
-        const q = Math.max(1, parseInt(val) || 1);
-        setQuantityMap(prev => ({ ...prev, [addonId]: q }));
-    };
-
     // Plan Switch Handler
     const handleInitiatePlanSwitch = (plan) => {
         setSelectedPlanForSwitch(plan);
         setPlanSwitchModalOpen(true);
     };
 
-    // Step B: Get Quote when user selects an add-on and quantity
-    const handleGetQuote = async (addon) => {
-        const qty = getQuantity(addon.addon_id);
-        setQuotingAddonId(addon.addon_id);
-        try {
-            const quote = await subscriptionService.getQuote(
-                user?.tenantId || 'U1001',
-                addon.addon_id,
-                qty,
-                availablePurchasingPower,
-                subscription?.next_billing
-            );
-            setQuoteData(quote);
-            setAddonModalOpen(true);
-        } catch (err) {
-            console.error('Failed to calculate quote:', err);
-            addToast('error', err.response?.data?.message || 'Failed to calculate quote');
-        } finally {
-            setQuotingAddonId(null);
-        }
-    };
-
-    // Step E: Refresh active subscription & wallet after purchase or plan switch
+    // Refresh active subscription & wallet after plan changes
     const handleRefreshAll = () => {
         queryClient.invalidateQueries(['subscription']);
         queryClient.invalidateQueries(['wallet']);
         refetchSubscription();
         refetchWallet();
         loadData();
-    };
-
-    const getAddonIcon = (addonType) => {
-        switch (addonType) {
-            case 'ext': case 'extension': return <Radio className="h-5 w-5 text-indigo-500" />;
-            case 'tfn': return <Phone className="h-5 w-5 text-emerald-500" />;
-            case 'did': return <Phone className="h-5 w-5 text-blue-500" />;
-            case 'storage': return <HardDrive className="h-5 w-5 text-purple-500" />;
-            case 'mon': return <Activity className="h-5 w-5 text-amber-500" />;
-            default: return <Package className="h-5 w-5 text-indigo-500" />;
-        }
     };
 
     return (
@@ -148,7 +85,7 @@ const SubscriptionsPage = () => {
                         Subscription & Billing Engine 2.0
                     </h1>
                     <p className="text-gray-500 dark:text-slate-400 mt-1 font-medium text-sm md:text-base">
-                        Manage active subscription plan, purchasing power, and mid-cycle add-ons
+                        Manage active subscription plan and purchasing power
                     </p>
                 </div>
                 <button
@@ -231,10 +168,11 @@ const SubscriptionsPage = () => {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {plans.map((p) => {
-                            const isCurrent = subscription?.plan_id === p.plan_id || subscription?.plan_name === p.name;
+                            const currentPlanId = subscription?.plan_id || subscription?.plan_name;
+                            const isCurrent = currentPlanId && (p.plan_id || p.name) ? (subscription?.plan_id === p.plan_id || subscription?.plan_name === p.name) : false;
                             return (
                                 <div
-                                    key={p.plan_id}
+                                    key={p.plan_id || p.id || p.name}
                                     className={`bg-white dark:bg-slate-900 rounded-2xl p-6 border transition-all flex flex-col justify-between ${isCurrent
                                         ? 'border-primary-500 ring-2 ring-primary-500/20 shadow-md'
                                         : 'border-gray-200/80 dark:border-slate-800 shadow-sm hover:shadow-md'
@@ -253,7 +191,7 @@ const SubscriptionsPage = () => {
                                         </div>
 
                                         <div className="text-2xl font-extrabold font-mono text-gray-900 dark:text-white mb-4">
-                                            ${Number(p.amount).toFixed(2)}
+                                            ${Number(p.amount || p.price || 0).toFixed(2)}
                                             <span className="text-xs text-gray-400 font-normal font-sans"> / month</span>
                                         </div>
 
@@ -293,93 +231,6 @@ const SubscriptionsPage = () => {
                     </div>
                 )}
             </div>
-
-            {/* Catalog Section Header */}
-            <div>
-                <div className="flex items-center gap-2 mb-1">
-                    <Zap className="h-5 w-5 text-indigo-500" />
-                    <h3 className="text-xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-                        Mid-Cycle Add-ons Catalog
-                    </h3>
-                </div>
-                <p className="text-sm font-medium text-gray-500 dark:text-slate-400">
-                    Select capacity add-ons to upgrade your tenant resources with instant prorated billing
-                </p>
-            </div>
-
-            {/* Catalog Grid */}
-            {catalogLoading ? (
-                <div className="flex justify-center py-16">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {catalog.map((addon) => (
-                        <div
-                            key={addon.addon_id}
-                            className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-gray-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
-                        >
-                            <div>
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700">
-                                        {getAddonIcon(addon.resource_type || addon.addon_type)}
-                                    </div>
-                                    <span className="text-lg font-extrabold font-mono text-gray-900 dark:text-white">
-                                        ${Number(addon.unit_price || addon.price || 0).toFixed(2)}
-                                        <span className="text-xs text-gray-400 font-sans font-normal"> / mo</span>
-                                    </span>
-                                </div>
-
-                                <h4 className="text-base font-bold text-gray-900 dark:text-white tracking-tight">
-                                    {addon.name}
-                                </h4>
-                                <p className="text-xs font-medium text-gray-500 dark:text-slate-400 mt-1.5 leading-relaxed min-h-[36px]">
-                                    {addon.description || `Resource type: ${addon.resource_type || 'addon'}`}
-                                </p>
-                            </div>
-
-                            <div className="mt-6 pt-4 border-t border-gray-100 dark:border-slate-800 flex items-center gap-3">
-                                {/* Quantity Selector */}
-                                <div className="w-24">
-                                    <label className="sr-only">Quantity</label>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max="50"
-                                        value={getQuantity(addon.addon_id)}
-                                        onChange={(e) => handleQuantityChange(addon.addon_id, e.target.value)}
-                                        className="w-full text-center font-mono font-bold text-sm rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
-                                    />
-                                </div>
-
-                                {/* Step B Button: Trigger Quote */}
-                                <button
-                                    type="button"
-                                    onClick={() => handleGetQuote(addon)}
-                                    disabled={quotingAddonId === addon.addon_id}
-                                    className="flex-1 inline-flex justify-center items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-primary-700 transition-all focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50"
-                                >
-                                    {quotingAddonId === addon.addon_id ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <Plus className="h-4 w-4" />
-                                    )}
-                                    Purchase Add-on
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {/* Step C, D, E: Prorated Add-on Quote & Purchase Modal */}
-            <AddonPurchaseModal
-                isOpen={addonModalOpen}
-                onClose={() => setAddonModalOpen(false)}
-                quote={quoteData}
-                customerId={user?.tenantId}
-                onSuccess={handleRefreshAll}
-            />
 
             {/* Plan Switch Modal Flow */}
             <PlanSwitchModal

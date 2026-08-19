@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, Wallet, Phone, Users, Info, Building2, Plus, Trash2, Loader, CreditCard, RefreshCw, User, LogIn, Sliders, ShieldAlert, Clock, Server, Mic } from 'lucide-react';
+import { X, Wallet, Phone, Users, Info, Building2, Plus, Trash2, Loader, CreditCard, RefreshCw, User, LogIn, Sliders, ShieldAlert, Clock, Server, Mic, Zap, Loader2, Radio, HardDrive, Activity, Package } from 'lucide-react';
 import api from '../../../services/api';
 import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../../context/ToastContext';
 import MonitoringExtensionModal from '../../../components/admin/MonitoringExtensionModal';
 import { formatCustomerId } from '../../../utils/billing.utils';
+import { subscriptionService } from '../../../services/subscription.service';
+import AddonPurchaseModal from '../../../components/subscription/AddonPurchaseModal';
 
 const TABS = [
     { id: 'overview', label: 'Overview', icon: Info },
@@ -13,6 +16,7 @@ const TABS = [
     { id: 'users', label: 'Users', icon: User },
     { id: 'features', label: 'Feature Controller', icon: Sliders },
     { id: 'carrier', label: 'Outbound Carrier', icon: Server },
+    { id: 'addons', label: 'Add-ons', icon: CreditCard },
 ];
 
 const TenantManager = ({ tenantId, onClose }) => {
@@ -105,6 +109,7 @@ const TenantManager = ({ tenantId, onClose }) => {
                         {activeTab === 'users' && <UsersTab tenant={tenant} />}
                         {activeTab === 'features' && <FeaturesTab tenant={tenant} onUpdate={handleRefresh} />}
                         {activeTab === 'carrier' && <CarrierTab tenant={tenant} onUpdate={handleRefresh} />}
+                        {activeTab === 'addons' && <AddonsTab tenant={tenant} onUpdate={handleRefresh} />}
                     </div>
                 </div>
             </div>
@@ -1289,11 +1294,10 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
                     return (
                         <div
                             key={item.key}
-                            className={`p-5 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 hover:shadow-sm ${
-                                isEnabled 
-                                    ? 'bg-white border-gray-200' 
-                                    : 'bg-gray-50/50 border-gray-100 opacity-75'
-                            }`}
+                            className={`p-5 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 hover:shadow-sm ${isEnabled
+                                ? 'bg-white border-gray-200'
+                                : 'bg-gray-50/50 border-gray-100 opacity-75'
+                                }`}
                         >
                             <div className="flex items-start gap-4 flex-1">
                                 <div className={`p-3 rounded-xl border shrink-0 ${item.color}`}>
@@ -1302,7 +1306,7 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
                                 <div className="text-left flex-1">
                                     <h4 className="font-extrabold text-gray-900 text-sm tracking-tight">{item.title}</h4>
                                     <p className="text-xs font-medium text-gray-500 mt-1 leading-relaxed max-w-xl">{item.description}</p>
-                                    
+
                                     {isEnabled && item.limitKey && (
                                         <div className="mt-3 flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-100 inline-flex">
                                             <span className="text-xs font-bold text-gray-700">Creation Limit:</span>
@@ -1343,14 +1347,12 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
                                 <button
                                     onClick={() => !isUpdating && handleToggle(item.key)}
                                     disabled={isUpdating}
-                                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 ${
-                                        isEnabled ? 'bg-primary-600' : 'bg-gray-200'
-                                    }`}
+                                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 ${isEnabled ? 'bg-primary-600' : 'bg-gray-200'
+                                        }`}
                                 >
                                     <span
-                                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out flex items-center justify-center ${
-                                            isEnabled ? 'translate-x-5' : 'translate-x-0'
-                                        }`}
+                                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out flex items-center justify-center ${isEnabled ? 'translate-x-5' : 'translate-x-0'
+                                            }`}
                                     >
                                         {isUpdating && <Loader className="animate-spin h-3 w-3 text-primary-600" />}
                                     </span>
@@ -1437,6 +1439,174 @@ const CarrierTab = ({ tenant, onUpdate }) => {
                     </button>
                 </div>
             </div>
+        </div>
+    );
+};
+
+const AddonsTab = ({ tenant, onUpdate }) => {
+    const { addToast } = useToast();
+    const [catalog, setCatalog] = useState([]);
+    const [catalogLoading, setCatalogLoading] = useState(true);
+    const [quantityMap, setQuantityMap] = useState({});
+    const [quotingAddonId, setQuotingAddonId] = useState(null);
+    const [quoteData, setQuoteData] = useState(null);
+    const [addonModalOpen, setAddonModalOpen] = useState(false);
+
+    useEffect(() => {
+        loadCatalog();
+    }, [tenant?.id]);
+
+    const loadCatalog = async () => {
+        setCatalogLoading(true);
+        try {
+            const addonsData = await subscriptionService.getCatalog();
+            setCatalog(addonsData || []);
+        } catch (err) {
+            console.error('Failed to load add-on catalog:', err);
+            if (addToast) addToast('error', 'Failed to load add-ons');
+        } finally {
+            setCatalogLoading(false);
+        }
+    };
+
+    const getQuantity = (addonId) => quantityMap[addonId] || 1;
+
+    const handleQuantityChange = (addonId, val) => {
+        const q = Math.max(1, parseInt(val, 10) || 1);
+        setQuantityMap((prev) => ({ ...prev, [addonId]: q }));
+    };
+
+    const getAddonIcon = (addonType = '') => {
+        const type = String(addonType).toLowerCase();
+        const iconClasses = "h-5 w-5 text-indigo-600";
+        switch (type) {
+            case 'ext':
+            case 'extension':
+                return <Radio className={iconClasses} />;
+            case 'tfn':
+            case 'did':
+                return <Phone className={iconClasses} />;
+            case 'storage':
+                return <HardDrive className={iconClasses} />;
+            case 'mon':
+                return <Activity className={iconClasses} />;
+            default:
+                return <Package className={iconClasses} />;
+        }
+    };
+
+    const handleGetQuote = async (addon) => {
+        const qty = getQuantity(addon.addon_id);
+        setQuotingAddonId(addon.addon_id);
+        try {
+            const quote = await subscriptionService.getQuote(
+                tenant?.id,
+                addon.addon_id,
+                qty
+            );
+            setQuoteData(quote);
+            setAddonModalOpen(true);
+        } catch (err) {
+            console.error('Failed to calculate quote:', err);
+            if (addToast) addToast('error', err.response?.data?.message || 'Failed to calculate quote');
+        } finally {
+            setQuotingAddonId(null);
+        }
+    };
+
+    const handleRefreshAll = () => {
+        loadCatalog();
+        if (onUpdate) onUpdate();
+    };
+
+    return (
+        <div className="space-y-8 max-w-5xl">
+            {/* Catalog Section Header */}
+            <div>
+                <div className="flex items-center gap-2 mb-1">
+                    <Zap className="h-5 w-5 text-indigo-500" />
+                    <h3 className="text-xl font-extrabold text-gray-900 tracking-tight">
+                        Mid-Cycle Add-ons Catalog
+                    </h3>
+                </div>
+                <p className="text-sm font-medium text-gray-500">
+                    Select capacity add-ons to upgrade your tenant resources with instant prorated billing
+                </p>
+            </div>
+
+            {/* Catalog Grid */}
+            {catalogLoading ? (
+                <div className="flex justify-center py-16">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {catalog.map((addon) => (
+                        <div
+                            key={addon.addon_id}
+                            className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
+                        >
+                            <div>
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-100">
+                                        {getAddonIcon(addon.resource_type || addon.addon_type)}
+                                    </div>
+                                    <span className="text-lg font-extrabold font-mono text-gray-900">
+                                        ${Number(addon.unit_price || addon.price || 0).toFixed(2)}
+                                        <span className="text-xs text-gray-400 font-sans font-normal"> / mo</span>
+                                    </span>
+                                </div>
+
+                                <h4 className="text-base font-bold text-gray-900 tracking-tight">
+                                    {addon.name}
+                                </h4>
+                                <p className="text-xs font-medium text-gray-500 mt-1.5 leading-relaxed min-h-[36px]">
+                                    {addon.description || `Resource type: ${addon.resource_type || 'addon'}`}
+                                </p>
+                            </div>
+
+                            <div className="mt-6 pt-4 border-t border-gray-100 flex items-center gap-3">
+                                {/* Quantity Selector */}
+                                <div className="w-24">
+                                    <label className="sr-only">Quantity</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="50"
+                                        value={getQuantity(addon.addon_id)}
+                                        onChange={(e) => handleQuantityChange(addon.addon_id, e.target.value)}
+                                        className="w-full text-center font-mono font-bold text-sm rounded-xl border border-gray-200 bg-gray-50 py-2 text-gray-900 focus:ring-2 focus:ring-primary-500"
+                                    />
+                                </div>
+
+                                {/* Trigger Quote & Purchase Button */}
+                                <button
+                                    type="button"
+                                    onClick={() => handleGetQuote(addon)}
+                                    disabled={quotingAddonId === addon.addon_id}
+                                    className="flex-1 inline-flex justify-center items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                                >
+                                    {quotingAddonId === addon.addon_id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Plus className="h-4 w-4" />
+                                    )}
+                                    Purchase Add-on
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Prorated Add-on Quote & Purchase Modal */}
+            <AddonPurchaseModal
+                isOpen={addonModalOpen}
+                onClose={() => setAddonModalOpen(false)}
+                quote={quoteData}
+                customerId={tenant?.id}
+                onSuccess={handleRefreshAll}
+            />
         </div>
     );
 };

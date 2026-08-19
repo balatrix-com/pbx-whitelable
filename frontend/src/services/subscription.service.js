@@ -53,6 +53,11 @@ export const subscriptionService = {
         ];
     },
 
+    createPlan: async (payload) => {
+        const res = await api.post('http://localhost:5005/api/v1/plans', payload);
+        return res.data;
+    },
+
     // ------------------------------------------------------------------------
     // 2. EXISTING BACKEND API: GET /api/wallet/subscription (Status: 200 OK)
     // ------------------------------------------------------------------------

@@ -74,7 +74,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { name: 'Call Monitoring', href: '/monitoring', icon: Activity },
                     { name: 'Call Records', href: '/cdrs', icon: History },
                     { name: 'Manage Numbers', href: '/super-admin/numbers', icon: Phone },
-                    { name: 'Subscriptions', href: '/subscriptions', icon: CreditCard },
+                    { name: 'Subscriptions', href: '/super-admin/subscriptions', icon: CreditCard },
                     { name: 'Carriers & Gateways', href: '/super-admin/carriers', icon: Server },
                     { name: 'User Management', href: '/super-admin/users', icon: Users },
                     { name: 'System Settings', href: '/settings', icon: Settings },
@@ -84,7 +84,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 items = [
                     { name: 'Dashboard', href: '/dashboard', icon: LayoutGrid },
                     { name: 'Wallet', href: '/wallet', icon: Wallet },
-                    { name: 'Subscriptions', href: '/subscriptions', icon: CreditCard },
                     { name: 'Phone Numbers', href: '/tfn', icon: Phone },
                     {
                         name: 'Extensions',
