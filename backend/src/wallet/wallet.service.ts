@@ -201,6 +201,50 @@ export class WalletService {
         }
     }
 
+    async switchSubscriptionPlan(tenantId: string, planId: string, immediate: boolean = true) {
+        const customerId = await this.getSubBillingCustomerId(tenantId);
+        try {
+            this.logger.log(`Switching subscription plan in sub-billing for customer ${customerId} (tenant ${tenantId}) to ${planId}`);
+            const response = await firstValueFrom(
+                this.httpService.post(`${this.subBillingUrl}/subscriptions/switch-plan`, {
+                    customer_id: customerId,
+                    target_plan_id: planId,
+                    execute_on_expiration: !immediate
+                })
+            );
+
+            const endDate = new Date();
+            endDate.setFullYear(endDate.getFullYear() + 1);
+
+            const subBillingData = response.data?.data;
+            const subBillingSubId = subBillingData?.subscription_id || subBillingData?.id;
+
+            await this.prisma.subscription.upsert({
+                where: { tenantId },
+                create: {
+                    tenantId,
+                    planId,
+                    subBillingSubscriptionId: subBillingSubId || undefined,
+                    status: 'ACTIVE',
+                    startDate: new Date(),
+                    endDate
+                },
+                update: {
+                    planId,
+                    subBillingSubscriptionId: subBillingSubId || undefined,
+                    status: 'ACTIVE',
+                    updatedAt: new Date()
+                }
+            });
+
+            return response.data;
+        } catch (error) {
+            const errorMsg = error.response?.data?.message || error.message;
+            this.logger.error(`Failed to switch subscription plan for tenant ${tenantId}: ${errorMsg}`);
+            throw new BadRequestException(`Failed to switch subscription plan: ${errorMsg}`);
+        }
+    }
+
     async getCards(tenantId: string) {
         const customerId = await this.getSubBillingCustomerId(tenantId);
         try {

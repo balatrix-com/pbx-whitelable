@@ -45,6 +45,19 @@ export class WalletController {
         return this.walletService.getSubscription(user.tenantId);
     }
 
+    @Post('subscription')
+    switchSubscription(
+        @GetUser() user: User,
+        @Body('targetTenantId') targetTenantId: string,
+        @Body('planId') planId: string,
+        @Body('immediate') immediate: boolean
+    ) {
+        const tenantId = targetTenantId || user.tenantId;
+        if (!tenantId) throw new BadRequestException('Tenant ID is required');
+        if (!planId) throw new BadRequestException('Plan ID is required');
+        return this.walletService.switchSubscriptionPlan(tenantId, planId, immediate ?? true);
+    }
+
     @Get('cards')
     getCards(@GetUser() user: User) {
         if (!user.tenantId) return [];
