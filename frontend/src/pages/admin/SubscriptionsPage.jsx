@@ -67,8 +67,8 @@ const SubscriptionsPage = () => {
 
     // Refresh active subscription & wallet after plan changes
     const handleRefreshAll = () => {
-        queryClient.invalidateQueries(['subscription']);
-        queryClient.invalidateQueries(['wallet']);
+        queryClient.invalidateQueries({ queryKey: ['subscription'] });
+        queryClient.invalidateQueries({ queryKey: ['wallet'] });
         refetchSubscription();
         refetchWallet();
         loadData();

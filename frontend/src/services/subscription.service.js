@@ -191,13 +191,14 @@ export const subscriptionService = {
     },
 
     // ------------------------------------------------------------------------
-    // 6. PLAN SWITCH (Local execution - No 404 network requests)
+    // 6. PLAN SWITCH (Real backend API: POST /api/wallet/subscription)
     // ------------------------------------------------------------------------
     switchPlan: async (customerId, newPlanId, immediate = true) => {
-        return {
-            success: true,
-            message: `Plan switch to ${newPlanId} scheduled successfully`,
-            data: { new_plan_id: newPlanId, immediate }
-        };
+        const res = await api.post('/wallet/subscription', {
+            targetTenantId: customerId,
+            planId: newPlanId,
+            immediate
+        });
+        return res.data;
     }
 };

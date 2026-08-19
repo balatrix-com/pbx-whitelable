@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Dialog } from '@headlessui/react';
 import { X, RefreshCw, Loader2, ArrowRight, ShieldCheck, Zap, AlertCircle } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { subscriptionService } from '../../services/subscription.service';
 import { useToast } from '../../context/ToastContext';
 
 const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, onSuccess }) => {
     const { addToast } = useToast();
+    const queryClient = useQueryClient();
     const [immediate, setImmediate] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
@@ -22,6 +24,8 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, on
                 immediate
             );
             addToast('success', res.message || `Successfully switched to ${newPlan.name}!`);
+            queryClient.invalidateQueries({ queryKey: ['subscription'] });
+            queryClient.invalidateQueries({ queryKey: ['wallet'] });
             if (onSuccess) {
                 onSuccess();
             }
