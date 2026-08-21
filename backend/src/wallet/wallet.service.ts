@@ -258,6 +258,52 @@ export class WalletService {
                 });
             }
 
+            // Auto-provision extensions matching target plan limit
+            const allowedExtensions = localPlan?.maxExtensions || 5;
+            const tenant = await this.prisma.tenant.findUnique({
+                where: { id: tenantId },
+                select: { customerCode: true }
+            });
+
+            if (tenant && tenant.customerCode && allowedExtensions > 0) {
+                const currentExtCount = await this.prisma.extension.count({
+                    where: { tenantId }
+                });
+
+                if (currentExtCount < allowedExtensions) {
+                    const toCreate = allowedExtensions - currentExtCount;
+                    this.logger.log(`Auto-provisioning ${toCreate} extension(s) for tenant ${tenantId} (plan allowance: ${allowedExtensions})`);
+                    
+                    for (let i = currentExtCount; i < allowedExtensions; i++) {
+                        const suffix = (i + 1).toString().padStart(2, '0');
+                        const extNum = `${tenant.customerCode}${suffix}`;
+                        
+                        const existingExt = await this.prisma.extension.findUnique({
+                            where: {
+                                tenantId_extensionNumber: {
+                                    tenantId,
+                                    extensionNumber: extNum
+                                }
+                            }
+                        });
+
+                        if (!existingExt) {
+                            await this.prisma.extension.create({
+                                data: {
+                                    tenantId,
+                                    extensionNumber: extNum,
+                                    name: `Extension ${suffix}`,
+                                    sipUsername: extNum,
+                                    sipPassword: '123456',
+                                    sipAuthRealm: process.env.SIP_SERVER || 'localhost',
+                                    sequenceId: i + 1
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+
             return response.data;
         } catch (error) {
             const errorMsg = error.response?.data?.message || error.message;
