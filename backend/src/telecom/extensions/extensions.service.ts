@@ -27,12 +27,22 @@ export class ExtensionsService {
         private readonly configService: ConfigService,
     ) { }
 
+    private async resolveTenantId(tenantId: string): Promise<string> {
+        if (!tenantId) return tenantId;
+        const tenant = await this.prisma.tenant.findFirst({
+            where: { id: { equals: tenantId, mode: 'insensitive' } },
+            select: { id: true }
+        });
+        return tenant ? tenant.id : tenantId;
+    }
+
     /**
      * Find all extensions for a tenant
      */
     async findAll(tenantId: string) {
+        const targetTenantId = await this.resolveTenantId(tenantId);
         return this.prisma.extension.findMany({
-            where: { tenantId },
+            where: { tenantId: targetTenantId },
             include: {
                 ringGroupMembers: {
                     include: {
@@ -50,8 +60,9 @@ export class ExtensionsService {
      * Find one extension by ID
      */
     async findOne(tenantId: string, id: string) {
+        const targetTenantId = await this.resolveTenantId(tenantId);
         const extension = await this.prisma.extension.findFirst({
-            where: { id, tenantId },
+            where: { id, tenantId: targetTenantId },
             include: {
                 ringGroupMembers: {
                     include: {
