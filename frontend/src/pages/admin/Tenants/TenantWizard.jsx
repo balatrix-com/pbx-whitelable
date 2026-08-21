@@ -32,9 +32,9 @@ import { subscriptionService } from '../../../services/subscription.service';
 const STEPS = [
     { number: 1, title: 'Company Info', icon: Building2 },
     { number: 2, title: 'Wallet Funding', icon: Wallet },
-    { number: 3, title: 'Assign TFNs', icon: Phone },
-    { number: 4, title: 'Assign DIDs', icon: Phone },
-    { number: 5, title: 'Subscription Plan', icon: CreditCard },
+    { number: 3, title: 'Subscription Plan', icon: CreditCard },
+    { number: 4, title: 'Assign TFNs', icon: Phone },
+    { number: 5, title: 'Assign DIDs', icon: Phone },
 ];
 
 const TenantWizard = ({ onClose, onSuccess }) => {
@@ -70,25 +70,28 @@ const TenantWizard = ({ onClose, onSuccess }) => {
     const [walletAmount, setWalletAmount] = useState(10); // Default $10
     const [walletDescription, setWalletDescription] = useState('Initial Funding');
 
-    // Step 3: TFNs
-    const [availableTfns, setAvailableTfns] = useState([]);
-    const [selectedTfns, setSelectedTfns] = useState([]);
-
-    // Step 4: DIDs
-    const [availableDids, setAvailableDids] = useState([]);
-    const [selectedDids, setSelectedDids] = useState([]);
-
-    // Step 5: Subscription Plan & Add-ons
+    // Step 3: Subscription Plan & Add-ons
     const [plans, setPlans] = useState([]);
     const [plansLoading, setPlansLoading] = useState(false);
     const [selectedPlanId, setSelectedPlanId] = useState('');
     const [catalog, setCatalog] = useState([]);
     const [addonQuantities, setAddonQuantities] = useState({});
 
-    // Load subscription plans and add-on catalog when step 5 is active
+    // Step 4: TFNs
+    const [availableTfns, setAvailableTfns] = useState([]);
+    const [selectedTfns, setSelectedTfns] = useState([]);
+
+    // Step 5: DIDs
+    const [availableDids, setAvailableDids] = useState([]);
+    const [selectedDids, setSelectedDids] = useState([]);
+
+    // Load subscription plans and add-on catalog when step 3 is active
     useEffect(() => {
-        if (currentStep === 5 && plans.length === 0) {
+        if (currentStep === 3 && plans.length === 0) {
             loadSubscriptionData();
+        }
+        if ((currentStep === 4 || currentStep === 5) && availableTfns.length === 0 && availableDids.length === 0) {
+            fetchAvailableTfnsAndDids();
         }
     }, [currentStep]);
 
@@ -240,7 +243,6 @@ const TenantWizard = ({ onClose, onSuccess }) => {
 
     const handleFundWallet = async () => {
         if (!walletAmount || walletAmount <= 0) {
-            fetchAvailableTfnsAndDids();
             setCurrentStep(3); // Skip if 0
             return;
         }
@@ -252,7 +254,6 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                 type: 'CREDIT',
                 description: walletDescription || 'Initial Funding'
             });
-            await fetchAvailableTfnsAndDids();
             setCurrentStep(3);
         } catch (err) {
             setError('Failed to fund wallet: ' + (err.response?.data?.message || err.message));
@@ -272,39 +273,7 @@ const TenantWizard = ({ onClose, onSuccess }) => {
         }
     };
 
-    const handleAssignTfns = async () => {
-        setLoading(true);
-        try {
-            if (selectedTfns.length > 0) {
-                for (const tfnId of selectedTfns) {
-                    await api.post(`/telecom/tfns/${tfnId}/assign`, { tenantId: createdTenantId });
-                }
-            }
-            setCurrentStep(4);
-        } catch (err) {
-            setError('Failed to assign TFNs: ' + (err.response?.data?.message || err.message));
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleAssignDids = async () => {
-        setLoading(true);
-        try {
-            if (selectedDids.length > 0) {
-                for (const didId of selectedDids) {
-                    await api.post(`/telecom/dids/${didId}/assign`, { tenantId: createdTenantId });
-                }
-            }
-            setCurrentStep(5);
-        } catch (err) {
-            setError('Failed to assign DIDs: ' + (err.response?.data?.message || err.message));
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleCompleteSubscription = async () => {
+    const handleConfigureSubscription = async () => {
         setLoading(true);
         setError(null);
         try {
@@ -320,10 +289,43 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                 }
             }
 
+            await fetchAvailableTfnsAndDids();
+            setCurrentStep(4);
+        } catch (err) {
+            console.error('Failed to configure subscription:', err);
+            setError('Failed to configure subscription: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleAssignTfns = async () => {
+        setLoading(true);
+        try {
+            if (selectedTfns.length > 0) {
+                for (const tfnId of selectedTfns) {
+                    await api.post(`/telecom/tfns/${tfnId}/assign`, { tenantId: createdTenantId });
+                }
+            }
+            setCurrentStep(5);
+        } catch (err) {
+            setError('Failed to assign TFNs: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleAssignDids = async () => {
+        setLoading(true);
+        try {
+            if (selectedDids.length > 0) {
+                for (const didId of selectedDids) {
+                    await api.post(`/telecom/dids/${didId}/assign`, { tenantId: createdTenantId });
+                }
+            }
             onSuccess({ id: createdTenantId, name: tenantName });
         } catch (err) {
-            console.error('Failed to complete subscription configuration:', err);
-            setError('Failed to configure subscription: ' + (err.response?.data?.message || err.message));
+            setError('Failed to assign DIDs: ' + (err.response?.data?.message || err.message));
         } finally {
             setLoading(false);
         }
@@ -514,114 +516,9 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                 />
             </div>
             <div className="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-slate-800">
-                <button onClick={() => { fetchAvailableTfnsAndDids(); setCurrentStep(3); }} className="text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200">Skip</button>
+                <button onClick={() => setCurrentStep(3)} className="text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200">Skip</button>
                 <button
                     onClick={handleFundWallet}
-                    disabled={loading}
-                    className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-primary-600/20 disabled:opacity-50 flex items-center gap-1.5 transition-all"
-                >
-                    {loading ? <Loader className="animate-spin mr-1.5" size={16} /> : null} Next: Assign Numbers
-                </button>
-            </div>
-        </div>
-    );
-
-    const renderStep3 = () => (
-        <div className="space-y-4">
-            <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Select Toll-Free Numbers (Optional)</h3>
-                <p className="text-xs font-medium text-gray-500 dark:text-slate-400 mt-1">Select available numbers from inventory to assign to this tenant.</p>
-            </div>
-
-            <div className="border border-gray-200 dark:border-slate-800 rounded-xl max-h-60 overflow-y-auto bg-white dark:bg-slate-900">
-                {availableTfns.length === 0 ? (
-                    <div className="p-8 text-center text-gray-400 dark:text-slate-500 text-sm">No available TFNs found in inventory.</div>
-                ) : (
-                    <table className="w-full text-left bg-white dark:bg-slate-900">
-                        <thead className="bg-gray-50 dark:bg-slate-800/80 sticky top-0 border-b border-gray-100 dark:border-slate-700">
-                            <tr>
-                                <th className="p-3 w-10"></th>
-                                <th className="p-3 text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Number</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-                            {availableTfns.map(tfn => (
-                                <tr key={tfn.id} className={selectedTfns.includes(tfn.id) ? 'bg-primary-50/60 dark:bg-primary-950/40' : 'hover:bg-gray-50 dark:hover:bg-slate-800/40'}>
-                                    <td className="p-3">
-                                        <input
-                                            type="checkbox"
-                                            className="rounded border-gray-300 dark:border-slate-600 text-primary-600 focus:ring-primary-500 dark:bg-slate-800"
-                                            checked={selectedTfns.includes(tfn.id)}
-                                            onChange={(e) => {
-                                                if (e.target.checked) setSelectedTfns([...selectedTfns, tfn.id]);
-                                                else setSelectedTfns(selectedTfns.filter(id => id !== tfn.id));
-                                            }}
-                                        />
-                                    </td>
-                                    <td className="p-3 font-mono font-bold text-sm text-gray-900 dark:text-white">{tfn.number}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
-            </div>
-            <div className="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-slate-800">
-                <button onClick={() => setCurrentStep(4)} className="text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200">Skip</button>
-                <button
-                    onClick={handleAssignTfns}
-                    disabled={loading}
-                    className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-primary-600/20 disabled:opacity-50 flex items-center gap-1.5 transition-all"
-                >
-                    {loading ? <Loader className="animate-spin mr-1.5" size={16} /> : null} Next: Assign DIDs
-                </button>
-            </div>
-        </div>
-    );
-
-    const renderStep4 = () => (
-        <div className="space-y-4">
-            <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Assign Standard Phone Numbers (DIDs)</h3>
-                <p className="text-xs font-medium text-gray-500 dark:text-slate-400 mt-1">Select available standard numbers for this tenant.</p>
-            </div>
-
-            <div className="border border-gray-200 dark:border-slate-800 rounded-xl max-h-64 overflow-y-auto bg-white dark:bg-slate-900">
-                {availableDids.length === 0 ? (
-                    <div className="p-8 text-center text-gray-400 dark:text-slate-500 text-sm">No available DIDs in inventory.</div>
-                ) : (
-                    <table className="w-full text-sm text-left bg-white dark:bg-slate-900">
-                        <thead className="bg-gray-50 dark:bg-slate-800/80 sticky top-0 border-b border-gray-100 dark:border-slate-700">
-                            <tr>
-                                <th className="p-3 w-10"></th>
-                                <th className="p-3 text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Number</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-                            {availableDids.map(did => (
-                                <tr key={did.id} className={selectedDids.includes(did.id) ? 'bg-primary-50/60 dark:bg-primary-950/40' : 'hover:bg-gray-50 dark:hover:bg-slate-800/40'}>
-                                    <td className="p-3">
-                                        <input
-                                            type="checkbox"
-                                            className="rounded border-gray-300 dark:border-slate-600 text-primary-600 focus:ring-primary-500 dark:bg-slate-800"
-                                            checked={selectedDids.includes(did.id)}
-                                            onChange={(e) => {
-                                                if (e.target.checked) setSelectedDids([...selectedDids, did.id]);
-                                                else setSelectedDids(selectedDids.filter(id => id !== did.id));
-                                            }}
-                                        />
-                                    </td>
-                                    <td className="p-3 font-mono font-bold text-sm text-gray-900 dark:text-white">{did.number}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
-            </div>
-
-            <div className="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-slate-800">
-                <button onClick={() => setCurrentStep(5)} className="text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200">Skip</button>
-                <button
-                    onClick={handleAssignDids}
                     disabled={loading}
                     className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-primary-600/20 disabled:opacity-50 flex items-center gap-1.5 transition-all"
                 >
@@ -631,7 +528,7 @@ const TenantWizard = ({ onClose, onSuccess }) => {
         </div>
     );
 
-    const renderStep5 = () => {
+    const renderStep3 = () => {
         const selectedPlan = plans.find(p => (p.plan_id || p.id || p.name) === selectedPlanId) || plans[0];
         const planPrice = Number(selectedPlan?.amount || selectedPlan?.price || 0);
 
@@ -816,24 +713,129 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                 <div className="flex justify-between items-center pt-3 border-t border-gray-100 dark:border-slate-800">
                     <button
                         type="button"
-                        onClick={() => onSuccess({ id: createdTenantId, name: tenantName })}
+                        onClick={() => { fetchAvailableTfnsAndDids(); setCurrentStep(4); }}
                         className="text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 transition-colors"
                     >
                         Skip Subscription
                     </button>
                     <button
                         type="button"
-                        onClick={handleCompleteSubscription}
+                        onClick={handleConfigureSubscription}
                         disabled={loading || plansLoading}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-emerald-600/20 disabled:opacity-50 flex items-center gap-1.5 transition-all"
+                        className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-primary-600/20 disabled:opacity-50 flex items-center gap-1.5 transition-all"
                     >
-                        {loading ? <Loader className="animate-spin" size={14} /> : <Check size={14} />}
-                        Finish & Complete Setup
+                        {loading ? <Loader className="animate-spin" size={14} /> : null}
+                        Next: Assign TFNs
                     </button>
                 </div>
             </div>
         );
     };
+
+    const renderStep4 = () => (
+        <div className="space-y-4">
+            <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Select Toll-Free Numbers (Optional)</h3>
+                <p className="text-xs font-medium text-gray-500 dark:text-slate-400 mt-1">Select available numbers from inventory to assign to this tenant.</p>
+            </div>
+
+            <div className="border border-gray-200 dark:border-slate-800 rounded-xl max-h-60 overflow-y-auto bg-white dark:bg-slate-900">
+                {availableTfns.length === 0 ? (
+                    <div className="p-8 text-center text-gray-400 dark:text-slate-500 text-sm">No available TFNs found in inventory.</div>
+                ) : (
+                    <table className="w-full text-left bg-white dark:bg-slate-900">
+                        <thead className="bg-gray-50 dark:bg-slate-800/80 sticky top-0 border-b border-gray-100 dark:border-slate-700">
+                            <tr>
+                                <th className="p-3 w-10"></th>
+                                <th className="p-3 text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Number</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+                            {availableTfns.map(tfn => (
+                                <tr key={tfn.id} className={selectedTfns.includes(tfn.id) ? 'bg-primary-50/60 dark:bg-primary-950/40' : 'hover:bg-gray-50 dark:hover:bg-slate-800/40'}>
+                                    <td className="p-3">
+                                        <input
+                                             type="checkbox"
+                                            className="rounded border-gray-300 dark:border-slate-600 text-primary-600 focus:ring-primary-500 dark:bg-slate-800"
+                                            checked={selectedTfns.includes(tfn.id)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) setSelectedTfns([...selectedTfns, tfn.id]);
+                                                else setSelectedTfns(selectedTfns.filter(id => id !== tfn.id));
+                                            }}
+                                        />
+                                    </td>
+                                    <td className="p-3 font-mono font-bold text-sm text-gray-900 dark:text-white">{tfn.number}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+            <div className="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-slate-800">
+                <button onClick={() => setCurrentStep(5)} className="text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200">Skip</button>
+                <button
+                    onClick={handleAssignTfns}
+                    disabled={loading}
+                    className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-primary-600/20 disabled:opacity-50 flex items-center gap-1.5 transition-all"
+                >
+                    {loading ? <Loader className="animate-spin mr-1.5" size={16} /> : null} Next: Assign DIDs
+                </button>
+            </div>
+        </div>
+    );
+
+    const renderStep5 = () => (
+        <div className="space-y-4">
+            <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Assign Standard Phone Numbers (DIDs)</h3>
+                <p className="text-xs font-medium text-gray-500 dark:text-slate-400 mt-1">Select available standard numbers for this tenant.</p>
+            </div>
+
+            <div className="border border-gray-200 dark:border-slate-800 rounded-xl max-h-64 overflow-y-auto bg-white dark:bg-slate-900">
+                {availableDids.length === 0 ? (
+                    <div className="p-8 text-center text-gray-400 dark:text-slate-500 text-sm">No available DIDs in inventory.</div>
+                ) : (
+                    <table className="w-full text-sm text-left bg-white dark:bg-slate-900">
+                        <thead className="bg-gray-50 dark:bg-slate-800/80 sticky top-0 border-b border-gray-100 dark:border-slate-700">
+                            <tr>
+                                <th className="p-3 w-10"></th>
+                                <th className="p-3 text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Number</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+                            {availableDids.map(did => (
+                                <tr key={did.id} className={selectedDids.includes(did.id) ? 'bg-primary-50/60 dark:bg-primary-950/40' : 'hover:bg-gray-50 dark:hover:bg-slate-800/40'}>
+                                    <td className="p-3">
+                                        <input
+                                            type="checkbox"
+                                            className="rounded border-gray-300 dark:border-slate-600 text-primary-600 focus:ring-primary-500 dark:bg-slate-800"
+                                            checked={selectedDids.includes(did.id)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) setSelectedDids([...selectedDids, did.id]);
+                                                else setSelectedDids(selectedDids.filter(id => id !== did.id));
+                                            }}
+                                        />
+                                    </td>
+                                    <td className="p-3 font-mono font-bold text-sm text-gray-900 dark:text-white">{did.number}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+
+            <div className="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-slate-800">
+                <button onClick={() => onSuccess({ id: createdTenantId, name: tenantName })} className="text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200">Skip</button>
+                <button
+                    onClick={handleAssignDids}
+                    disabled={loading}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-emerald-600/20 disabled:opacity-50 flex items-center gap-1.5 transition-all"
+                >
+                    {loading ? <Loader className="animate-spin" size={14} /> : <Check size={14} />} Finish & Complete Setup
+                </button>
+            </div>
+        </div>
+    );
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">

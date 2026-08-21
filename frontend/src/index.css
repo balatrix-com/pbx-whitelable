@@ -44,7 +44,8 @@
     --color-secondary: #93c5fd;
   }
 
-  html, body {
+  html,
+  body {
     height: 100%;
     margin: 0;
     overflow: hidden;
@@ -278,14 +279,17 @@ html.dark [data-active="true"] {
   border-left-color: #818cf8 !important;
 }
 
-/* Dark table headers & cells */
+/* Dark table headers, card headers & cells */
 html.dark thead,
 html.dark th,
-html.dark .bg-gray-50\/50,
-html.dark .bg-gray-50 {
-  background-color: #07070a !important;
+html.dark thead th,
+html.dark thead tr,
+html.dark .border-b.bg-gray-50,
+html.dark [class*="border-b"][class*="bg-gray-50"],
+html.dark [class*="border-b"][class*="bg-slate-50"] {
+  background-color: #08090d !important;
   color: #94a3b8 !important;
-  border-color: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
 }
 
 html.dark td {
@@ -497,7 +501,7 @@ html.dark .border-t.border-gray-100 {
   background-color: #0c0d12 !important;
 }
 
-/* Dark mode bg overrides */
+/* Dark mode bg overrides & sleek neutral gray surfaces */
 html.dark header,
 html.dark [class*="bg-white/90"],
 html.dark [class*="bg-white/80"],
@@ -517,9 +521,64 @@ html.dark .text-primary-700 {
   color: #a5b4fc !important;
 }
 
+/* Subtle sub-panels, empty-states, inner cards and container backgrounds */
+html.dark .bg-gray-50,
+html.dark [class*="bg-gray-50/"],
+html.dark .bg-slate-50,
+html.dark [class*="bg-slate-50/"],
+html.dark .bg-zinc-50,
+html.dark [class*="bg-zinc-50/"],
+html.dark .bg-neutral-50,
+html.dark [class*="bg-neutral-50/"] {
+  background-color: #0a0b10 !important;
+}
+
+/* Nested sub-panels inside elevated cards */
+html.dark .bg-white .bg-gray-50,
+html.dark .bg-white [class*="bg-gray-50/"],
+html.dark .bg-white .bg-slate-50,
+html.dark .bg-white [class*="bg-slate-50/"] {
+  background-color: #08090e !important;
+}
+
+/* Chips, badges, tag backgrounds and secondary interactive elements */
 html.dark .bg-gray-100,
-html.dark .bg-slate-100 {
-  background-color: #12141c !important;
+html.dark [class*="bg-gray-100/"],
+html.dark .bg-slate-100,
+html.dark [class*="bg-slate-100/"],
+html.dark .bg-zinc-100,
+html.dark [class*="bg-zinc-100/"] {
+  background-color: #121520 !important;
+}
+
+html.dark .bg-gray-200,
+html.dark [class*="bg-gray-200/"],
+html.dark .bg-slate-200,
+html.dark [class*="bg-slate-200/"],
+html.dark .bg-zinc-200,
+html.dark [class*="bg-zinc-200/"] {
+  background-color: #181c2b !important;
+}
+
+html.dark span.bg-gray-50,
+html.dark span.bg-gray-100,
+html.dark span.bg-gray-200,
+html.dark span[class*="bg-gray-200/"],
+html.dark span.bg-slate-100,
+html.dark span.bg-slate-200 {
+  background-color: #141724 !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Skeleton pulse loaders in dark mode */
+html.dark .animate-pulse[class*="bg-gray-"],
+html.dark .animate-pulse[class*="bg-slate-"],
+html.dark [class*="h-"][class*="bg-gray-100"],
+html.dark [class*="h-"][class*="bg-gray-200"],
+html.dark [class*="h-"][class*="bg-slate-100"],
+html.dark [class*="h-"][class*="bg-slate-200"] {
+  background-color: #161a26 !important;
 }
 
 html.dark .bg-slate-50,
@@ -528,23 +587,88 @@ html.dark [class*="bg-[#f7f9fc]"] {
   background-color: #000000 !important;
 }
 
-/* Dark mode border & divide overrides */
-html.dark .border-gray-200,
-html.dark [class*="border-gray-200"],
+/* Soft status badge colors (Blue, Green, Amber, Red) in dark mode */
+html.dark .bg-blue-50,
+html.dark [class*="bg-blue-50/"] {
+  background-color: rgba(59, 130, 246, 0.12) !important;
+  color: #60a5fa !important;
+  border-color: rgba(59, 130, 246, 0.25) !important;
+}
+
+html.dark .bg-green-50,
+html.dark .bg-emerald-50,
+html.dark [class*="bg-green-50/"],
+html.dark [class*="bg-emerald-50/"] {
+  background-color: rgba(16, 185, 129, 0.12) !important;
+  color: #34d399 !important;
+  border-color: rgba(16, 185, 129, 0.25) !important;
+}
+
+html.dark .bg-amber-50,
+html.dark .bg-yellow-50,
+html.dark [class*="bg-amber-50/"],
+html.dark [class*="bg-yellow-50/"] {
+  background-color: rgba(245, 158, 11, 0.12) !important;
+  color: #fbbf24 !important;
+  border-color: rgba(245, 158, 11, 0.25) !important;
+}
+
+html.dark .bg-red-50,
+html.dark .bg-rose-50,
+html.dark [class*="bg-red-50/"],
+html.dark [class*="bg-rose-50/"] {
+  background-color: rgba(244, 63, 94, 0.12) !important;
+  color: #fb7185 !important;
+  border-color: rgba(244, 63, 94, 0.25) !important;
+}
+
+/* Dark mode border, divide & ring overrides */
+html.dark .border-gray-50,
 html.dark .border-gray-100,
+html.dark .border-gray-200,
 html.dark .border-gray-300,
-html.dark .border-slate-200 {
+html.dark .border-slate-100,
+html.dark .border-slate-200,
+html.dark .border-slate-300,
+html.dark [class*="border-gray-"],
+html.dark [class*="border-slate-"],
+html.dark [class*="border-zinc-"],
+html.dark [class*="border-neutral-"] {
   border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
 html.dark .divide-gray-200>*+*,
-html.dark .divide-gray-100>*+* {
+html.dark .divide-gray-100>*+*,
+html.dark [class*="divide-gray-"]>*+*,
+html.dark [class*="divide-slate-"]>*+* {
   border-color: rgba(255, 255, 255, 0.06) !important;
 }
 
 html.dark .ring-gray-200,
-html.dark .ring-gray-300 {
+html.dark .ring-gray-300,
+html.dark [class*="ring-gray-"],
+html.dark [class*="ring-slate-"],
+html.dark [class*="ring-zinc-"] {
   --tw-ring-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+html.dark [class*="ring-blue-50"] {
+  --tw-ring-color: rgba(59, 130, 246, 0.15) !important;
+}
+
+html.dark [class*="ring-green-50"],
+html.dark [class*="ring-emerald-50"] {
+  --tw-ring-color: rgba(16, 185, 129, 0.15) !important;
+}
+
+html.dark [class*="ring-amber-50"],
+html.dark [class*="ring-yellow-50"] {
+  --tw-ring-color: rgba(245, 158, 11, 0.15) !important;
+}
+
+html.dark [class*="ring-red-50"],
+html.dark [class*="ring-rose-50"] {
+  --tw-ring-color: rgba(244, 63, 94, 0.15) !important;
 }
 
 /* Dark mode inputs & selects */

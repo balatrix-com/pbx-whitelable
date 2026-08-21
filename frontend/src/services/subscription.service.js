@@ -72,122 +72,35 @@ export const subscriptionService = {
     },
 
     // ------------------------------------------------------------------------
-    // 3. ADD-ONS CATALOG (Local data - No 404 network requests sent)
+    // 3. ADD-ONS CATALOG (Connected to Backend API)
     // ------------------------------------------------------------------------
     getCatalog: async () => {
-        return [
-            {
-                addon_id: 'addon_ext_1',
-                name: '1 Extra Extension',
-                resource_type: 'extension',
-                unit_price: 5.00,
-                price: 5.00,
-                currency: 'USD',
-                is_active: true,
-                description: 'Add 1 extra SIP extension with full PBX routing'
-            },
-            {
-                addon_id: 'addon_tfn_1',
-                name: '1 Extra Toll-Free Number (TFN)',
-                resource_type: 'tfn',
-                unit_price: 5.00,
-                price: 5.00,
-                currency: 'USD',
-                is_active: true,
-                description: 'Reserve 1 additional Toll-Free phone number'
-            },
-            {
-                addon_id: 'addon_did_1',
-                name: '1 Direct Inward Dialing (DID)',
-                resource_type: 'did',
-                unit_price: 3.00,
-                price: 3.00,
-                currency: 'USD',
-                is_active: true,
-                description: 'Dedicated local phone number for direct inward calls'
-            },
-            {
-                addon_id: 'addon_recording_100gb',
-                name: '100 GB Call Recording Storage',
-                resource_type: 'storage',
-                unit_price: 20.00,
-                price: 20.00,
-                currency: 'USD',
-                is_active: true,
-                description: 'Secure cloud storage for call recordings and voicemail'
-            },
-            {
-                addon_id: 'addon_monitoring_user',
-                name: 'Call Monitoring User Seat',
-                resource_type: 'mon',
-                unit_price: 15.00,
-                price: 15.00,
-                currency: 'USD',
-                is_active: true,
-                description: 'Real-time eavesdrop, whisper coaching, and supervisor barge'
-            }
-        ];
+        const res = await api.get('/addons/catalog');
+        return res.data;
     },
 
     // ------------------------------------------------------------------------
-    // 4. ADD-ON QUOTE CALCULATION (Local calculation - No 404 network requests)
+    // 4. ADD-ON QUOTE CALCULATION (Connected to Backend API)
     // ------------------------------------------------------------------------
-    getQuote: async (customerId, addonId, quantity = 1, purchasingPower = 0, nextBillingDate = null) => {
-        const catalog = [
-            { addon_id: 'addon_ext_1', name: '1 Extra Extension', unit_price: 5.00, resource_type: 'extension' },
-            { addon_id: 'addon_tfn_1', name: '1 Extra Toll-Free Number (TFN)', unit_price: 5.00, resource_type: 'tfn' },
-            { addon_id: 'addon_did_1', name: '1 Direct Inward Dialing (DID)', unit_price: 3.00, resource_type: 'did' },
-            { addon_id: 'addon_recording_100gb', name: '100 GB Call Recording Storage', unit_price: 20.00, resource_type: 'storage' },
-            { addon_id: 'addon_monitoring_user', name: 'Call Monitoring User Seat', unit_price: 15.00, resource_type: 'mon' }
-        ];
-
-        const addon = catalog.find(a => a.addon_id === addonId) || { name: 'Add-on', unit_price: 5.00, resource_type: 'addon' };
-        const qty = Math.max(1, Number(quantity) || 1);
-
-        let remainingDays = 28;
-        let totalCycleDays = 30;
-        if (nextBillingDate) {
-            const diff = Math.ceil((new Date(nextBillingDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-            remainingDays = Math.max(1, Math.min(30, diff));
-        }
-
-        const fraction = remainingDays / totalCycleDays;
-        const proratedChargeDue = Number((addon.unit_price * qty * fraction).toFixed(2));
-        const availablePurchasingPower = Number(purchasingPower || 0);
-        const sufficientFunds = availablePurchasingPower >= proratedChargeDue;
-
-        return {
-            success: true,
-            customer_id: customerId || 'U1001',
-            subscription_id: 'SUB-2601',
-            addon_id: addonId,
-            name: addon.name,
-            resource_type: addon.resource_type,
-            quantity: qty,
-            unit_price: addon.unit_price,
-            remaining_days: remainingDays,
-            total_cycle_days: totalCycleDays,
-            prorated_charge_due: proratedChargeDue,
-            available_purchasing_power: availablePurchasingPower,
-            sufficient_funds: sufficientFunds
-        };
+    getQuote: async (tenantId, addonId, quantity = 1) => {
+        const res = await api.post('/addons/quote', {
+            tenantId,
+            addonId,
+            quantity
+        });
+        return res.data;
     },
 
     // ------------------------------------------------------------------------
-    // 5. ADD-ON PURCHASE (Local execution - No 404 network requests)
+    // 5. ADD-ON PURCHASE (Connected to Backend API)
     // ------------------------------------------------------------------------
-    purchaseAddon: async (customerId, addonId, quantity = 1) => {
-        return {
-            success: true,
-            message: 'Add-on purchase confirmed successfully',
-            data: {
-                customer_id: customerId,
-                addon_purchased: {
-                    addon_id: addonId,
-                    quantity
-                }
-            }
-        };
+    purchaseAddon: async (tenantId, addonId, quantity = 1) => {
+        const res = await api.post('/addons/purchase', {
+            tenantId,
+            addonId,
+            quantity
+        });
+        return res.data;
     },
 
     // ------------------------------------------------------------------------
