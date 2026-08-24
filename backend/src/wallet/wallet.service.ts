@@ -219,7 +219,7 @@ export class WalletService {
             const subBillingData = response.data?.data;
             const subBillingSubId = subBillingData?.subscription_id || subBillingData?.id;
 
-            // Find matching local plan in Prisma DB
+            // Find matching local plan in Prisma DB (for foreign key relation)
             let localPlan = await this.prisma.plan.findFirst({
                 where: { OR: [{ id: planId }, { name: { equals: planId, mode: 'insensitive' } }] }
             });
@@ -227,7 +227,27 @@ export class WalletService {
                 localPlan = await this.prisma.plan.findFirst();
             }
             const localPlanIdToUse = localPlan ? localPlan.id : planId;
-            const freeMins = localPlan?.freeMinutes || 500;
+
+            // Fetch dynamic plan limits from sub-billing system
+            let allowedExtensions = 5;
+            let freeMins = localPlan?.freeMinutes || 500;
+            try {
+                const planRes = await firstValueFrom(
+                    this.httpService.get(`${this.subBillingUrl}/plans/${planId}`)
+                );
+                const subPlan = planRes.data?.data || planRes.data;
+                if (subPlan) {
+                    if (subPlan.extensions !== undefined && subPlan.extensions !== null) {
+                        allowedExtensions = Number(subPlan.extensions);
+                    }
+                    if (subPlan.free_mins !== undefined && subPlan.free_mins !== null) {
+                        freeMins = Number(subPlan.free_mins);
+                    }
+                }
+            } catch (err) {
+                this.logger.warn(`Could not fetch plan limits from sub-billing for ${planId}: ${err.message}`);
+                allowedExtensions = localPlan?.maxExtensions || 5;
+            }
 
             const existingSub = await this.prisma.subscription.findFirst({
                 where: { tenantId }
@@ -259,7 +279,6 @@ export class WalletService {
             }
 
             // Auto-provision extensions matching target plan limit
-            const allowedExtensions = localPlan?.maxExtensions || 5;
             const tenant = await this.prisma.tenant.findUnique({
                 where: { id: tenantId },
                 select: { customerCode: true }

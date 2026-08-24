@@ -40,9 +40,13 @@ export class WalletController {
     }
 
     @Get('subscription')
-    getSubscription(@GetUser() user: User) {
-        if (!user.tenantId) return null;
-        return this.walletService.getSubscription(user.tenantId);
+    getSubscription(
+        @GetUser() user: User,
+        @Query('tenantId') queryTenantId?: string
+    ) {
+        const tenantId = (user.role === Role.SUPER_ADMIN && queryTenantId) ? queryTenantId : user.tenantId;
+        if (!tenantId) return null;
+        return this.walletService.getSubscription(tenantId);
     }
 
     @Post('subscription')
