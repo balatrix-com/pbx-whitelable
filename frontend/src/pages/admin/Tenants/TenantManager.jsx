@@ -22,6 +22,7 @@ const TABS = [
 const TenantManager = ({ tenantId, onClose }) => {
     const [activeTab, setActiveTab] = useState('overview');
     const [tenant, setTenant] = useState(null);
+    const [subscription, setSubscription] = useState(null);
     const [loading, setLoading] = useState(true);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -32,11 +33,18 @@ const TenantManager = ({ tenantId, onClose }) => {
 
     const fetchTenantDetails = async () => {
         setLoading(true);
+
         try {
-            const res = await api.get(`/tenants/${tenantId}`);
-            setTenant(res.data);
+            const [tenantRes, subscriptionRes] = await Promise.all([
+                api.get(`/tenants/${tenantId}`),
+                subscriptionService.getSubscription(tenantId)
+            ]);
+
+            setTenant(tenantRes.data);
+            setSubscription(subscriptionRes);
         } catch (err) {
             console.error('Failed to fetch tenant details:', err);
+            setSubscription(null);
         } finally {
             setLoading(false);
         }
@@ -102,7 +110,7 @@ const TenantManager = ({ tenantId, onClose }) => {
 
                     {/* Tab Content */}
                     <div className="flex-1 overflow-y-auto p-8 bg-white">
-                        {activeTab === 'overview' && <OverviewTab tenant={tenant} />}
+                        {activeTab === 'overview' && (<OverviewTab tenant={tenant} subscription={subscription} />)}
                         {activeTab === 'wallet' && <WalletTab tenant={tenant} onUpdate={handleRefresh} />}
                         {activeTab === 'numbers' && <NumbersTab tenant={tenant} onUpdate={handleRefresh} />}
                         {activeTab === 'extensions' && <ExtensionsTab tenant={tenant} onUpdate={handleRefresh} />}
@@ -119,7 +127,7 @@ const TenantManager = ({ tenantId, onClose }) => {
 
 // --- Sub-Components ---
 
-const OverviewTab = ({ tenant }) => (
+const OverviewTab = ({ tenant, subscription }) => (
     <div className="space-y-6 max-w-4xl">
         <div>
             <h3 className="text-xl font-extrabold text-gray-900 tracking-tight">Organization Overview</h3>
@@ -171,6 +179,18 @@ const OverviewTab = ({ tenant }) => (
                         Total Users
                     </div>
                     <p className="text-2xl font-extrabold text-gray-900 font-mono tracking-tight">{tenant.stats?.users || 0}</p>
+                </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl shadow-sm ring-1 ring-gray-200/50 relative overflow-hidden group hover:shadow-md transition-all">
+                <div className="relative z-10">
+                    <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                        <div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>
+                        Current Subscription
+                    </div>
+                    <p className="text-2xl font-mono font-extrabold text-gray-900">
+                        {subscription?.plan?.name || subscription?.planName || subscription?.plan_name || 'No Active Plan'}
+                    </p>
                 </div>
             </div>
         </div>

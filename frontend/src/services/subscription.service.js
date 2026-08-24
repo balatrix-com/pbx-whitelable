@@ -66,9 +66,14 @@ export const subscriptionService = {
     // ------------------------------------------------------------------------
     // 2. EXISTING BACKEND API: GET /api/wallet/subscription (Status: 200 OK)
     // ------------------------------------------------------------------------
-    getSubscription: async () => {
+    getSubscription: async (tenantId) => {
         try {
-            const res = await api.get('/wallet/subscription');
+            const res = await api.get('/wallet/subscription', {
+                params: {
+                    tenantId
+                }
+            });
+
             return res.data;
         } catch (e) {
             console.warn('GET /wallet/subscription endpoint error:', e);
