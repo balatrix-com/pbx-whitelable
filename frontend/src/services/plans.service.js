@@ -11,5 +11,13 @@ export const plansService = {
     createCustom: async (planData) => {
         const response = await api.post('/plans', planData);
         return response.data;
+    },
+
+    // Delete plan by planId
+    deletePlan: async (planId) => {
+        const response = await api.delete(`/plans/${planId}`);
+        return response.data;
     }
 };
+
+export default plansService;

@@ -58,6 +58,11 @@ export const subscriptionService = {
         return res.data;
     },
 
+    deletePlan: async (planId) => {
+        const res = await api.delete(`/plans/${planId}`);
+        return res.data;
+    },
+
     // ------------------------------------------------------------------------
     // 2. EXISTING BACKEND API: GET /api/wallet/subscription (Status: 200 OK)
     // ------------------------------------------------------------------------
