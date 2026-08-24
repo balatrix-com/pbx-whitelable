@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Body, UseGuards, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, UseGuards, BadRequestException } from '@nestjs/common';
 import { AddonsService } from './addons.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Role } from '@prisma/client';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import type { User } from '@prisma/client';
 
@@ -25,6 +27,28 @@ export class AddonsController {
     @Get('catalog')
     getCatalog() {
         return this.addonsService.getCatalog();
+    }
+
+    @Post('catalog')
+    @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+    createCatalogItem(@Body() body: any) {
+        return this.addonsService.createCatalogItem(body);
+    }
+
+    @Delete('catalog/:addonId')
+    @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+    deleteCatalogItem(@Param('addonId') addonId: string) {
+        return this.addonsService.deleteCatalogItem(addonId);
+    }
+
+    @Get('subscription/:subscriptionId')
+    getSubscriptionAddons(@Param('subscriptionId') subscriptionId: string) {
+        return this.addonsService.getSubscriptionAddons(subscriptionId);
+    }
+
+    @Delete('subscription/:subscriptionAddonId')
+    cancelSubscriptionAddon(@Param('subscriptionAddonId') subscriptionAddonId: string) {
+        return this.addonsService.cancelSubscriptionAddon(subscriptionAddonId);
     }
 
     @Post('quote')

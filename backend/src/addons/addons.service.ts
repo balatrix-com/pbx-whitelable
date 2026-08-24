@@ -1,4 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { ConfigService } from '@nestjs/config';
+import { firstValueFrom } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { TransactionType } from '@prisma/client';
@@ -17,6 +20,7 @@ export interface AddonCatalogItem {
 @Injectable()
 export class AddonsService {
     private readonly logger = new Logger(AddonsService.name);
+    private subBillingUrl: string;
 
     private readonly catalog: AddonCatalogItem[] = [
         {
@@ -73,11 +77,88 @@ export class AddonsService {
 
     constructor(
         private prisma: PrismaService,
-        private walletService: WalletService
-    ) {}
+        private walletService: WalletService,
+        private httpService: HttpService,
+        private configService: ConfigService
+    ) {
+        this.subBillingUrl = this.configService.get<string>('SUB_BILLING_API_URL') || 'http://localhost:5005/api';
+    }
 
     async getCatalog(): Promise<AddonCatalogItem[]> {
+        try {
+            this.logger.log(`Fetching addon catalog from sub-billing: ${this.subBillingUrl}/addons/catalog`);
+            const response = await firstValueFrom(
+                this.httpService.get(`${this.subBillingUrl}/addons/catalog`)
+            );
+            const data = response.data?.data || response.data;
+            if (Array.isArray(data) && data.length > 0) {
+                return data.map(item => ({
+                    addon_id: item.addon_id,
+                    name: item.name,
+                    resource_type: item.resource_type,
+                    unit_price: Number(item.unit_price),
+                    price: Number(item.unit_price),
+                    currency: item.currency,
+                    is_active: item.is_active,
+                    description: item.description || `${item.name} Add-on`
+                }));
+            }
+        } catch (error) {
+            this.logger.warn(`Failed to fetch addon catalog from sub-billing: ${error.message}, falling back to hardcoded catalog`);
+        }
         return this.catalog.filter(item => item.is_active);
+    }
+
+    async createCatalogItem(data: any) {
+        try {
+            const response = await firstValueFrom(
+                this.httpService.post(`${this.subBillingUrl}/addons/catalog`, data)
+            );
+            return response.data;
+        } catch (error) {
+            const status = error.response?.status || 500;
+            const message = error.response?.data?.message || error.message;
+            throw new BadRequestException(`Failed to create catalog item: ${message}`);
+        }
+    }
+
+    async deleteCatalogItem(addonId: string) {
+        try {
+            const response = await firstValueFrom(
+                this.httpService.delete(`${this.subBillingUrl}/addons/catalog/${addonId}`)
+            );
+            return response.data;
+        } catch (error) {
+            const status = error.response?.status || 500;
+            const message = error.response?.data?.message || error.message;
+            throw new BadRequestException(`Failed to delete catalog item: ${message}`);
+        }
+    }
+
+    async getSubscriptionAddons(subscriptionId: string) {
+        try {
+            const response = await firstValueFrom(
+                this.httpService.get(`${this.subBillingUrl}/addons/subscription/${subscriptionId}`)
+            );
+            return response.data;
+        } catch (error) {
+            const status = error.response?.status || 500;
+            const message = error.response?.data?.message || error.message;
+            throw new BadRequestException(`Failed to fetch subscription addons: ${message}`);
+        }
+    }
+
+    async cancelSubscriptionAddon(subscriptionAddonId: string) {
+        try {
+            const response = await firstValueFrom(
+                this.httpService.delete(`${this.subBillingUrl}/addons/subscription/${subscriptionAddonId}`)
+            );
+            return response.data;
+        } catch (error) {
+            const status = error.response?.status || 500;
+            const message = error.response?.data?.message || error.message;
+            throw new BadRequestException(`Failed to cancel subscription addon: ${message}`);
+        }
     }
 
     async getQuote(tenantId: string, addonId: string, quantity: number = 1) {
