@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { FreeSwitchSyncService } from '../freeswitch/freeswitch-sync.service';
@@ -8,6 +8,8 @@ import { WalletService } from '../wallet/wallet.service';
 
 @Injectable()
 export class TenantsService {
+    private readonly logger = new Logger(TenantsService.name);
+
     constructor(
         private prisma: PrismaService,
         private freeSwitchSync: FreeSwitchSyncService,
@@ -252,10 +254,19 @@ export class TenantsService {
             }
         }
 
+        // Fetch real-time active subscription details from sub-billing system
+        let subscription = null;
+        try {
+            subscription = await this.walletService.getSubscription(id);
+        } catch (error) {
+            this.logger.warn(`Could not fetch subscription details for tenant ${id}: ${error.message}`);
+        }
+
         return {
             ...tenant,
             wallet: realWallet,
             tenantFeatures: features,
+            subscription,
             stats: {
                 users: tenant._count.users,
                 extensions: tenant._count.extensions,
