@@ -89,22 +89,24 @@ export class PlansService implements OnModuleInit {
 
         const localPlan = await this.prisma.plan.create({
             data: {
-                ...data,
+                name: data.name,
+                price: Number(data.price ?? data.amount ?? 0),
+                freeMinutes: Number(data.freeMinutes ?? data.free_mins ?? 0),
                 isCustom: true,
                 createdBy: userId,
                 tier: data.tier || Tier.BASIC,
                 billingCycle: data.billingCycle || BillingCycle.MONTHLY,
-                maxDIDs: data.maxDIDs || 0,
-                maxTFNs: data.maxTFNs || 0,
-                maxExtensions: data.maxExtensions || 0,
-                maxRingGroups: data.maxRingGroups || 0,
-                maxIVRs: data.maxIVRs || 0,
-                maxDIDForwards: data.maxDIDForwards || 0,
-                allowSchedules: data.allowSchedules || false,
-                allowDIDForwards: data.allowDIDForwards || false,
-                allowCallRecording: data.allowCallRecording || false,
+                maxDIDs: Number(data.maxDIDs ?? data.dids ?? 0),
+                maxTFNs: Number(data.maxTFNs ?? data.tfns ?? 0),
+                maxExtensions: Number(data.maxExtensions ?? data.extensions ?? 0),
+                maxRingGroups: Number(data.maxRingGroups ?? 0),
+                maxIVRs: Number(data.maxIVRs ?? 0),
+                maxDIDForwards: Number(data.maxDIDForwards ?? 0),
+                allowSchedules: data.allowSchedules ?? false,
+                allowDIDForwards: data.allowDIDForwards ?? false,
+                allowCallRecording: data.allowCallRecording ?? false,
                 allowVoicemail: data.allowVoicemail ?? true,
-                initialCredit: data.initialCredit || 0
+                initialCredit: Number(data.initialCredit ?? 0)
             }
         });
 

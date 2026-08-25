@@ -128,13 +128,13 @@ const TenantManager = ({ tenantId, onClose }) => {
 // --- Sub-Components ---
 
 const OverviewTab = ({ tenant, subscription }) => (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-3 max-w-4xl">
         <div>
             <h3 className="text-xl font-extrabold text-gray-900 tracking-tight">Organization Overview</h3>
             <p className="text-sm font-medium text-gray-500 mt-1">Core platform details and system status for this tenant.</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="bg-white p-5 rounded-2xl shadow-sm ring-1 ring-gray-200/50 relative overflow-hidden group hover:shadow-md transition-all">
                 <div className="relative z-10">
                     <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
