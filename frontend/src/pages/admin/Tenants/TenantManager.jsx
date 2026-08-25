@@ -1577,9 +1577,16 @@ const AddonsTab = ({ tenant, onUpdate }) => {
                                     </span>
                                 </div>
 
-                                <h4 className="text-base font-bold text-gray-900 tracking-tight">
-                                    {addon.name}
-                                </h4>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <h4 className="text-base font-bold text-gray-900 tracking-tight">
+                                        {addon.name}
+                                    </h4>
+                                    {addon.units_count > 1 && (
+                                        <span className="px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                            {addon.units_count} Units / Pack
+                                        </span>
+                                    )}
+                                </div>
                                 <p className="text-xs font-medium text-gray-500 mt-1.5 leading-relaxed min-h-[36px]">
                                     {addon.description || `Resource type: ${addon.resource_type || 'addon'}`}
                                 </p>

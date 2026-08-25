@@ -107,8 +107,8 @@ const PlansPage = () => {
                 addToast('error', 'Plan not found — it may have already been deleted');
                 setPlanToDelete(null);
                 loadData();
-            } else if (status === 409) {
-                addToast('error', backendMsg || 'Cannot delete plan: active or historical subscriptions reference it.');
+            } else if (status === 400 || status === 409) {
+                addToast('error', backendMsg || 'Cannot delete plan: active tenant subscription(s) are currently using this plan.');
                 setPlanToDelete(null);
             } else {
                 addToast('error', backendMsg || err.message || 'Failed to delete plan');

@@ -199,6 +199,7 @@ const AddonCatalogManagement = () => {
                                 <tr className="border-b border-gray-100 dark:border-slate-800 bg-gray-50/70 dark:bg-slate-800/40 text-[11px] font-extrabold uppercase tracking-wider text-gray-500 dark:text-slate-400">
                                     <th className="py-3.5 px-6">Name & ID</th>
                                     <th className="py-3.5 px-6">Resource Type</th>
+                                    <th className="py-3.5 px-6">Bundle Units</th>
                                     <th className="py-3.5 px-6">Unit Price</th>
                                     <th className="py-3.5 px-6">Currency</th>
                                     <th className="py-3.5 px-6 text-right">Actions</th>
@@ -240,6 +241,17 @@ const AddonCatalogManagement = () => {
                                                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${resourceConfig.badgeClass}`}>
                                                     <ResourceIcon className="h-3.5 w-3.5" />
                                                     {resourceConfig.label}
+                                                </span>
+                                            </td>
+
+                                            {/* Bundle Units */}
+                                            <td className="py-4 px-6">
+                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold ${
+                                                    item.units_count > 1
+                                                        ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/60'
+                                                        : 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 border border-gray-200 dark:border-slate-700'
+                                                }`}>
+                                                    {item.units_count > 1 ? `${item.units_count} Units / Pack` : 'Single Unit'}
                                                 </span>
                                             </td>
 

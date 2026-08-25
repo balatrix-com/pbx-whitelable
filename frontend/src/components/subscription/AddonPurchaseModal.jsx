@@ -76,11 +76,23 @@ const AddonPurchaseModal = ({ isOpen, onClose, quote, customerId, onSuccess }) =
                         {/* Selected Addon Info Box */}
                         <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-800 flex justify-between items-center">
                             <div>
-                                <h4 className="text-sm font-bold text-gray-900 dark:text-white">
-                                    {quote.name || quote.addon_name}
-                                </h4>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">
+                                        {quote.name || quote.addon_name}
+                                    </h4>
+                                    {quote.units_count > 1 && (
+                                        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                                            {quote.units_count} Units / Pack
+                                        </span>
+                                    )}
+                                </div>
                                 <p className="text-xs font-medium text-gray-500 dark:text-slate-400 mt-0.5">
                                     Quantity: <span className="font-bold text-gray-700 dark:text-slate-300">{quote.quantity}</span>
+                                    {quote.units_count > 1 && (
+                                        <span className="text-gray-400 dark:text-slate-500 ml-1.5 font-normal">
+                                            ({quote.quantity * quote.units_count} total units provisioned)
+                                        </span>
+                                    )}
                                 </p>
                             </div>
                             <div className="text-right">

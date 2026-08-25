@@ -12,6 +12,7 @@ const AddonFormModal = ({ isOpen, onClose, onSuccess }) => {
         addon_id: '',
         name: '',
         resource_type: 'extension',
+        units_count: 1, // Default: 1 unit in bundle
         unit_price: '',
         currency: 'USD',
         is_active: true
@@ -26,6 +27,7 @@ const AddonFormModal = ({ isOpen, onClose, onSuccess }) => {
             addon_id: '',
             name: '',
             resource_type: 'extension',
+            units_count: 1,
             unit_price: '',
             currency: 'USD',
             is_active: true
@@ -96,6 +98,10 @@ const AddonFormModal = ({ isOpen, onClose, onSuccess }) => {
             newErrors.resource_type = 'Resource type is required';
         }
 
+        if (formData.units_count !== '' && (isNaN(formData.units_count) || Number(formData.units_count) < 1)) {
+            newErrors.units_count = 'Bundle units must be at least 1';
+        }
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -110,6 +116,7 @@ const AddonFormModal = ({ isOpen, onClose, onSuccess }) => {
                 addon_id: formData.addon_id.trim(),
                 name: formData.name.trim(),
                 resource_type: formData.resource_type,
+                units_count: parseInt(formData.units_count, 10) || 1,
                 unit_price: parseFloat(formData.unit_price),
                 currency: formData.currency || 'USD',
                 is_active: formData.is_active !== undefined ? formData.is_active : true
@@ -209,7 +216,7 @@ const AddonFormModal = ({ isOpen, onClose, onSuccess }) => {
                             {errors.addon_id && <p className="text-xs text-rose-500 font-medium mt-1">{errors.addon_id}</p>}
                         </div>
 
-                        {/* Resource Type & Currency Grid */}
+                        {/* Resource Type & Units Included Grid */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-bold text-gray-700 dark:text-slate-200 uppercase tracking-wider mb-1.5">
@@ -230,6 +237,58 @@ const AddonFormModal = ({ isOpen, onClose, onSuccess }) => {
 
                             <div>
                                 <label className="block text-xs font-bold text-gray-700 dark:text-slate-200 uppercase tracking-wider mb-1.5">
+                                    Units Included in Bundle <span className="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    name="units_count"
+                                    min="1"
+                                    step="1"
+                                    value={formData.units_count}
+                                    onChange={handleChange}
+                                    placeholder="e.g. 3"
+                                    className={`w-full px-3.5 py-2.5 rounded-xl border bg-gray-50/50 dark:bg-slate-800/60 text-gray-900 dark:text-white text-sm font-medium focus:ring-2 focus:ring-primary-500 outline-none ${
+                                        errors.units_count ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-gray-200 dark:border-slate-700'
+                                    }`}
+                                />
+                                {errors.units_count ? (
+                                    <p className="text-xs text-rose-500 font-medium mt-1">{errors.units_count}</p>
+                                ) : (
+                                    <p className="text-[11px] text-gray-500 dark:text-slate-400 mt-1">
+                                        How many extensions / DIDs / TFNs the tenant gets per pack.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Unit Price & Currency Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 dark:text-slate-200 uppercase tracking-wider mb-1.5">
+                                    Unit Price (Monthly) <span className="text-rose-500">*</span>
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 font-bold">
+                                        $
+                                    </span>
+                                    <input
+                                        type="number"
+                                        name="unit_price"
+                                        step="0.01"
+                                        min="0"
+                                        value={formData.unit_price}
+                                        onChange={handleChange}
+                                        placeholder="25.00"
+                                        className={`w-full pl-8 pr-3.5 py-2.5 rounded-xl border bg-gray-50/50 dark:bg-slate-800/60 text-gray-900 dark:text-white text-sm font-mono font-bold focus:ring-2 focus:ring-primary-500 focus:bg-white dark:focus:bg-slate-800 transition-all outline-none ${
+                                            errors.unit_price ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-gray-200 dark:border-slate-700'
+                                        }`}
+                                    />
+                                </div>
+                                {errors.unit_price && <p className="text-xs text-rose-500 font-medium mt-1">{errors.unit_price}</p>}
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 dark:text-slate-200 uppercase tracking-wider mb-1.5">
                                     Currency
                                 </label>
                                 <select
@@ -242,31 +301,6 @@ const AddonFormModal = ({ isOpen, onClose, onSuccess }) => {
                                     <option value="CAD">CAD (C$)</option>
                                 </select>
                             </div>
-                        </div>
-
-                        {/* Unit Price */}
-                        <div>
-                            <label className="block text-xs font-bold text-gray-700 dark:text-slate-200 uppercase tracking-wider mb-1.5">
-                                Unit Price (Monthly) <span className="text-rose-500">*</span>
-                            </label>
-                            <div className="relative">
-                                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 font-bold">
-                                    $
-                                </span>
-                                <input
-                                    type="number"
-                                    name="unit_price"
-                                    step="0.01"
-                                    min="0"
-                                    value={formData.unit_price}
-                                    onChange={handleChange}
-                                    placeholder="25.00"
-                                    className={`w-full pl-8 pr-3.5 py-2.5 rounded-xl border bg-gray-50/50 dark:bg-slate-800/60 text-gray-900 dark:text-white text-sm font-mono font-bold focus:ring-2 focus:ring-primary-500 focus:bg-white dark:focus:bg-slate-800 transition-all outline-none ${
-                                        errors.unit_price ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-gray-200 dark:border-slate-700'
-                                    }`}
-                                />
-                            </div>
-                            {errors.unit_price && <p className="text-xs text-rose-500 font-medium mt-1">{errors.unit_price}</p>}
                         </div>
 
                         {/* Modal Actions */}

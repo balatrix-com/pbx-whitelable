@@ -639,9 +639,16 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                                                         {getAddonIcon(addon.resource_type || addon.addon_type)}
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <h5 className="text-xs font-bold text-gray-900 dark:text-white truncate">
-                                                            {addon.name}
-                                                        </h5>
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            <h5 className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                                                                {addon.name}
+                                                            </h5>
+                                                            {addon.units_count > 1 && (
+                                                                <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                                                                    {addon.units_count} Units / Pack
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         <p className="text-[10px] text-gray-500 dark:text-slate-400 truncate">
                                                             {addon.description || `Type: ${addon.resource_type || 'addon'}`}
                                                         </p>
