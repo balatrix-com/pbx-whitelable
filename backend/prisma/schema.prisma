@@ -113,6 +113,20 @@ model MonitoringAddOn {
   @@map("monitoring_addons")
 }
 
+model AddonCatalog {
+  id           String   @id @default(uuid())
+  addonId      String   @unique @map("addon_id")
+  name         String
+  resourceType String   @map("resource_type")
+  unitsCount   Int      @default(1) @map("units_count")
+  unitPrice    Decimal  @map("unit_price")
+  currency     String   @default("USD")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("subscription_addons_catalog")
+}
+
 model UsageRecord {
   id             String        @id @default(uuid())
   tenantId       String

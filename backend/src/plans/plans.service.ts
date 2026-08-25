@@ -112,4 +112,61 @@ export class PlansService implements OnModuleInit {
 
         return subBillingResult || localPlan;
     }
+
+    async deletePlan(planId: string) {
+        // 1. Check local PBX plan and active subscriptions
+        const localPlan = await this.prisma.plan.findFirst({
+            where: {
+                OR: [
+                    { id: planId },
+                    { name: planId }
+                ]
+            }
+        });
+
+        if (localPlan) {
+            const activeSubs = await this.prisma.subscription.count({
+                where: { planId: localPlan.id, status: 'ACTIVE' }
+            });
+
+            if (activeSubs > 0) {
+                const { BadRequestException } = await import('@nestjs/common');
+                throw new BadRequestException(
+                    `Cannot delete plan "${localPlan.name}": ${activeSubs} active tenant subscription(s) are currently using this plan.`
+                );
+            }
+        }
+
+        // 2. Call sub-billing engine deletion
+        try {
+            this.logger.log(`Deleting plan from sub-billing: ${this.subBillingUrl}/plans/${planId}`);
+            const response = await firstValueFrom(
+                this.httpService.delete(`${this.subBillingUrl}/plans/${planId}`)
+            );
+        } catch (error) {
+            const status = error.response?.status;
+            const message = error.response?.data?.message || error.message;
+            if (status === 409) {
+                const { BadRequestException } = await import('@nestjs/common');
+                throw new BadRequestException(`Cannot delete plan: ${message}`);
+            }
+            this.logger.warn(`Sub-billing delete call for plan "${planId}" result: ${message}`);
+        }
+
+        // 3. Delete local PBX plan record
+        if (localPlan) {
+            try {
+                await this.prisma.plan.delete({
+                    where: { id: localPlan.id }
+                });
+            } catch (err) {
+                this.logger.warn(`Local plan deletion skipped or failed: ${err.message}`);
+            }
+        }
+
+        return {
+            success: true,
+            message: `Plan "${planId}" deleted successfully`
+        };
+    }
 }

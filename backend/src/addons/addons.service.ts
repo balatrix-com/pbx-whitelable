@@ -10,6 +10,7 @@ export interface AddonCatalogItem {
     addon_id: string;
     name: string;
     resource_type: string;
+    units_count?: number;
     unit_price: number;
     price: number;
     currency: string;
@@ -27,6 +28,7 @@ export class AddonsService {
             addon_id: 'addon_ext_1',
             name: '1 Extra Extension',
             resource_type: 'extension',
+            units_count: 1,
             unit_price: 5.00,
             price: 5.00,
             currency: 'USD',
@@ -37,6 +39,7 @@ export class AddonsService {
             addon_id: 'addon_tfn_1',
             name: '1 Extra Toll-Free Number (TFN)',
             resource_type: 'tfn',
+            units_count: 1,
             unit_price: 5.00,
             price: 5.00,
             currency: 'USD',
@@ -47,6 +50,7 @@ export class AddonsService {
             addon_id: 'addon_did_1',
             name: '1 Direct Inward Dialing (DID)',
             resource_type: 'did',
+            units_count: 1,
             unit_price: 3.00,
             price: 3.00,
             currency: 'USD',
@@ -57,6 +61,7 @@ export class AddonsService {
             addon_id: 'addon_recording_100gb',
             name: '100 GB Call Recording Storage',
             resource_type: 'storage',
+            units_count: 1,
             unit_price: 20.00,
             price: 20.00,
             currency: 'USD',
@@ -67,6 +72,7 @@ export class AddonsService {
             addon_id: 'addon_monitoring_user',
             name: 'Call Monitoring User Seat',
             resource_type: 'mon',
+            units_count: 1,
             unit_price: 15.00,
             price: 15.00,
             currency: 'USD',
@@ -96,6 +102,7 @@ export class AddonsService {
                     addon_id: item.addon_id,
                     name: item.name,
                     resource_type: item.resource_type,
+                    units_count: Number(item.units_count || 1),
                     unit_price: Number(item.unit_price),
                     price: Number(item.unit_price),
                     currency: item.currency,
