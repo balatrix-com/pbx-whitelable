@@ -162,6 +162,9 @@ export class DIDsService {
         // Update Redis Lookup DB
         await this.lookupRedis.updateNumberLookup(did.number, tenantId);
 
+        // Sync to Sub-Billing
+        await this.syncAssetsToSubBilling(tenantId, { dids: [did.number] });
+
         return did;
     }
 

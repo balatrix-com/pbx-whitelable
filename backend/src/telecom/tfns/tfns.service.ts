@@ -122,6 +122,9 @@ export class TFNsService {
         
         // Update Redis Lookup DB
         await this.lookupRedis.updateNumberLookup(tfn.number, tenantId);
+
+        // Sync to Sub-Billing
+        await this.syncAssetsToSubBilling(tenantId, { tfns: [tfn.number] });
         
         return tfn;
     }
