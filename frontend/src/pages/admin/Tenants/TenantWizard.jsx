@@ -2,12 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
     X,
     Building2,
-    User,
-    Mail,
-    Lock,
     Wallet,
     Phone,
-    Users,
     Check,
     ChevronRight,
     ChevronLeft,
@@ -15,16 +11,13 @@ import {
     Eye,
     EyeOff,
     CreditCard,
-    ShieldCheck,
     CheckCircle2,
     Plus,
     Minus,
     Package,
     Radio,
     HardDrive,
-    Activity,
-    Zap,
-    Sparkles
+    Activity
 } from 'lucide-react';
 import api from '../../../services/api';
 import { subscriptionService } from '../../../services/subscription.service';
@@ -33,13 +26,12 @@ const STEPS = [
     { number: 1, title: 'Company Info', icon: Building2 },
     { number: 2, title: 'Wallet Funding', icon: Wallet },
     { number: 3, title: 'Subscription Plan', icon: CreditCard },
-    { number: 4, title: 'Assign TFNs', icon: Phone },
-    { number: 5, title: 'Assign DIDs', icon: Phone },
 ];
 
 const TenantWizard = ({ onClose, onSuccess }) => {
     const [currentStep, setCurrentStep] = useState(1);
     const [loading, setLoading] = useState(false);
+    const [statusMessage, setStatusMessage] = useState('');
     const [error, setError] = useState(null);
     const [createdTenantId, setCreatedTenantId] = useState(null);
     const [tenantName, setTenantName] = useState('');
@@ -77,21 +69,10 @@ const TenantWizard = ({ onClose, onSuccess }) => {
     const [catalog, setCatalog] = useState([]);
     const [addonQuantities, setAddonQuantities] = useState({});
 
-    // Step 4: TFNs
-    const [availableTfns, setAvailableTfns] = useState([]);
-    const [selectedTfns, setSelectedTfns] = useState([]);
-
-    // Step 5: DIDs
-    const [availableDids, setAvailableDids] = useState([]);
-    const [selectedDids, setSelectedDids] = useState([]);
-
     // Load subscription plans and add-on catalog when step 3 is active
     useEffect(() => {
         if (currentStep === 3 && plans.length === 0) {
             loadSubscriptionData();
-        }
-        if ((currentStep === 4 || currentStep === 5) && availableTfns.length === 0 && availableDids.length === 0) {
-            fetchAvailableTfnsAndDids();
         }
     }, [currentStep]);
 
@@ -160,7 +141,7 @@ const TenantWizard = ({ onClose, onSuccess }) => {
         }
     };
 
-    // --- Step Actions ---
+    // --- Step Validations & Navigation (Client-side Only) ---
 
     const isStep1Valid = () => {
         if (!basicInfo.firstName || !basicInfo.lastName || !basicInfo.adminEmail || !basicInfo.adminPassword || !basicInfo.confirmPassword || !basicInfo.phone || !basicInfo.address || basicInfo.address.length < 10 || !basicInfo.city || !basicInfo.state || !basicInfo.country) {
@@ -174,160 +155,156 @@ const TenantWizard = ({ onClose, onSuccess }) => {
         return true;
     };
 
-    const handleCreateTenant = async () => {
+    const validateStep1 = () => {
         if (basicInfo.adminPassword !== basicInfo.confirmPassword) {
             setError('Passwords do not match');
-            return;
+            return false;
         }
 
         if (basicInfo.customerType === 'company') {
-            if (!basicInfo.companyName) {
+            if (!basicInfo.companyName?.trim()) {
                 setError('Company Name is required');
-                return;
+                return false;
             }
-            if (!basicInfo.companyTaxId) {
+            if (!basicInfo.companyTaxId?.trim()) {
                 setError('Company Tax ID is required');
-                return;
+                return false;
             }
         }
 
-        if (!basicInfo.firstName) {
+        if (!basicInfo.firstName?.trim()) {
             setError('First Name is required');
-            return;
+            return false;
         }
 
-        if (!basicInfo.lastName) {
+        if (!basicInfo.lastName?.trim()) {
             setError('Last Name is required');
-            return;
+            return false;
+        }
+
+        if (!basicInfo.adminEmail?.trim()) {
+            setError('Email is required');
+            return false;
+        }
+
+        if (!basicInfo.phone?.trim()) {
+            setError('Phone is required');
+            return false;
         }
 
         if (!basicInfo.address || basicInfo.address.length < 10) {
             setError('Address is required and must be at least 10 characters');
-            return;
+            return false;
         }
 
-        if (!basicInfo.city) {
+        if (!basicInfo.city?.trim()) {
             setError('City is required');
-            return;
+            return false;
         }
 
-        if (!basicInfo.state) {
+        if (!basicInfo.state?.trim()) {
             setError('State is required');
-            return;
+            return false;
         }
 
         if (!basicInfo.country) {
             setError('Country is required');
+            return false;
+        }
+
+        setError(null);
+        return true;
+    };
+
+    const handleStep1Next = (e) => {
+        if (e) e.preventDefault();
+        if (!validateStep1()) return;
+        setError(null);
+        setCurrentStep(2);
+    };
+
+    const handleStep2Next = (e) => {
+        if (e) e.preventDefault();
+        if (walletAmount !== '' && Number(walletAmount) < 0) {
+            setError('Wallet funding amount cannot be negative');
+            return;
+        }
+        setError(null);
+        setCurrentStep(3);
+    };
+
+    // --- Final Sequential Submission: Tenant -> Wallet -> Subscription ---
+
+    const handleFinalSubmit = async (skipSubscription = false) => {
+        if (!validateStep1()) {
+            setCurrentStep(1);
             return;
         }
 
         setLoading(true);
         setError(null);
-        try {
-            const { confirmPassword, ...data } = basicInfo;
-            if (data.customerType === 'individual') {
-                delete data.companyName;
-                delete data.companyTaxId;
-            }
-            const res = await api.post('/tenants', data);
-            setCreatedTenantId(res.data.tenant.id);
-            setTenantName(res.data.tenant.name);
-            setCustomerCode(res.data.tenant.customerCode);
-            setCurrentStep(2);
-        } catch (err) {
-            setError(err.response?.data?.message || 'Failed to create tenant');
-        } finally {
-            setLoading(false);
-        }
-    };
 
-    const handleFundWallet = async () => {
-        if (!walletAmount || walletAmount <= 0) {
-            setCurrentStep(3); // Skip if 0
-            return;
-        }
-        setLoading(true);
-        try {
-            await api.post('/wallet/internal-adjust', {
-                targetTenantId: createdTenantId,
-                amount: Number(walletAmount),
-                type: 'CREDIT',
-                description: walletDescription || 'Initial Funding'
-            });
-            setCurrentStep(3);
-        } catch (err) {
-            setError('Failed to fund wallet: ' + (err.response?.data?.message || err.message));
-        } finally {
-            setLoading(false);
-        }
-    };
+        let tenantId = createdTenantId;
+        let finalTenantName = tenantName;
 
-    const fetchAvailableTfnsAndDids = async () => {
         try {
-            const resTfn = await api.get('/telecom/tfns/available');
-            setAvailableTfns(resTfn.data || []);
-            const resDid = await api.get('/telecom/dids/available');
-            setAvailableDids(resDid.data || []);
-        } catch (err) {
-            console.error('Failed to fetch numbers', err);
-        }
-    };
-
-    const handleConfigureSubscription = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            // 1. Assign Subscription Plan
-            if (selectedPlanId) {
-                await subscriptionService.switchPlan(createdTenantId, selectedPlanId, true);
+            // 1. Create Tenant (if not already created in a previous partial attempt)
+            if (!tenantId) {
+                setStatusMessage('Creating tenant...');
+                const { confirmPassword, ...data } = basicInfo;
+                if (data.customerType === 'individual') {
+                    delete data.companyName;
+                    delete data.companyTaxId;
+                }
+                const res = await api.post('/tenants', data);
+                const t = res.data?.tenant || res.data;
+                tenantId = t?.id;
+                finalTenantName = t?.name || basicInfo.companyName || `${basicInfo.firstName} ${basicInfo.lastName}`;
+                setCreatedTenantId(tenantId);
+                setTenantName(finalTenantName);
+                setCustomerCode(t?.customerCode);
             }
 
-            // 2. Purchase / Provision selected add-ons
-            for (const [addonId, qty] of Object.entries(addonQuantities)) {
-                if (qty > 0) {
-                    await subscriptionService.purchaseAddon(createdTenantId, addonId, qty);
+            // 2. Fund Wallet (if walletAmount is provided and > 0)
+            const fundingAmount = Number(walletAmount);
+            if (fundingAmount > 0) {
+                setStatusMessage('Funding wallet...');
+                await api.post('/wallet/internal-adjust', {
+                    targetTenantId: tenantId,
+                    amount: fundingAmount,
+                    type: 'CREDIT',
+                    description: walletDescription || 'Initial Funding'
+                });
+            }
+
+            // 3. Configure Subscription (if not skipped and plan selected)
+            if (!skipSubscription) {
+                if (selectedPlanId) {
+                    setStatusMessage('Configuring subscription plan...');
+                    await subscriptionService.switchPlan(tenantId, selectedPlanId, true);
+                }
+
+                // Provision selected add-ons
+                const activeAddons = Object.entries(addonQuantities).filter(([, qty]) => qty > 0);
+                if (activeAddons.length > 0) {
+                    setStatusMessage('Provisioning add-ons...');
+                    for (const [addonId, qty] of activeAddons) {
+                        await subscriptionService.purchaseAddon(tenantId, addonId, qty);
+                    }
                 }
             }
 
-            await fetchAvailableTfnsAndDids();
-            setCurrentStep(4);
-        } catch (err) {
-            console.error('Failed to configure subscription:', err);
-            setError('Failed to configure subscription: ' + (err.response?.data?.message || err.message));
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleAssignTfns = async () => {
-        setLoading(true);
-        try {
-            if (selectedTfns.length > 0) {
-                for (const tfnId of selectedTfns) {
-                    await api.post(`/telecom/tfns/${tfnId}/assign`, { tenantId: createdTenantId });
-                }
+            setStatusMessage('Tenant created successfully!');
+            if (onSuccess) {
+                onSuccess({ id: tenantId, name: finalTenantName });
             }
-            setCurrentStep(5);
         } catch (err) {
-            setError('Failed to assign TFNs: ' + (err.response?.data?.message || err.message));
+            console.error('Tenant creation sequence failed:', err);
+            const msg = err.response?.data?.message || err.message || 'Failed during tenant creation sequence';
+            setError(msg);
         } finally {
             setLoading(false);
-        }
-    };
-
-    const handleAssignDids = async () => {
-        setLoading(true);
-        try {
-            if (selectedDids.length > 0) {
-                for (const didId of selectedDids) {
-                    await api.post(`/telecom/dids/${didId}/assign`, { tenantId: createdTenantId });
-                }
-            }
-            onSuccess({ id: createdTenantId, name: tenantName });
-        } catch (err) {
-            setError('Failed to assign DIDs: ' + (err.response?.data?.message || err.message));
-        } finally {
-            setLoading(false);
+            setStatusMessage('');
         }
     };
 
@@ -476,11 +453,12 @@ const TenantWizard = ({ onClose, onSuccess }) => {
             </div>
             <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-slate-800">
                 <button
-                    onClick={handleCreateTenant}
-                    disabled={!isStep1Valid() || loading}
+                    type="button"
+                    onClick={handleStep1Next}
+                    disabled={!isStep1Valid()}
                     className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-primary-600/20 disabled:opacity-50 flex items-center gap-1.5 transition-all"
                 >
-                    {loading ? <Loader className="animate-spin mr-1.5" size={16} /> : null} Create & Continue
+                    Next: Wallet Funding <ChevronRight size={16} />
                 </button>
             </div>
         </div>
@@ -498,6 +476,8 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500 font-bold">$</span>
                     <input
                         type="number"
+                        min="0"
+                        step="any"
                         className={`${inputClass} pl-8 text-base font-semibold`}
                         value={walletAmount}
                         onChange={e => setWalletAmount(e.target.value)}
@@ -516,14 +496,29 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                 />
             </div>
             <div className="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-slate-800">
-                <button onClick={() => setCurrentStep(3)} className="text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200">Skip</button>
                 <button
-                    onClick={handleFundWallet}
-                    disabled={loading}
-                    className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-primary-600/20 disabled:opacity-50 flex items-center gap-1.5 transition-all"
+                    type="button"
+                    onClick={() => { setError(null); setCurrentStep(1); }}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 transition-colors"
                 >
-                    {loading ? <Loader className="animate-spin mr-1.5" size={16} /> : null} Next: Subscription Plan
+                    <ChevronLeft size={14} /> Back
                 </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        type="button"
+                        onClick={() => { setError(null); setCurrentStep(3); }}
+                        className="text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 transition-colors"
+                    >
+                        Skip
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleStep2Next}
+                        className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-primary-600/20 disabled:opacity-50 flex items-center gap-1.5 transition-all"
+                    >
+                        Next: Subscription Plan <ChevronRight size={16} />
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -666,7 +661,7 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                                                         <button
                                                             type="button"
                                                             onClick={() => handleAddonQtyChange(addon.addon_id, -1)}
-                                                            disabled={qty <= 0}
+                                                            disabled={qty <= 0 || loading}
                                                             className="px-2 py-1 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-transparent"
                                                         >
                                                             <Minus size={12} />
@@ -675,6 +670,7 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                                                             type="number"
                                                             min="0"
                                                             max="50"
+                                                            disabled={loading}
                                                             value={qty}
                                                             onChange={(e) => handleAddonQtyInput(addon.addon_id, e.target.value)}
                                                             className="w-10 text-center text-xs font-mono font-bold py-0.5 bg-white dark:bg-slate-900 text-gray-900 dark:text-white border-x border-gray-200 dark:border-slate-700"
@@ -682,6 +678,7 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                                                         <button
                                                             type="button"
                                                             onClick={() => handleAddonQtyChange(addon.addon_id, 1)}
+                                                            disabled={loading}
                                                             className="px-2 py-1 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700"
                                                         >
                                                             <Plus size={12} />
@@ -720,129 +717,44 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                 <div className="flex justify-between items-center pt-3 border-t border-gray-100 dark:border-slate-800">
                     <button
                         type="button"
-                        onClick={() => { fetchAvailableTfnsAndDids(); setCurrentStep(4); }}
-                        className="text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 transition-colors"
+                        onClick={() => { setError(null); setCurrentStep(2); }}
+                        disabled={loading}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 transition-colors disabled:opacity-50"
                     >
-                        Skip Subscription
+                        <ChevronLeft size={14} /> Back
                     </button>
-                    <button
-                        type="button"
-                        onClick={handleConfigureSubscription}
-                        disabled={loading || plansLoading}
-                        className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-primary-600/20 disabled:opacity-50 flex items-center gap-1.5 transition-all"
-                    >
-                        {loading ? <Loader className="animate-spin" size={14} /> : null}
-                        Next: Assign TFNs
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => handleFinalSubmit(true)}
+                            disabled={loading}
+                            className="text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 transition-colors disabled:opacity-50"
+                        >
+                            Skip Subscription
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleFinalSubmit(false)}
+                            disabled={loading || plansLoading}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-emerald-600/20 disabled:opacity-50 flex items-center gap-1.5 transition-all"
+                        >
+                            {loading ? (
+                                <>
+                                    <Loader className="animate-spin" size={14} />
+                                    <span>{statusMessage || 'Creating Tenant...'}</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Check size={14} strokeWidth={2.5} />
+                                    <span>Create Tenant & Complete Setup</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
                 </div>
             </div>
         );
     };
-
-    const renderStep4 = () => (
-        <div className="space-y-4">
-            <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Select Toll-Free Numbers (Optional)</h3>
-                <p className="text-xs font-medium text-gray-500 dark:text-slate-400 mt-1">Select available numbers from inventory to assign to this tenant.</p>
-            </div>
-
-            <div className="border border-gray-200 dark:border-slate-800 rounded-xl max-h-60 overflow-y-auto bg-white dark:bg-slate-900">
-                {availableTfns.length === 0 ? (
-                    <div className="p-8 text-center text-gray-400 dark:text-slate-500 text-sm">No available TFNs found in inventory.</div>
-                ) : (
-                    <table className="w-full text-left bg-white dark:bg-slate-900">
-                        <thead className="bg-gray-50 dark:bg-slate-800/80 sticky top-0 border-b border-gray-100 dark:border-slate-700">
-                            <tr>
-                                <th className="p-3 w-10"></th>
-                                <th className="p-3 text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Number</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-                            {availableTfns.map(tfn => (
-                                <tr key={tfn.id} className={selectedTfns.includes(tfn.id) ? 'bg-primary-50/60 dark:bg-primary-950/40' : 'hover:bg-gray-50 dark:hover:bg-slate-800/40'}>
-                                    <td className="p-3">
-                                        <input
-                                             type="checkbox"
-                                            className="rounded border-gray-300 dark:border-slate-600 text-primary-600 focus:ring-primary-500 dark:bg-slate-800"
-                                            checked={selectedTfns.includes(tfn.id)}
-                                            onChange={(e) => {
-                                                if (e.target.checked) setSelectedTfns([...selectedTfns, tfn.id]);
-                                                else setSelectedTfns(selectedTfns.filter(id => id !== tfn.id));
-                                            }}
-                                        />
-                                    </td>
-                                    <td className="p-3 font-mono font-bold text-sm text-gray-900 dark:text-white">{tfn.number}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
-            </div>
-            <div className="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-slate-800">
-                <button onClick={() => setCurrentStep(5)} className="text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200">Skip</button>
-                <button
-                    onClick={handleAssignTfns}
-                    disabled={loading}
-                    className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-primary-600/20 disabled:opacity-50 flex items-center gap-1.5 transition-all"
-                >
-                    {loading ? <Loader className="animate-spin mr-1.5" size={16} /> : null} Next: Assign DIDs
-                </button>
-            </div>
-        </div>
-    );
-
-    const renderStep5 = () => (
-        <div className="space-y-4">
-            <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Assign Standard Phone Numbers (DIDs)</h3>
-                <p className="text-xs font-medium text-gray-500 dark:text-slate-400 mt-1">Select available standard numbers for this tenant.</p>
-            </div>
-
-            <div className="border border-gray-200 dark:border-slate-800 rounded-xl max-h-64 overflow-y-auto bg-white dark:bg-slate-900">
-                {availableDids.length === 0 ? (
-                    <div className="p-8 text-center text-gray-400 dark:text-slate-500 text-sm">No available DIDs in inventory.</div>
-                ) : (
-                    <table className="w-full text-sm text-left bg-white dark:bg-slate-900">
-                        <thead className="bg-gray-50 dark:bg-slate-800/80 sticky top-0 border-b border-gray-100 dark:border-slate-700">
-                            <tr>
-                                <th className="p-3 w-10"></th>
-                                <th className="p-3 text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Number</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-                            {availableDids.map(did => (
-                                <tr key={did.id} className={selectedDids.includes(did.id) ? 'bg-primary-50/60 dark:bg-primary-950/40' : 'hover:bg-gray-50 dark:hover:bg-slate-800/40'}>
-                                    <td className="p-3">
-                                        <input
-                                            type="checkbox"
-                                            className="rounded border-gray-300 dark:border-slate-600 text-primary-600 focus:ring-primary-500 dark:bg-slate-800"
-                                            checked={selectedDids.includes(did.id)}
-                                            onChange={(e) => {
-                                                if (e.target.checked) setSelectedDids([...selectedDids, did.id]);
-                                                else setSelectedDids(selectedDids.filter(id => id !== did.id));
-                                            }}
-                                        />
-                                    </td>
-                                    <td className="p-3 font-mono font-bold text-sm text-gray-900 dark:text-white">{did.number}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
-            </div>
-
-            <div className="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-slate-800">
-                <button onClick={() => onSuccess({ id: createdTenantId, name: tenantName })} className="text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200">Skip</button>
-                <button
-                    onClick={handleAssignDids}
-                    disabled={loading}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-emerald-600/20 disabled:opacity-50 flex items-center gap-1.5 transition-all"
-                >
-                    {loading ? <Loader className="animate-spin" size={14} /> : <Check size={14} />} Finish & Complete Setup
-                </button>
-            </div>
-        </div>
-    );
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
@@ -855,10 +767,10 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                         </div>
                         <div>
                             <h2 className="font-extrabold text-gray-900 dark:text-white text-base">New Tenant Wizard</h2>
-                            <p className="text-xs text-gray-500 dark:text-slate-400">Create tenant, assign numbers, and configure subscription</p>
+                            <p className="text-xs text-gray-500 dark:text-slate-400">Create tenant, fund wallet, and configure subscription</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"><X size={18} /></button>
+                    <button onClick={onClose} disabled={loading} className="text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-40"><X size={18} /></button>
                 </div>
 
                 {/* Progress */}
@@ -893,8 +805,6 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                     {currentStep === 1 && renderStep1()}
                     {currentStep === 2 && renderStep2()}
                     {currentStep === 3 && renderStep3()}
-                    {currentStep === 4 && renderStep4()}
-                    {currentStep === 5 && renderStep5()}
                 </div>
             </div>
         </div>

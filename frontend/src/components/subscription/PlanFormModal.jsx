@@ -204,6 +204,22 @@ const PlanFormModal = ({ isOpen, onClose, onSuccess }) => {
                                     className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-sm font-mono font-bold text-gray-900 dark:text-white"
                                 />
                             </div>
+
+                            {/* Direct Inward Dialing (DID) */}
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-slate-300 mb-1">
+                                    Direct Inward Dialing (DID)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    name="dids"
+                                    value={formData.dids}
+                                    onChange={handleChange}
+                                    placeholder="1"
+                                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-sm font-mono font-bold text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                                />
+                            </div>
                         </div>
 
                         {/* Actions */}

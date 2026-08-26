@@ -316,6 +316,10 @@ const PlansPage = () => {
                                                         <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
                                                         <span><strong>{p.tfns || 0}</strong> Toll-Free Numbers (TFN)</span>
                                                     </li>
+                                                    <li className="flex items-center gap-2">
+                                                        <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                                                        <span><strong>{p.dids ?? 0}</strong> Direct Inward Dialing (DID)</span>
+                                                    </li>
                                                 </ul>
                                             </div>
 
