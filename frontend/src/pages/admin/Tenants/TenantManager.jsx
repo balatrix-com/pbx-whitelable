@@ -404,13 +404,15 @@ const NumbersTab = ({ tenant, onUpdate }) => {
         setLoading(true);
         try {
             const [tfnRes, didRes] = await Promise.all([
-                api.get(`/telecom/tfns?tenantId=${tenant.id}`),
-                api.get(`/telecom/dids?tenantId=${tenant.id}`)
+                api.get(`/subscription/tfns?tenantId=${tenant.id}`),
+                api.get(`/subscription/dids?tenantId=${tenant.id}`).catch(() => ({ data: [] }))
             ]);
-            setTfns(tfnRes.data);
-            setDids(didRes.data);
+            setTfns(Array.isArray(tfnRes.data) ? tfnRes.data : []);
+            setDids(Array.isArray(didRes.data) ? didRes.data : []);
         } catch (err) {
             console.error('Failed to fetch numbers', err);
+            setTfns([]);
+            setDids([]);
         } finally {
             setLoading(false);
         }
@@ -419,7 +421,7 @@ const NumbersTab = ({ tenant, onUpdate }) => {
     const handleCreateDid = async (e) => {
         e.preventDefault();
         try {
-            await api.post('/telecom/dids', {
+            await api.post('/subscription/dids', {
                 didNumber: newDid.didNumber,
                 targetTenantId: tenant.id
             });
@@ -484,18 +486,47 @@ const NumbersTab = ({ tenant, onUpdate }) => {
                     {dids.length === 0 ? (
                         <div className="text-center py-8">
                             <Phone className="mx-auto h-12 w-12 text-gray-300 mb-3" />
-                            <p className="text-sm font-medium text-gray-500">No DIDs assigned.</p>
+                            <p className="text-sm font-medium text-gray-500 mb-3">No DIDs assigned.</p>
+                            <button
+                                type="button"
+                                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-primary-600 hover:bg-primary-700 text-white shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            >
+                                <Plus size={14} /> Assign Now
+                            </button>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {dids.map(did => (
-                                <div key={did.id} className="flex justify-between items-center bg-white p-3.5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all group">
-                                    <span className="font-mono font-bold text-sm text-gray-900">{did.number}</span>
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ring-1 ring-inset uppercase tracking-wider bg-gray-50 text-gray-600 ring-gray-500/10">
-                                        {did.routeType || 'Unassigned'}
-                                    </span>
-                                </div>
-                            ))}
+                            {dids.map(did => {
+                                const isUnassigned = !did.source_id && !did.sourceId && !did.routeTargetId && (!did.source_type || did.source_type === 'Unassigned' || did.routeType === 'Unassigned');
+                                return (
+                                    <div key={did.id || did._id || did.number} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all group space-y-2.5">
+                                        <div className="flex justify-between items-center pb-2 border-b border-gray-50">
+                                            <span className="font-mono font-extrabold text-sm text-gray-900 flex items-center gap-1.5">
+                                                <Phone size={14} className="text-primary-600" />
+                                                {did.number || did.didNumber || did.did_number || 'N/A'}
+                                            </span>
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ring-1 ring-inset uppercase tracking-wider ${isUnassigned ? 'bg-amber-50 text-amber-700 ring-amber-600/20' : 'bg-primary-50 text-primary-700 ring-primary-600/20'}`}>
+                                                {did.source_type || did.sourceType || did.routeType || did.type || (isUnassigned ? 'Unassigned' : 'DID')}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs text-gray-500 font-medium pt-0.5">
+                                            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Source ID:</span>
+                                            {isUnassigned ? (
+                                                <button
+                                                    type="button"
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-primary-600 bg-primary-50 hover:bg-primary-100 transition-colors border border-primary-200"
+                                                >
+                                                    <Plus size={12} /> Assign Now
+                                                </button>
+                                            ) : (
+                                                <span className="font-mono font-bold text-gray-700 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                                                    {did.source_id || did.sourceId || did.routeTargetId || did.id || 'N/A'}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -505,26 +536,54 @@ const NumbersTab = ({ tenant, onUpdate }) => {
             <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 overflow-hidden mt-6">
                 <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/50">
                     <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
-                        <Phone size={14} className="text-gray-400" /> Toll-Free Numbers
+                        <Phone size={14} className="text-gray-400" /> Toll-Free Numbers (TFNs)
                     </h4>
                 </div>
                 <div className="p-5">
                     {tfns.length === 0 ? (
                         <div className="text-center py-8">
                             <Phone className="mx-auto h-12 w-12 text-gray-300 mb-3" />
-                            <p className="text-sm font-medium text-gray-500">No TFNs assigned.</p>
+                            <p className="text-sm font-medium text-gray-500 mb-3">No TFNs assigned.</p>
+                            <button
+                                type="button"
+                                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-primary-600 hover:bg-primary-700 text-white shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            >
+                                <Plus size={14} /> Assign Now
+                            </button>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {tfns.map(tfn => (
-                                <div key={tfn.id} className="flex justify-between items-center bg-white p-3.5 rounded-xl border border-blue-100 shadow-sm hover:shadow-md transition-all group bg-blue-50/10">
-                                    <span className="font-mono font-bold text-sm text-blue-700">{tfn.number}</span>
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ring-1 ring-inset uppercase tracking-wider ${tfn.status === 'ACTIVE' ? 'bg-green-50 text-green-700 ring-green-600/20' : 'bg-gray-50 text-gray-600 ring-gray-500/10'
-                                        }`}>
-                                        {tfn.status}
-                                    </span>
-                                </div>
-                            ))}
+                            {tfns.map(tfn => {
+                                const isUnassigned = !tfn.source_id && !tfn.sourceId && !tfn.routeTargetId && (!tfn.source_type || tfn.source_type === 'Unassigned' || tfn.routeType === 'Unassigned') && tfn.status !== 'ACTIVE' && tfn.status !== 'ASSIGNED';
+                                return (
+                                    <div key={tfn.id || tfn._id || tfn.number} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all group space-y-2.5">
+                                        <div className="flex justify-between items-center pb-2 border-b border-gray-50">
+                                            <span className="font-mono font-extrabold text-sm text-blue-700 flex items-center gap-1.5">
+                                                <Phone size={14} className="text-blue-600" />
+                                                {tfn.number || tfn.tfnNumber || tfn.tfn_number || 'N/A'}
+                                            </span>
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ring-1 ring-inset uppercase tracking-wider ${isUnassigned ? 'bg-amber-50 text-amber-700 ring-amber-600/20' : 'bg-blue-50 text-blue-700 ring-blue-600/20'}`}>
+                                                {tfn.source_type || tfn.sourceType || tfn.routeType || tfn.status || (isUnassigned ? 'Unassigned' : 'TFN')}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs text-gray-500 font-medium pt-0.5">
+                                            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Source ID:</span>
+                                            {isUnassigned ? (
+                                                <button
+                                                    type="button"
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-primary-600 bg-primary-50 hover:bg-primary-100 transition-colors border border-primary-200"
+                                                >
+                                                    <Plus size={12} /> Assign Now
+                                                </button>
+                                            ) : (
+                                                <span className="font-mono font-bold text-gray-700 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                                                    {tfn.source_id || tfn.sourceId || tfn.routeTargetId || tfn.id || 'N/A'}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -909,7 +968,7 @@ const TfnSelector = ({ tenantId, onClose, onSuccess }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        api.get('/telecom/tfns/available').then(res => {
+        api.get('/subscription/tfns/available').then(res => {
             setAvailable(res.data);
             setLoading(false);
         });
@@ -920,7 +979,7 @@ const TfnSelector = ({ tenantId, onClose, onSuccess }) => {
         setLoading(true);
         try {
             for (const id of selected) {
-                await api.post(`/telecom/tfns/${id}/assign`, { tenantId });
+                await api.post(`/subscription/tfns/${id}/assign`, { tenantId });
             }
             onSuccess();
         } catch (err) {
