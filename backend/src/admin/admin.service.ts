@@ -462,9 +462,42 @@ export class AdminService {
         });
     }
 
+    private async syncAssetsToSubBilling(tenantId: string, assets: { tfns?: string[], dids?: string[] }) {
+        try {
+            const subscription = await this.prisma.subscription.findFirst({
+                where: { tenantId },
+                orderBy: { createdAt: 'desc' }
+            });
+
+            const targetId = subscription?.subBillingSubscriptionId || tenantId;
+
+            if (!this.subBillingUrl) {
+                this.logger.warn(`Sub-billing API URL not configured, skipping asset sync`);
+                return;
+            }
+
+            const endpoint = `${this.subBillingUrl}/pbx/sync-assets/${targetId}`;
+            await lastValueFrom(this.httpService.post(endpoint, assets));
+            this.logger.log(`Successfully synced assets for tenant ${tenantId} to sub-billing`);
+        } catch (error: any) {
+            this.logger.error(`Failed to sync assets to sub-billing for tenant ${tenantId}: ${error.message}`);
+        }
+    }
+
+    private async unassignAssetsInSubBilling(assets: { tfns?: string[], dids?: string[] }) {
+        try {
+            if (!this.subBillingUrl) return;
+            const endpoint = `${this.subBillingUrl}/pbx/unassign-assets`;
+            await lastValueFrom(this.httpService.post(endpoint, assets));
+            this.logger.log(`Successfully unassigned assets in sub-billing: ${JSON.stringify(assets)}`);
+        } catch (error: any) {
+            this.logger.error(`Failed to unassign assets in sub-billing: ${error.message}`);
+        }
+    }
+
     async assignNumber(type: 'TFN' | 'DID', id: string, tenantId: string) {
         if (type === 'TFN') {
-            return this.prisma.tFN.update({
+            const updated = await this.prisma.tFN.update({
                 where: { id },
                 data: {
                     tenantId,
@@ -472,11 +505,30 @@ export class AdminService {
                     purchasedAt: new Date()
                 }
             });
+
+            // Sync FreeSWITCH & Redis
+            await this.freeswitchSync.syncTFN(updated.id).catch(err => {
+                this.logger.error(`Failed to sync FreeSWITCH for TFN ${updated.number}: ${err.message}`);
+            });
+            await this.lookupRedis.updateNumberLookup(updated.number, tenantId);
+
+            // Sync to Sub-Billing
+            await this.syncAssetsToSubBilling(tenantId, { tfns: [updated.number] });
+
+            return updated;
         } else {
-            return this.prisma.dID.update({
+            const updated = await this.prisma.dID.update({
                 where: { id },
                 data: { tenantId }
             });
+
+            // Update Redis Lookup
+            await this.lookupRedis.updateNumberLookup(updated.number, tenantId);
+
+            // Sync to Sub-Billing
+            await this.syncAssetsToSubBilling(tenantId, { dids: [updated.number] });
+
+            return updated;
         }
     }
 
@@ -491,6 +543,9 @@ export class AdminService {
 
                 // Cleanup Redis mapping
                 await this.lookupRedis.deleteNumberLookup(tfn.number);
+
+                // Unassign in Sub-Billing
+                await this.unassignAssetsInSubBilling({ tfns: [tfn.number] });
 
                 return this.prisma.tFN.update({
                     where: { id },
@@ -514,6 +569,9 @@ export class AdminService {
 
                 // Cleanup Redis mapping
                 await this.lookupRedis.deleteNumberLookup(did.number);
+
+                // Unassign in Sub-Billing
+                await this.unassignAssetsInSubBilling({ dids: [did.number] });
             }
 
             return this.prisma.dID.update({

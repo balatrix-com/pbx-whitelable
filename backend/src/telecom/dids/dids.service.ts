@@ -4,6 +4,9 @@ import {
     BadRequestException,
     Logger,
 } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { ConfigService } from '@nestjs/config';
+import { lastValueFrom } from 'rxjs';
 import { PrismaService } from '../../prisma/prisma.service';
 import { FreeSwitchSyncService } from '../../freeswitch/freeswitch-sync.service';
 import { CreateDIDDto, UpdateDIDDto } from './dto';
@@ -17,7 +20,29 @@ export class DIDsService {
         private prisma: PrismaService,
         private freeswitchSync: FreeSwitchSyncService,
         private lookupRedis: LookupRedisService,
+        private readonly httpService: HttpService,
+        private readonly configService: ConfigService,
     ) { }
+
+    private async syncAssetsToSubBilling(tenantId: string, assets: { tfns?: string[], dids?: string[] }) {
+        try {
+            const subscription = await this.prisma.subscription.findFirst({
+                where: { tenantId },
+                orderBy: { createdAt: 'desc' }
+            });
+
+            const targetId = subscription?.subBillingSubscriptionId || tenantId;
+            const subBilling = this.configService.get<any>('subBilling');
+            const apiUrl = subBilling?.apiUrl || process.env.SUB_BILLING_API_URL;
+            if (!apiUrl) return;
+
+            const endpoint = `${apiUrl}/pbx/sync-assets/${targetId}`;
+            await lastValueFrom(this.httpService.post(endpoint, assets));
+            this.logger.log(`Successfully synced DID assets for tenant ${tenantId} to sub-billing`);
+        } catch (error: any) {
+            this.logger.error(`Failed to sync DID assets to sub-billing for tenant ${tenantId}: ${error.message}`);
+        }
+    }
 
     /**
      * Find all DIDs for a tenant
@@ -65,6 +90,9 @@ export class DIDsService {
 
         // Update Redis Lookup DB
         await this.lookupRedis.updateNumberLookup(updated.number, tenantId);
+
+        // Sync to Sub-Billing
+        await this.syncAssetsToSubBilling(tenantId, { dids: [updated.number] });
 
         return updated;
     }
