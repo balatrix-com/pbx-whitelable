@@ -387,262 +387,210 @@ const WalletTab = ({ tenant, onUpdate }) => {
 };
 
 const NumbersTab = ({ tenant, onUpdate }) => {
-    const [tfns, setTfns] = useState([]);
-    const [dids, setDids] = useState([]);
+    const [assets, setAssets] = useState({ tfns: [], dids: [] });
     const [loading, setLoading] = useState(true);
-    const [showTfnSelector, setShowTfnSelector] = useState(false);
-
-    // Add DID state
-    const [showDidForm, setShowDidForm] = useState(false);
-    const [newDid, setNewDid] = useState({ didNumber: '' });
+    const [assignModal, setAssignModal] = useState(null); // { type: 'tfn' | 'did', item: assetItem }
+    const [actionLoading, setActionLoading] = useState(false);
+    const { addToast } = useToast() || {};
 
     useEffect(() => {
-        fetchNumbers();
-    }, [tenant.id]);
+        if (tenant?.id) {
+            fetchAssets();
+        }
+    }, [tenant?.id]);
 
-    const fetchNumbers = async () => {
+    const fetchAssets = async () => {
         setLoading(true);
         try {
-            const [tfnRes, didRes] = await Promise.all([
-                api.get(`/subscription/tfns?tenantId=${tenant.id}`),
-                api.get(`/subscription/dids?tenantId=${tenant.id}`).catch(() => ({ data: [] }))
-            ]);
-            setTfns(Array.isArray(tfnRes.data) ? tfnRes.data : []);
-            setDids(Array.isArray(didRes.data) ? didRes.data : []);
+            const res = await api.get(`/wallet/assets?tenantId=${tenant.id}`);
+            setAssets({
+                tfns: Array.isArray(res.data?.tfns) ? res.data.tfns : [],
+                dids: Array.isArray(res.data?.dids) ? res.data.dids : []
+            });
         } catch (err) {
-            console.error('Failed to fetch numbers', err);
-            setTfns([]);
-            setDids([]);
+            console.error('Failed to fetch assets:', err);
+            // Fallback to subscription endpoints if needed
+            try {
+                const [tfnRes, didRes] = await Promise.all([
+                    api.get(`/subscription/tfns?tenantId=${tenant.id}`),
+                    api.get(`/subscription/dids?tenantId=${tenant.id}`).catch(() => ({ data: [] }))
+                ]);
+                setAssets({
+                    tfns: Array.isArray(tfnRes.data) ? tfnRes.data : [],
+                    dids: Array.isArray(didRes.data) ? didRes.data : []
+                });
+            } catch (fallbackErr) {
+                console.error('Fallback fetch also failed', fallbackErr);
+                setAssets({ tfns: [], dids: [] });
+            }
         } finally {
             setLoading(false);
         }
     };
 
-    const handleCreateDid = async (e) => {
-        e.preventDefault();
+    const handleUnassign = async (type, number) => {
+        if (!number) return;
+        if (!window.confirm(`Are you sure you want to unassign ${number}?`)) return;
+
+        setActionLoading(true);
         try {
-            await api.post('/subscription/dids', {
-                didNumber: newDid.didNumber,
-                targetTenantId: tenant.id
-            });
-            setShowDidForm(false);
-            setNewDid({ didNumber: '' });
-            fetchNumbers();
-            onUpdate();
+            const endpoint = type === 'tfn' ? '/subscription/tfns/unassign' : '/subscription/dids/unassign';
+            await api.post(endpoint, { number });
+            if (addToast) addToast('success', `${number} unassigned successfully`);
+            await fetchAssets();
+            if (onUpdate) onUpdate();
         } catch (err) {
-            console.error('Failed to add DID:', err);
-            const res = err.response?.data;
-            let msg = 'Failed to add DID';
-            if (res) {
-                if (typeof res === 'string') msg = res;
-                else if (res.message) {
-                    if (Array.isArray(res.message)) msg = res.message.join(', ');
-                    else if (typeof res.message === 'object') msg = JSON.stringify(res.message);
-                    else msg = res.message;
-                }
-                else if (res.error) msg = res.error;
-            }
-            alert(msg);
+            console.error(`Failed to unassign ${type}:`, err);
+            const msg = err.response?.data?.message || `Failed to unassign ${number}`;
+            if (addToast) addToast('error', msg);
+            else alert(msg);
+        } finally {
+            setActionLoading(false);
         }
     };
 
+    const renderAssetTable = (title, items, type, numberField) => (
+        <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                    <Phone size={14} className="text-gray-400" /> {title} ({items.length})
+                </h4>
+            </div>
+
+            <div className="overflow-x-auto">
+                {items.length === 0 ? (
+                    <div className="text-center py-10 px-4">
+                        <Phone className="mx-auto h-10 w-10 text-gray-300 mb-2" />
+                        <p className="text-sm font-medium text-gray-500">No {title.toLowerCase()} configured for this tenant.</p>
+                    </div>
+                ) : (
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50/75">
+                            <tr>
+                                <th scope="col" className="px-5 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">
+                                    Source ID
+                                </th>
+                                <th scope="col" className="px-5 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">
+                                    Source Type
+                                </th>
+                                <th scope="col" className="px-5 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">
+                                    Phone Number
+                                </th>
+                                <th scope="col" className="px-5 py-3 text-right text-xs font-extrabold text-gray-500 uppercase tracking-wider">
+                                    Action
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 bg-white">
+                            {items.map((item, idx) => {
+                                const phoneNumber = item[numberField] || item.number || item.phone_number || '';
+                                const isAssigned = !!phoneNumber;
+                                const sourceType = (item.source_type || item.sourceType || 'PLAN').toUpperCase();
+
+                                return (
+                                    <tr key={item.id || item.source_id || idx} className="hover:bg-gray-50/80 transition-colors">
+                                        <td className="px-5 py-4 whitespace-nowrap text-xs font-bold text-gray-900 font-mono">
+                                            {item.source_id || item.sourceId || 'N/A'}
+                                        </td>
+                                        <td className="px-5 py-4 whitespace-nowrap text-xs">
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-extrabold tracking-wide uppercase ${sourceType === 'PLAN'
+                                                    ? 'bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/20'
+                                                    : 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20'
+                                                }`}>
+                                                {sourceType}
+                                            </span>
+                                        </td>
+                                        <td className="px-5 py-4 whitespace-nowrap text-sm">
+                                            {isAssigned ? (
+                                                <span className="font-mono font-bold text-gray-900 flex items-center gap-1.5">
+                                                    <Phone size={13} className="text-primary-600" />
+                                                    {phoneNumber}
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-400 italic text-xs font-medium">
+                                                    Unassigned
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="px-5 py-4 whitespace-nowrap text-right text-xs font-medium">
+                                            {isAssigned ? (
+                                                <button
+                                                    type="button"
+                                                    disabled={actionLoading}
+                                                    onClick={() => handleUnassign(type, phoneNumber)}
+                                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 ring-1 ring-inset ring-rose-600/20 transition-all active:scale-[0.98] disabled:opacity-50"
+                                                >
+                                                    <Trash2 size={12} />
+                                                    Unassign
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    disabled={actionLoading}
+                                                    onClick={() => setAssignModal({ type, item })}
+                                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-primary-700 bg-primary-50 hover:bg-primary-100 ring-1 ring-inset ring-primary-600/20 transition-all active:scale-[0.98] disabled:opacity-50"
+                                                >
+                                                    <Plus size={13} />
+                                                    Assign Number
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+        </div>
+    );
+
     return (
-        <div className="space-y-8 max-w-4xl">
+        <div className="space-y-8 max-w-5xl">
             <div className="flex justify-between items-center pb-4 border-b border-gray-100">
                 <div>
                     <h3 className="text-xl font-extrabold text-gray-900 tracking-tight">Phone Numbers</h3>
-                    <p className="text-sm font-medium text-gray-500 mt-1">Manage DIDs and Toll-Free Numbers.</p>
+                    <p className="text-sm font-medium text-gray-500 mt-1">Manage DIDs and Toll-Free Numbers assigned to this tenant.</p>
                 </div>
                 <div className="flex gap-2">
                     <button
-                        onClick={() => setShowTfnSelector(true)}
-                        className="inline-flex justify-center items-center rounded-xl bg-white px-3 py-2 text-sm font-bold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary-500 gap-1.5"
+                        onClick={fetchAssets}
+                        disabled={loading || actionLoading}
+                        className="p-2 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors focus:outline-none disabled:opacity-50"
+                        title="Refresh numbers"
                     >
-                        <Plus size={16} className="text-gray-400" /> TFN
-                    </button>
-                    <button
-                        onClick={() => setShowDidForm(true)}
-                        className="inline-flex justify-center items-center rounded-xl bg-white px-3 py-2 text-sm font-bold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary-500 gap-1.5"
-                    >
-                        <Plus size={16} className="text-gray-400" /> DID
-                    </button>
-                    <button
-                        onClick={fetchNumbers}
-                        className="p-2 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors focus:outline-none"
-                    >
-                        <RefreshCw size={18} />
+                        <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
                     </button>
                 </div>
             </div>
 
-            {/* DIDs List */}
-            <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/50">
-                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
-                        <Phone size={14} className="text-gray-400" /> Local/Mobile Numbers (DIDs)
-                    </h4>
+            {loading ? (
+                <div className="flex justify-center py-16">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
                 </div>
-                <div className="p-5">
-                    {dids.length === 0 ? (
-                        <div className="text-center py-8">
-                            <Phone className="mx-auto h-12 w-12 text-gray-300 mb-3" />
-                            <p className="text-sm font-medium text-gray-500 mb-3">No DIDs assigned.</p>
-                            <button
-                                type="button"
-                                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-primary-600 hover:bg-primary-700 text-white shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary-500"
-                            >
-                                <Plus size={14} /> Assign Now
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {dids.map(did => {
-                                const isUnassigned = !did.source_id && !did.sourceId && !did.routeTargetId && (!did.source_type || did.source_type === 'Unassigned' || did.routeType === 'Unassigned');
-                                return (
-                                    <div key={did.id || did._id || did.number} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all group space-y-2.5">
-                                        <div className="flex justify-between items-center pb-2 border-b border-gray-50">
-                                            <span className="font-mono font-extrabold text-sm text-gray-900 flex items-center gap-1.5">
-                                                <Phone size={14} className="text-primary-600" />
-                                                {did.number || did.didNumber || did.did_number || 'N/A'}
-                                            </span>
-                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ring-1 ring-inset uppercase tracking-wider ${isUnassigned ? 'bg-amber-50 text-amber-700 ring-amber-600/20' : 'bg-primary-50 text-primary-700 ring-primary-600/20'}`}>
-                                                {did.source_type || did.sourceType || did.routeType || did.type || (isUnassigned ? 'Unassigned' : 'DID')}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-xs text-gray-500 font-medium pt-0.5">
-                                            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Source ID:</span>
-                                            {isUnassigned ? (
-                                                <button
-                                                    type="button"
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-primary-600 bg-primary-50 hover:bg-primary-100 transition-colors border border-primary-200"
-                                                >
-                                                    <Plus size={12} /> Assign Now
-                                                </button>
-                                            ) : (
-                                                <span className="font-mono font-bold text-gray-700 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
-                                                    {did.source_id || did.sourceId || did.routeTargetId || did.id || 'N/A'}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-            </div>
+            ) : (
+                <div className="space-y-6">
+                    {/* TFNs Table */}
+                    {renderAssetTable('Toll-Free Numbers (TFNs)', assets.tfns, 'tfn', 'tfn_number')}
 
-            {/* TFNs List */}
-            <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 overflow-hidden mt-6">
-                <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/50">
-                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
-                        <Phone size={14} className="text-gray-400" /> Toll-Free Numbers (TFNs)
-                    </h4>
+                    {/* DIDs Table */}
+                    {renderAssetTable('Local / Mobile Numbers (DIDs)', assets.dids, 'did', 'did_number')}
                 </div>
-                <div className="p-5">
-                    {tfns.length === 0 ? (
-                        <div className="text-center py-8">
-                            <Phone className="mx-auto h-12 w-12 text-gray-300 mb-3" />
-                            <p className="text-sm font-medium text-gray-500 mb-3">No TFNs assigned.</p>
-                            <button
-                                type="button"
-                                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-primary-600 hover:bg-primary-700 text-white shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary-500"
-                            >
-                                <Plus size={14} /> Assign Now
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {tfns.map(tfn => {
-                                const isUnassigned = !tfn.source_id && !tfn.sourceId && !tfn.routeTargetId && (!tfn.source_type || tfn.source_type === 'Unassigned' || tfn.routeType === 'Unassigned') && tfn.status !== 'ACTIVE' && tfn.status !== 'ASSIGNED';
-                                return (
-                                    <div key={tfn.id || tfn._id || tfn.number} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all group space-y-2.5">
-                                        <div className="flex justify-between items-center pb-2 border-b border-gray-50">
-                                            <span className="font-mono font-extrabold text-sm text-blue-700 flex items-center gap-1.5">
-                                                <Phone size={14} className="text-blue-600" />
-                                                {tfn.number || tfn.tfnNumber || tfn.tfn_number || 'N/A'}
-                                            </span>
-                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ring-1 ring-inset uppercase tracking-wider ${isUnassigned ? 'bg-amber-50 text-amber-700 ring-amber-600/20' : 'bg-blue-50 text-blue-700 ring-blue-600/20'}`}>
-                                                {tfn.source_type || tfn.sourceType || tfn.routeType || tfn.status || (isUnassigned ? 'Unassigned' : 'TFN')}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-xs text-gray-500 font-medium pt-0.5">
-                                            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Source ID:</span>
-                                            {isUnassigned ? (
-                                                <button
-                                                    type="button"
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-primary-600 bg-primary-50 hover:bg-primary-100 transition-colors border border-primary-200"
-                                                >
-                                                    <Plus size={12} /> Assign Now
-                                                </button>
-                                            ) : (
-                                                <span className="font-mono font-bold text-gray-700 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
-                                                    {tfn.source_id || tfn.sourceId || tfn.routeTargetId || tfn.id || 'N/A'}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Modals/Forms Overlay logic would go here, simplified for now */}
-            {showTfnSelector && (
-                <TfnSelector
-                    tenantId={tenant.id}
-                    onClose={() => setShowTfnSelector(false)}
-                    onSuccess={() => { setShowTfnSelector(false); fetchNumbers(); onUpdate(); }}
-                />
             )}
 
-            {showDidForm && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-                    <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm transition-opacity" onClick={() => setShowDidForm(false)}></div>
-                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col ring-1 ring-gray-200 p-6">
-                        <div className="flex justify-between items-center mb-5">
-                            <h4 className="text-lg font-extrabold text-gray-900 tracking-tight">Add New DID</h4>
-                            <button onClick={() => setShowDidForm(false)} className="rounded-xl p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors focus:outline-none">
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <form onSubmit={handleCreateDid} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Number</label>
-                                <input
-                                    className="block w-full rounded-xl border-0 py-2.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm font-medium bg-white transition-all font-mono"
-                                    placeholder="+1..."
-                                    value={newDid.didNumber}
-                                    onChange={e => setNewDid({ ...newDid, didNumber: e.target.value })}
-                                    required
-                                />
-                            </div>
-                            <div className="bg-blue-50/50 p-3 rounded-xl ring-1 ring-inset ring-blue-100">
-                                <p className="text-xs font-medium text-blue-700 flex items-start gap-1.5">
-                                    <Info size={14} className="mt-0.5 shrink-0" />
-                                    Routing will be configured by the customer.
-                                </p>
-                            </div>
-                            <div className="flex justify-end gap-3 pt-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowDidForm(false)}
-                                    className="inline-flex justify-center items-center rounded-xl bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-all active:scale-[0.98] focus:outline-none"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="inline-flex justify-center items-center rounded-xl bg-primary-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-primary-700 transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary-500"
-                                >
-                                    Add DID
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+            {/* Assign Number Modal */}
+            {assignModal && (
+                <AssignNumberModal
+                    type={assignModal.type}
+                    targetItem={assignModal.item}
+                    tenantId={tenant.id}
+                    onClose={() => setAssignModal(null)}
+                    onSuccess={() => {
+                        setAssignModal(null);
+                        fetchAssets();
+                        if (onUpdate) onUpdate();
+                    }}
+                />
             )}
         </div>
     );
@@ -961,40 +909,76 @@ const ExtensionsTab = ({ tenant, onUpdate }) => {
     );
 };
 
-// Helper for TFN selection (Reusing logic from Wizard somewhat)
-const TfnSelector = ({ tenantId, onClose, onSuccess }) => {
+// Modal for assigning numbers from available inventory (TFN or DID)
+const AssignNumberModal = ({ type, targetItem, tenantId, onClose, onSuccess }) => {
     const [available, setAvailable] = useState([]);
-    const [selected, setSelected] = useState([]);
+    const [selectedNumber, setSelectedNumber] = useState('');
     const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+    const { addToast } = useToast() || {};
+
+    const isTfn = type === 'tfn';
+    const title = isTfn ? 'Toll-Free Number (TFN)' : 'Direct Inward Dialing (DID)';
 
     useEffect(() => {
-        api.get('/subscription/tfns/available').then(res => {
-            setAvailable(res.data);
-            setLoading(false);
-        });
-    }, []);
-
-    const handleAssign = async () => {
-        if (selected.length === 0) return;
-        setLoading(true);
-        try {
-            for (const id of selected) {
-                await api.post(`/subscription/tfns/${id}/assign`, { tenantId });
+        const fetchAvailable = async () => {
+            setLoading(true);
+            try {
+                const endpoint = isTfn ? '/subscription/tfns/available' : '/subscription/dids/available';
+                const res = await api.get(endpoint);
+                const list = Array.isArray(res.data) ? res.data : [];
+                setAvailable(list);
+                if (list.length > 0) {
+                    setSelectedNumber(list[0].number || list[0].id || '');
+                }
+            } catch (err) {
+                console.error('Failed to fetch available inventory:', err);
+                if (addToast) addToast('error', 'Failed to load available inventory');
+            } finally {
+                setLoading(false);
             }
+        };
+
+        fetchAvailable();
+    }, [isTfn]);
+
+    const handleAssign = async (e) => {
+        e.preventDefault();
+        if (!selectedNumber) return;
+
+        setSubmitting(true);
+        try {
+            const endpoint = isTfn ? '/subscription/tfns/assign' : '/subscription/dids/assign';
+            await api.post(endpoint, {
+                number: selectedNumber,
+                tenantId: tenantId
+            });
+
+            if (addToast) addToast('success', `${selectedNumber} assigned successfully`);
             onSuccess();
         } catch (err) {
-            alert('Failed to assign TFNs');
+            console.error('Failed to assign number:', err);
+            const msg = err.response?.data?.message || 'Failed to assign number';
+            if (addToast) addToast('error', msg);
+            else alert(msg);
         } finally {
-            setLoading(false);
+            setSubmitting(false);
         }
     };
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
-            <div className="relative bg-white rounded-2xl shadow-2xl w-[550px] max-h-[85vh] flex flex-col ring-1 ring-gray-200">
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col ring-1 ring-gray-200">
                 <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center shrink-0">
-                    <h4 className="text-lg font-extrabold text-gray-900 tracking-tight">Assign TFNs</h4>
+                    <div>
+                        <h4 className="text-lg font-extrabold text-gray-900 tracking-tight">Assign {title}</h4>
+                        {targetItem?.source_id && (
+                            <p className="text-xs font-mono font-bold text-gray-500 mt-0.5">
+                                Slot: {targetItem.source_id}
+                            </p>
+                        )}
+                    </div>
                     <button
                         onClick={onClose}
                         className="rounded-xl p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors focus:outline-none"
@@ -1003,69 +987,61 @@ const TfnSelector = ({ tenantId, onClose, onSuccess }) => {
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30">
-                    {available.length === 0 ? (
-                        <div className="text-center py-12">
-                            <Phone className="mx-auto h-12 w-12 text-gray-300 mb-3" />
-                            <p className="text-sm font-medium text-gray-500">No available TFNs in inventory.</p>
+                <form onSubmit={handleAssign} className="p-6 space-y-4">
+                    {loading ? (
+                        <div className="flex justify-center py-8">
+                            <Loader2 className="h-7 w-7 animate-spin text-primary-600" />
+                        </div>
+                    ) : available.length === 0 ? (
+                        <div className="text-center py-8">
+                            <Phone className="mx-auto h-10 w-10 text-gray-300 mb-2" />
+                            <p className="text-sm font-medium text-gray-600">No available {title} inventory found.</p>
+                            <p className="text-xs text-gray-400 mt-1">Add more numbers to global inventory in Numbers Management.</p>
                         </div>
                     ) : (
-                        <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th scope="col" className="px-4 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-12">
-                                            {/* Select All could go here */}
-                                        </th>
-                                        <th scope="col" className="px-4 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                            Number
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200 bg-white">
-                                    {available.map(tfn => (
-                                        <tr key={tfn.id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-4 py-3">
-                                                <input
-                                                    type="checkbox"
-                                                    className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600"
-                                                    checked={selected.includes(tfn.id)}
-                                                    onChange={e => {
-                                                        if (e.target.checked) setSelected(prev => [...prev, tfn.id]);
-                                                        else setSelected(prev => prev.filter(id => id !== tfn.id));
-                                                    }}
-                                                />
-                                            </td>
-                                            <td className="px-4 py-3 font-mono font-bold text-sm text-gray-900">
-                                                {tfn.number}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                        <div className="space-y-2">
+                            <label className="block text-xs font-extrabold text-gray-500 uppercase tracking-widest">
+                                Select Number from Inventory
+                            </label>
+                            <select
+                                className="block w-full rounded-xl border-0 py-3 px-3.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-primary-600 text-sm font-mono font-bold bg-white transition-all"
+                                value={selectedNumber}
+                                onChange={(e) => setSelectedNumber(e.target.value)}
+                                required
+                            >
+                                {available.map((num) => {
+                                    const val = num.number || num.id;
+                                    return (
+                                        <option key={num.id || val} value={val}>
+                                            {val} {num.provider ? `(${num.provider})` : ''} {num.isDemo ? '• Demo' : ''}
+                                        </option>
+                                    );
+                                })}
+                            </select>
                         </div>
                     )}
-                </div>
 
-                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-end gap-3 shrink-0">
-                    <button
-                        onClick={onClose}
-                        className="inline-flex justify-center items-center rounded-xl bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-all active:scale-[0.98] focus:outline-none"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={handleAssign}
-                        disabled={selected.length === 0 || loading}
-                        className="inline-flex justify-center items-center rounded-xl bg-primary-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-primary-700 transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {loading ? (
-                            <><Loader className="animate-spin -ml-1 mr-2 h-4 w-4" /> Assigning...</>
-                        ) : (
-                            `Assign ${selected.length} Numbers`
-                        )}
-                    </button>
-                </div>
+                    <div className="pt-3 flex justify-end gap-3 border-t border-gray-100">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="inline-flex justify-center items-center rounded-xl bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-all active:scale-[0.98] focus:outline-none"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={submitting || loading || available.length === 0}
+                            className="inline-flex justify-center items-center rounded-xl bg-primary-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-primary-700 transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {submitting ? (
+                                <><Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" /> Assigning...</>
+                            ) : (
+                                'Assign Number'
+                            )}
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     );
