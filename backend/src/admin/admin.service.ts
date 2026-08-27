@@ -1,4 +1,4 @@
-import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, Logger, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
@@ -495,10 +495,15 @@ export class AdminService {
         }
     }
 
-    async assignNumber(type: 'TFN' | 'DID', id: string, tenantId: string) {
+    async assignNumber(type: 'TFN' | 'DID', idOrNumber: string, tenantId: string) {
         if (type === 'TFN') {
+            const tfn = await this.prisma.tFN.findFirst({
+                where: { OR: [{ id: idOrNumber }, { number: idOrNumber }] }
+            });
+            if (!tfn) throw new NotFoundException(`TFN ${idOrNumber} not found`);
+
             const updated = await this.prisma.tFN.update({
-                where: { id },
+                where: { id: tfn.id },
                 data: {
                     tenantId,
                     status: 'ASSIGNED',
@@ -517,8 +522,13 @@ export class AdminService {
 
             return updated;
         } else {
+            const did = await this.prisma.dID.findFirst({
+                where: { OR: [{ id: idOrNumber }, { number: idOrNumber }] }
+            });
+            if (!did) throw new NotFoundException(`DID ${idOrNumber} not found`);
+
             const updated = await this.prisma.dID.update({
-                where: { id },
+                where: { id: did.id },
                 data: { tenantId }
             });
 
@@ -532,9 +542,12 @@ export class AdminService {
         }
     }
 
-    async unassignNumber(type: 'TFN' | 'DID', id: string) {
+    async unassignNumber(type: 'TFN' | 'DID', idOrNumber: string) {
         if (type === 'TFN') {
-            const tfn = await this.prisma.tFN.findUnique({ where: { id }, include: { tenant: true } });
+            const tfn = await this.prisma.tFN.findFirst({
+                where: { OR: [{ id: idOrNumber }, { number: idOrNumber }] },
+                include: { tenant: true }
+            });
             if (tfn) {
                 // Cleanup routing in FreeSWITCH
                 await this.freeswitchSync.deleteTFN(tfn).catch(err => {
@@ -548,7 +561,7 @@ export class AdminService {
                 await this.unassignAssetsInSubBilling({ tfns: [tfn.number] });
 
                 return this.prisma.tFN.update({
-                    where: { id },
+                    where: { id: tfn.id },
                     data: {
                         tenantId: null,
                         status: 'AVAILABLE',
@@ -559,8 +572,12 @@ export class AdminService {
                     }
                 });
             }
+            throw new NotFoundException(`TFN ${idOrNumber} not found`);
         } else {
-            const did = await this.prisma.dID.findUnique({ where: { id }, include: { tenant: true } });
+            const did = await this.prisma.dID.findFirst({
+                where: { OR: [{ id: idOrNumber }, { number: idOrNumber }] },
+                include: { tenant: true }
+            });
             if (did) {
                 // Cleanup routing in FreeSWITCH
                 await this.freeswitchSync.deleteDID(did).catch(err => {
@@ -572,18 +589,19 @@ export class AdminService {
 
                 // Unassign in Sub-Billing
                 await this.unassignAssetsInSubBilling({ dids: [did.number] });
-            }
 
-            return this.prisma.dID.update({
-                where: { id },
-                data: {
-                    tenantId: null,
-                    routeType: null,
-                    routeTargetId: null,
-                    forwardEnabled: false,
-                    forwardNumber: null
-                }
-            });
+                return this.prisma.dID.update({
+                    where: { id: did.id },
+                    data: {
+                        tenantId: null,
+                        routeType: null,
+                        routeTargetId: null,
+                        forwardEnabled: false,
+                        forwardNumber: null
+                    }
+                });
+            }
+            throw new NotFoundException(`DID ${idOrNumber} not found`);
         }
     }
 

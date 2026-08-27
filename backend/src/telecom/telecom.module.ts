@@ -15,6 +15,9 @@ import { FreeswitchModule } from '../freeswitch/freeswitch.module';
 import { TFNsModule } from './tfns/tfns.module';
 import { DIDForwardsModule } from './did-forwards/did-forwards.module';
 
+import { AdminModule } from '../admin/admin.module';
+import { SubscriptionTelecomController } from './subscription-telecom.controller';
+
 import { TeardownEnforcerService } from './teardown-enforcer.service';
 
 @Module({
@@ -32,8 +35,9 @@ import { TeardownEnforcerService } from './teardown-enforcer.service';
     FreeswitchModule,
     TFNsModule,
     DIDForwardsModule,
+    AdminModule,
   ],
-  controllers: [TelecomController],
+  controllers: [TelecomController, SubscriptionTelecomController],
   providers: [TelecomService, TeardownEnforcerService],
 })
 export class TelecomModule { }

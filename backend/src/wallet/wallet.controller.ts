@@ -98,9 +98,10 @@ export class WalletController {
     }
 
     @Get('assets')
-    getAssets(@GetUser() user: User) {
-        if (!user.tenantId) return { tfns: [], dids: [], extensions: [], totals: { tfns: 0, dids: 0, extensions: 0 } };
-        return this.walletService.getAssets(user.tenantId);
+    getAssets(@GetUser() user: User, @Query('tenantId') queryTenantId?: string) {
+        const tenantId = (user.role === Role.SUPER_ADMIN && queryTenantId) ? queryTenantId : user.tenantId;
+        if (!tenantId) return { tfns: [], dids: [], extensions: [], totals: { tfns: 0, dids: 0, extensions: 0 } };
+        return this.walletService.getAssets(tenantId);
     }
 
     // Admin Internal Adjustment
