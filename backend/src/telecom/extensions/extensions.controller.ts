@@ -75,6 +75,19 @@ export class ExtensionsController {
     }
 
     /**
+     * POST /telecom/extensions/sync-from-billing
+     * Sync extensions from sub-billing assets into PBX DB, Kamailio, and FreeSWITCH
+     */
+    @Post('sync-from-billing')
+    @Roles(Role.SUPER_ADMIN, Role.SUPPORT, Role.ADMIN)
+    async syncFromBilling(@Body() body: { customerId?: string; tenantId?: string }) {
+        const target = body.tenantId || body.customerId;
+        if (!target) return { success: false, message: 'customerId or tenantId is required' };
+        await this.extensionsService.syncMissingExtensionsFromSubBilling(target);
+        return { success: true, message: `Extensions synced for ${target}` };
+    }
+
+    /**
      * POST /telecom/extensions
      * Create new extension with SIP credentials
      * Accessible by: SUPER_ADMIN, SALES, SUPPORT

@@ -37,10 +37,96 @@ export class ExtensionsService {
     }
 
     /**
+     * Auto-sync any extensions defined in sub-billing assets into PBX DB, Kamailio subscriber table, and FreeSWITCH
+     */
+    async syncMissingExtensionsFromSubBilling(tenantId: string): Promise<void> {
+        const targetTenantId = await this.resolveTenantId(tenantId);
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: targetTenantId },
+            select: { id: true, customerCode: true, subBillingCustomerId: true }
+        });
+        if (!tenant) return;
+
+        const customerId = tenant.subBillingCustomerId || tenant.customerCode || targetTenantId;
+        const subBilling = this.configService.get<any>('subBilling');
+        const apiUrl = subBilling?.apiUrl || process.env.SUB_BILLING_API_URL || 'http://localhost:5005/api';
+
+        let subBillingAssets: any = null;
+        try {
+            const response = await lastValueFrom(
+                this.httpService.get(`${apiUrl}/pbx/assets/${customerId}`)
+            );
+            subBillingAssets = response.data;
+        } catch (err: any) {
+            this.logger.debug(`Could not fetch sub-billing assets for ${customerId}: ${err.message}`);
+            return;
+        }
+
+        if (!subBillingAssets || !Array.isArray(subBillingAssets.extensions) || subBillingAssets.extensions.length === 0) {
+            return;
+        }
+
+        const existingExtensions = await this.prisma.extension.findMany({
+            where: { tenantId: targetTenantId }
+        });
+        const existingMap = new Map(existingExtensions.map(e => [e.extensionNumber, e]));
+
+        for (const extAsset of subBillingAssets.extensions) {
+            const extNum = String(extAsset.extension_number || extAsset.extensionNumber).trim();
+            if (!extNum) continue;
+
+            const existingExt = existingMap.get(extNum);
+            if (!existingExt) {
+                try {
+                    const defaultPassword = 'Password@123';
+                    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+                    const sipPasswordPlaintext = '123456';
+
+                    const newExt = await this.prisma.extension.create({
+                        data: {
+                            tenantId: targetTenantId,
+                            extensionNumber: extNum,
+                            name: extAsset.extension_name || `Extension ${extNum}`,
+                            password: hashedPassword,
+                            sipUsername: extNum,
+                            sipPassword: sipPasswordPlaintext,
+                            sipAuthRealm: process.env.SIP_SERVER || 'localhost',
+                        }
+                    });
+
+                    existingMap.set(extNum, newExt);
+                    this.logger.log(`[Auto-Sync] Created extension ${extNum} in PBX DB for tenant ${targetTenantId}`);
+
+                    // Sync to FreeSWITCH & Kamailio
+                    await this.freeSwitchSync.syncExtension(newExt.id).catch(err => {
+                        this.logger.warn(`Failed to sync FreeSWITCH/Kamailio for ${extNum}: ${err.message}`);
+                    });
+                } catch (createErr: any) {
+                    this.logger.error(`Error auto-creating extension ${extNum} for ${targetTenantId}: ${createErr.message}`);
+                }
+            } else {
+                // Ensure existing extension is registered in Kamailio subscriber table
+                await this.freeSwitchSync.syncExtension(existingExt.id).catch(err => {
+                    this.logger.debug(`Kamailio sync check failed for ${extNum}: ${err.message}`);
+                });
+            }
+        }
+
+        // Sync with Redis Lookup DB
+        await this.lookupRedis.updateExtensionLookup(targetTenantId).catch(() => {});
+    }
+
+    /**
      * Find all extensions for a tenant
      */
     async findAll(tenantId: string) {
         const targetTenantId = await this.resolveTenantId(tenantId);
+
+        // Auto-sync missing extensions from sub-billing assets (and sync to Kamailio & FreeSWITCH)
+        await this.syncMissingExtensionsFromSubBilling(targetTenantId).catch(err => {
+            this.logger.warn(`Auto-sync extension assets warning for ${targetTenantId}: ${err.message}`);
+        });
+
         return this.prisma.extension.findMany({
             where: { tenantId: targetTenantId },
             include: {

@@ -5,6 +5,7 @@ import { FreeSwitchSyncService } from '../freeswitch/freeswitch-sync.service';
 import { AdminService } from '../admin/admin.service';
 import { LookupRedisService } from '../redis/lookup-redis.module';
 import { WalletService } from '../wallet/wallet.service';
+import { ExtensionsService } from '../telecom/extensions/extensions.service';
 
 @Injectable()
 export class TenantsService {
@@ -16,6 +17,7 @@ export class TenantsService {
         private adminService: AdminService,
         private lookupRedis: LookupRedisService,
         private walletService: WalletService,
+        private extensionsService: ExtensionsService,
     ) { }
 
     async listTenants(query: {
@@ -512,7 +514,7 @@ export class TenantsService {
         subBillingCustomerId = subCustomer.customer_id;
 
         // Transactional creation
-        return this.prisma.$transaction(async (prisma) => {
+        const result = await this.prisma.$transaction(async (prisma) => {
             // 1. Create Tenant
             const tenant = await prisma.tenant.create({
                 data: {
@@ -593,6 +595,13 @@ export class TenantsService {
                 }
             };
         });
+
+        // 7. Auto-sync and provision extensions in PBX & Kamailio
+        await this.extensionsService.syncMissingExtensionsFromSubBilling(result.tenant.id).catch(err => {
+            this.logger.warn(`Post-tenant creation extension sync warning: ${err.message}`);
+        });
+
+        return result;
     }
 
     async deleteTenant(id: string) {
