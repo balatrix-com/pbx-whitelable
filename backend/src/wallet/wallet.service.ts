@@ -7,6 +7,9 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 
+import { FreeSwitchSyncService } from '../freeswitch/freeswitch-sync.service';
+import { LookupRedisService } from '../redis/lookup-redis.module';
+
 @Injectable()
 export class WalletService {
     private readonly logger = new Logger(WalletService.name);
@@ -17,7 +20,9 @@ export class WalletService {
         private billingService: BillingService,
         private notificationsService: NotificationsService,
         private httpService: HttpService,
-        private configService: ConfigService
+        private configService: ConfigService,
+        private freeSwitchSync: FreeSwitchSyncService,
+        private lookupRedis: LookupRedisService,
     ) {
         this.subBillingUrl = this.configService.get<string>('SUB_BILLING_API_URL') || 'http://localhost:5005/api';
     }
@@ -307,7 +312,7 @@ export class WalletService {
                         });
 
                         if (!existingExt) {
-                            await this.prisma.extension.create({
+                            const newExt = await this.prisma.extension.create({
                                 data: {
                                     tenantId,
                                     extensionNumber: extNum,
@@ -318,8 +323,25 @@ export class WalletService {
                                     sequenceId: i + 1
                                 }
                             });
+
+                            // Sync to FreeSWITCH dialplan & Kamailio subscriber table
+                            try {
+                                await this.freeSwitchSync.syncExtension(newExt.id);
+                            } catch (syncErr: any) {
+                                this.logger.warn(`FreeSWITCH/Kamailio sync failed for new extension ${extNum}: ${syncErr.message}`);
+                            }
+                        } else {
+                            // Ensure existing extension is registered in Kamailio
+                            try {
+                                await this.freeSwitchSync.syncExtension(existingExt.id);
+                            } catch (syncErr: any) {
+                                this.logger.debug(`Kamailio sync check failed for ${extNum}: ${syncErr.message}`);
+                            }
                         }
                     }
+
+                    // Sync with Redis Lookup DB
+                    await this.lookupRedis.updateExtensionLookup(tenantId).catch(() => {});
                 }
             }
 

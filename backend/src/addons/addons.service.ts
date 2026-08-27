@@ -172,12 +172,32 @@ export class AddonsService {
         if (!tenantId) throw new BadRequestException('Tenant ID is required');
         const qty = Math.max(1, Number(quantity) || 1);
 
-        const addon = this.catalog.find(a => a.addon_id === addonId);
+        const customerId = await this.walletService.getSubBillingCustomerId(tenantId).catch(() => tenantId);
+
+        // 1. Try fetching official quote from Sub-Billing
+        try {
+            const response = await firstValueFrom(
+                this.httpService.post(`${this.subBillingUrl}/addons/quote`, {
+                    customer_id: customerId,
+                    addon_id: addonId,
+                    quantity: qty
+                })
+            );
+            if (response.data?.success && response.data?.data) {
+                return response.data.data;
+            }
+        } catch (err: any) {
+            this.logger.debug(`Sub-billing quote API returned error or not found, falling back to local calculation: ${err.message}`);
+        }
+
+        // 2. Dynamic catalog lookup fallback
+        const catalog = await this.getCatalog();
+        const addon = catalog.find(a => a.addon_id === addonId);
         if (!addon) {
             throw new NotFoundException(`Add-on with ID ${addonId} not found in catalog`);
         }
 
-        // 1. Fetch real-time tenant wallet balance & credit limit
+        // Fetch real-time tenant wallet balance & credit limit
         let availablePurchasingPower = 0;
         try {
             const walletData = await this.walletService.getBalance(tenantId);
@@ -188,7 +208,7 @@ export class AddonsService {
             this.logger.warn(`Could not fetch wallet balance for tenant ${tenantId}, fallback to 0: ${error.message}`);
         }
 
-        // 2. Fetch subscription details to calculate remaining cycle days
+        // Fetch subscription details to calculate remaining cycle days
         let remainingDays = 28;
         let totalCycleDays = 30;
         try {
@@ -233,31 +253,46 @@ export class AddonsService {
             );
         }
 
-        // Debit wallet via walletService
-        if (quote.prorated_charge_due > 0) {
-            await this.walletService.adjustBalance(
-                tenantId,
-                quote.prorated_charge_due,
-                TransactionType.DEBIT,
-                `Purchase Add-on: ${quote.name} (Qty: ${quote.quantity})`,
-                `ADDON-${addonId}-${Date.now()}`
-            );
-        }
+        const customerId = await this.walletService.getSubBillingCustomerId(tenantId).catch(() => tenantId);
 
-        this.logger.log(`Tenant ${tenantId} successfully purchased add-on ${addonId} x${quantity}`);
-
-        return {
-            success: true,
-            message: 'Add-on purchase confirmed successfully',
-            data: {
-                tenant_id: tenantId,
-                addon_purchased: {
+        // Execute purchase in Sub-Billing
+        try {
+            const response = await firstValueFrom(
+                this.httpService.post(`${this.subBillingUrl}/addons/purchase`, {
+                    customer_id: customerId,
                     addon_id: addonId,
-                    name: quote.name,
-                    quantity: quote.quantity,
-                    prorated_charge_paid: quote.prorated_charge_due
-                }
+                    quantity
+                })
+            );
+            this.logger.log(`Tenant ${tenantId} successfully purchased add-on ${addonId} x${quantity} in Sub-Billing`);
+            return response.data;
+        } catch (subErr: any) {
+            this.logger.warn(`Sub-billing /addons/purchase endpoint error: ${subErr.message}. Executing local debit fallback.`);
+            
+            // Debit wallet via walletService
+            if (quote.prorated_charge_due > 0) {
+                await this.walletService.adjustBalance(
+                    tenantId,
+                    quote.prorated_charge_due,
+                    TransactionType.DEBIT,
+                    `Purchase Add-on: ${quote.name} (Qty: ${quote.quantity})`,
+                    `ADDON-${addonId}-${Date.now()}`
+                );
             }
-        };
+
+            return {
+                success: true,
+                message: 'Add-on purchase confirmed successfully',
+                data: {
+                    tenant_id: tenantId,
+                    addon_purchased: {
+                        addon_id: addonId,
+                        name: quote.name,
+                        quantity: quote.quantity,
+                        prorated_charge_paid: quote.prorated_charge_due
+                    }
+                }
+            };
+        }
     }
 }
