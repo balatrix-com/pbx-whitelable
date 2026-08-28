@@ -72,8 +72,18 @@ export class ExtensionsService {
         const existingMap = new Map(existingExtensions.map(e => [e.extensionNumber, e]));
 
         for (const extAsset of subBillingAssets.extensions) {
-            const extNum = String(extAsset.extension_number || extAsset.extensionNumber).trim();
+            let extNum = String(extAsset.extension_number || extAsset.extensionNumber).trim();
             if (!extNum) continue;
+
+            // Defensive normalization: Guarantee {customerCode}{sequence} standard
+            if (tenant.customerCode && !extNum.startsWith(tenant.customerCode)) {
+                const sequenceMatch = extNum.match(/(\d{2})$/);
+                if (sequenceMatch) {
+                    extNum = `${tenant.customerCode}${sequenceMatch[1]}`;
+                } else {
+                    extNum = `${tenant.customerCode}${extNum}`;
+                }
+            }
 
             const existingExt = existingMap.get(extNum);
             if (!existingExt) {
@@ -117,15 +127,10 @@ export class ExtensionsService {
     }
 
     /**
-     * Find all extensions for a tenant
+     * Find all extensions for a tenant (pure, high-performance read operation)
      */
     async findAll(tenantId: string) {
         const targetTenantId = await this.resolveTenantId(tenantId);
-
-        // Auto-sync missing extensions from sub-billing assets (and sync to Kamailio & FreeSWITCH)
-        await this.syncMissingExtensionsFromSubBilling(targetTenantId).catch(err => {
-            this.logger.warn(`Auto-sync extension assets warning for ${targetTenantId}: ${err.message}`);
-        });
 
         return this.prisma.extension.findMany({
             where: { tenantId: targetTenantId },

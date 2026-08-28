@@ -130,17 +130,39 @@ describe('ExtensionsService (Kamailio & Sub-Billing Auto-Sync)', () => {
             await expect(service.syncMissingExtensionsFromSubBilling('tenant-uuid-1')).resolves.not.toThrow();
             expect(prisma.extension.create).not.toHaveBeenCalled();
         });
+
+        it('should normalize legacy truncated extension numbers to standard format with customerCode', async () => {
+            httpService.get.mockReturnValueOnce(
+                of({
+                    data: {
+                        extensions: [
+                            { extension_number: '00601', extension_name: 'Legacy Truncated 1' },
+                            { extension_number: '00602', extension_name: 'Legacy Truncated 2' }
+                        ]
+                    }
+                })
+            );
+
+            await service.syncMissingExtensionsFromSubBilling('tenant-uuid-1');
+
+            expect(prisma.extension.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        extensionNumber: '100601'
+                    })
+                })
+            );
+        });
     });
 
     describe('findAll', () => {
-        it('should trigger auto-sync before querying extensions', async () => {
+        it('should query and return extensions for the tenant', async () => {
             prisma.extension.findMany.mockResolvedValue([
                 { id: 'ext-1', extensionNumber: '100601', tenantId: 'tenant-uuid-1' }
             ]);
 
             const result = await service.findAll('U1006');
 
-            expect(httpService.get).toHaveBeenCalled();
             expect(result).toHaveLength(1);
             expect(result[0].extensionNumber).toBe('100601');
         });
