@@ -17,7 +17,8 @@ import {
     Package,
     Radio,
     HardDrive,
-    Activity
+    Activity,
+    AlertTriangle
 } from 'lucide-react';
 import api from '../../../services/api';
 import { subscriptionService } from '../../../services/subscription.service';
@@ -36,6 +37,8 @@ const TenantWizard = ({ onClose, onSuccess }) => {
     const [createdTenantId, setCreatedTenantId] = useState(null);
     const [tenantName, setTenantName] = useState('');
     const [customerCode, setCustomerCode] = useState(null);
+    const [showWarning, setShowWarning] = useState(false);
+    const [isValidationError, setIsValidationError] = useState(false);
 
     // Step 1: Basic Info
     const [basicInfo, setBasicInfo] = useState({
@@ -156,70 +159,62 @@ const TenantWizard = ({ onClose, onSuccess }) => {
     };
 
     const validateStep1 = () => {
-        if (basicInfo.adminPassword !== basicInfo.confirmPassword) {
-            setError('Passwords do not match');
+        const missingFields = [];
+
+        // Password match check (show immediately, not as a "missing field")
+        if (basicInfo.adminPassword && basicInfo.confirmPassword && basicInfo.adminPassword !== basicInfo.confirmPassword) {
+            setError('Passwords do not match. Please ensure both passwords are identical.');
+            setIsValidationError(true);
             return false;
         }
 
+        // Company-specific fields
         if (basicInfo.customerType === 'company') {
-            if (!basicInfo.companyName?.trim()) {
-                setError('Company Name is required');
-                return false;
-            }
-            if (!basicInfo.companyTaxId?.trim()) {
-                setError('Company Tax ID is required');
-                return false;
-            }
+            if (!basicInfo.companyName?.trim()) missingFields.push('Company Name');
+            if (!basicInfo.companyTaxId?.trim()) missingFields.push('Company Tax ID');
         }
 
-        if (!basicInfo.firstName?.trim()) {
-            setError('First Name is required');
-            return false;
+        // Personal details
+        if (!basicInfo.firstName?.trim()) missingFields.push('First Name');
+        if (!basicInfo.lastName?.trim()) missingFields.push('Last Name');
+        if (!basicInfo.adminEmail?.trim()) missingFields.push('Email');
+        if (!basicInfo.adminPassword) missingFields.push('Password');
+        if (!basicInfo.confirmPassword) missingFields.push('Confirm Password');
+        if (!basicInfo.phone?.trim()) missingFields.push('Phone');
+
+        // Address validation
+        if (!basicInfo.address || basicInfo.address.trim().length < 10) {
+            missingFields.push('Address (min 10 characters)');
         }
 
-        if (!basicInfo.lastName?.trim()) {
-            setError('Last Name is required');
-            return false;
-        }
+        if (!basicInfo.city?.trim()) missingFields.push('City');
+        if (!basicInfo.state?.trim()) missingFields.push('State');
+        if (!basicInfo.country) missingFields.push('Country');
 
-        if (!basicInfo.adminEmail?.trim()) {
-            setError('Email is required');
-            return false;
-        }
-
-        if (!basicInfo.phone?.trim()) {
-            setError('Phone is required');
-            return false;
-        }
-
-        if (!basicInfo.address || basicInfo.address.length < 10) {
-            setError('Address is required and must be at least 10 characters');
-            return false;
-        }
-
-        if (!basicInfo.city?.trim()) {
-            setError('City is required');
-            return false;
-        }
-
-        if (!basicInfo.state?.trim()) {
-            setError('State is required');
-            return false;
-        }
-
-        if (!basicInfo.country) {
-            setError('Country is required');
+        if (missingFields.length > 0) {
+            const message = missingFields.length === 1
+                ? `Please fill in the required field: ${missingFields[0]}`
+                : `Please fill in the following required fields: ${missingFields.join(', ')}`;
+            setError(message);
+            setIsValidationError(true);
             return false;
         }
 
         setError(null);
+        setIsValidationError(false);
         return true;
     };
 
     const handleStep1Next = (e) => {
         if (e) e.preventDefault();
-        if (!validateStep1()) return;
+        if (!validateStep1()) {
+            // Trigger shake animation
+            setShowWarning(true);
+            setTimeout(() => setShowWarning(false), 500);
+            return;
+        }
         setError(null);
+        setIsValidationError(false);
         setCurrentStep(2);
     };
 
@@ -237,6 +232,8 @@ const TenantWizard = ({ onClose, onSuccess }) => {
 
     const handleFinalSubmit = async (skipSubscription = false) => {
         if (!validateStep1()) {
+            setShowWarning(true);
+            setTimeout(() => setShowWarning(false), 500);
             setCurrentStep(1);
             return;
         }
@@ -302,11 +299,13 @@ const TenantWizard = ({ onClose, onSuccess }) => {
             console.error('Tenant creation sequence failed:', err);
             const msg = err.response?.data?.message || err.message || 'Failed during tenant creation sequence';
             setError(msg);
+            setIsValidationError(false);  // API error, not validation
         } finally {
             setLoading(false);
             setStatusMessage('');
         }
     };
+
 
     // Common input styling for dark mode consistency
     const inputClass = "w-full rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800/90 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 transition-all";
@@ -335,11 +334,27 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                         <div>
                             <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 uppercase tracking-wider mb-1">Company Name *</label>
-                            <input type="text" className={inputClass} value={basicInfo.companyName} onChange={e => setBasicInfo({ ...basicInfo, companyName: e.target.value })} placeholder="Acme Inc" />
+                            <input
+                                type="text"
+                                name="tenant_company_name"
+                                autoComplete="off"
+                                className={inputClass}
+                                value={basicInfo.companyName}
+                                onChange={e => setBasicInfo({ ...basicInfo, companyName: e.target.value })}
+                                placeholder="Acme Inc"
+                            />
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 uppercase tracking-wider mb-1">Company Tax ID *</label>
-                            <input type="text" className={inputClass} value={basicInfo.companyTaxId} onChange={e => setBasicInfo({ ...basicInfo, companyTaxId: e.target.value })} placeholder="TAX-123456" />
+                            <input
+                                type="text"
+                                name="tenant_company_tax_id"
+                                autoComplete="off"
+                                className={inputClass}
+                                value={basicInfo.companyTaxId}
+                                onChange={e => setBasicInfo({ ...basicInfo, companyTaxId: e.target.value })}
+                                placeholder="TAX-123456"
+                            />
                         </div>
                     </div>
                 )}
@@ -349,16 +364,40 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 uppercase tracking-wider mb-1">First Name *</label>
-                            <input type="text" className={inputClass} value={basicInfo.firstName} onChange={e => setBasicInfo({ ...basicInfo, firstName: e.target.value })} placeholder="First Name" />
+                            <input
+                                type="text"
+                                name="tenant_admin_first_name"
+                                autoComplete="off"
+                                className={inputClass}
+                                value={basicInfo.firstName}
+                                onChange={e => setBasicInfo({ ...basicInfo, firstName: e.target.value })}
+                                placeholder="First Name"
+                            />
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 uppercase tracking-wider mb-1">Last Name *</label>
-                            <input type="text" className={inputClass} value={basicInfo.lastName} onChange={e => setBasicInfo({ ...basicInfo, lastName: e.target.value })} placeholder="Last Name" />
+                            <input
+                                type="text"
+                                name="tenant_admin_last_name"
+                                autoComplete="off"
+                                className={inputClass}
+                                value={basicInfo.lastName}
+                                onChange={e => setBasicInfo({ ...basicInfo, lastName: e.target.value })}
+                                placeholder="Last Name"
+                            />
                         </div>
                     </div>
                     <div className="mt-3">
                         <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 uppercase tracking-wider mb-1">Email *</label>
-                        <input type="email" className={inputClass} value={basicInfo.adminEmail} onChange={e => setBasicInfo({ ...basicInfo, adminEmail: e.target.value })} placeholder="admin@domain.com" />
+                        <input
+                            type="email"
+                            name="tenant_admin_email"
+                            autoComplete="off"
+                            className={inputClass}
+                            value={basicInfo.adminEmail}
+                            onChange={e => setBasicInfo({ ...basicInfo, adminEmail: e.target.value })}
+                            placeholder="admin@domain.com"
+                        />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
                         <div>
@@ -366,6 +405,8 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                             <div className="relative">
                                 <input
                                     type={showPassword ? "text" : "password"}
+                                    name="tenant_admin_password"
+                                    autoComplete="new-password"
                                     className={`${inputClass} pr-10`}
                                     value={basicInfo.adminPassword}
                                     onChange={e => setBasicInfo({ ...basicInfo, adminPassword: e.target.value })}
@@ -385,6 +426,8 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                             <div className="relative">
                                 <input
                                     type={showConfirmPassword ? "text" : "password"}
+                                    name="tenant_confirm_password"
+                                    autoComplete="new-password"
                                     className={`${inputClass} pr-10`}
                                     value={basicInfo.confirmPassword}
                                     onChange={e => setBasicInfo({ ...basicInfo, confirmPassword: e.target.value })}
@@ -408,6 +451,8 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                             <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 uppercase tracking-wider mb-1">Credit Limit ($)</label>
                             <input
                                 type="number"
+                                name="tenant_credit_limit"
+                                autoComplete="off"
                                 className={inputClass}
                                 value={basicInfo.creditLimit}
                                 onChange={e => setBasicInfo({ ...basicInfo, creditLimit: e.target.value })}
@@ -418,7 +463,15 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 uppercase tracking-wider mb-1">Phone *</label>
-                            <input type="tel" className={inputClass} value={basicInfo.phone} onChange={e => setBasicInfo({ ...basicInfo, phone: e.target.value })} placeholder="1234567890" />
+                            <input
+                                type="tel"
+                                name="tenant_phone"
+                                autoComplete="off"
+                                className={inputClass}
+                                value={basicInfo.phone}
+                                onChange={e => setBasicInfo({ ...basicInfo, phone: e.target.value })}
+                                placeholder="1234567890"
+                            />
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 uppercase tracking-wider mb-1">Country *</label>
@@ -438,28 +491,69 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                         </div>
                         <div className="sm:col-span-2">
                             <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 uppercase tracking-wider mb-1">Address (min 10 chars) *</label>
-                            <input type="text" className={inputClass} value={basicInfo.address} onChange={e => setBasicInfo({ ...basicInfo, address: e.target.value })} placeholder="123 Main St, Suite 100" />
+                            <input
+                                type="text"
+                                name="tenant_address"
+                                autoComplete="off"
+                                className={inputClass}
+                                value={basicInfo.address}
+                                onChange={e => setBasicInfo({ ...basicInfo, address: e.target.value })}
+                                placeholder="123 Main St, Suite 100"
+                            />
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 uppercase tracking-wider mb-1">City *</label>
-                            <input type="text" className={inputClass} value={basicInfo.city} onChange={e => setBasicInfo({ ...basicInfo, city: e.target.value })} placeholder="San Francisco" />
+                            <input
+                                type="text"
+                                name="tenant_city"
+                                autoComplete="off"
+                                className={inputClass}
+                                value={basicInfo.city}
+                                onChange={e => setBasicInfo({ ...basicInfo, city: e.target.value })}
+                                placeholder="San Francisco"
+                            />
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 uppercase tracking-wider mb-1">State *</label>
-                            <input type="text" className={inputClass} value={basicInfo.state} onChange={e => setBasicInfo({ ...basicInfo, state: e.target.value })} placeholder="CA" />
+                            <input
+                                type="text"
+                                name="tenant_state"
+                                autoComplete="off"
+                                className={inputClass}
+                                value={basicInfo.state}
+                                onChange={e => setBasicInfo({ ...basicInfo, state: e.target.value })}
+                                placeholder="CA"
+                            />
                         </div>
                     </div>
                 </div>
             </div>
-            <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-slate-800">
-                <button
-                    type="button"
-                    onClick={handleStep1Next}
-                    disabled={!isStep1Valid()}
-                    className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-primary-600/20 disabled:opacity-50 flex items-center gap-1.5 transition-all"
-                >
-                    Next: Wallet Funding <ChevronRight size={16} />
-                </button>
+            <div className="pt-4 border-t border-gray-100 dark:border-slate-800 space-y-3">
+                {error && isValidationError && (
+                    <div
+                        className={`p-3 rounded-xl border text-xs font-semibold flex justify-between items-start transition-all bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/40 ${showWarning ? 'animate-shake' : ''}`}
+                    >
+                        <div className="flex items-start gap-2">
+                            <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+                            <span>{error}</span>
+                        </div>
+                        <button
+                            onClick={() => { setError(null); setIsValidationError(false); }}
+                            className="flex-shrink-0 ml-2"
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                )}
+                <div className="flex justify-end">
+                    <button
+                        type="button"
+                        onClick={handleStep1Next}
+                        className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-primary-600/20 flex items-center gap-1.5 transition-all"
+                    >
+                        Next: Wallet Funding <ChevronRight size={16} />
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -758,6 +852,18 @@ const TenantWizard = ({ onClose, onSuccess }) => {
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+            <style>{`
+                @keyframes shake {
+                    0%, 100% { transform: translateX(0); }
+                    20% { transform: translateX(-6px); }
+                    40% { transform: translateX(6px); }
+                    60% { transform: translateX(-4px); }
+                    80% { transform: translateX(4px); }
+                }
+                .animate-shake {
+                    animation: shake 0.4s ease-in-out;
+                }
+            `}</style>
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] ring-1 ring-gray-200 dark:ring-slate-800">
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-800 bg-gray-50/60 dark:bg-slate-900/80 flex justify-between items-center">
@@ -796,10 +902,23 @@ const TenantWizard = ({ onClose, onSuccess }) => {
 
                 {/* Content */}
                 <div className="p-6 flex-1 overflow-y-auto bg-white dark:bg-slate-900">
-                    {error && (
-                        <div className="mb-4 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-xs font-semibold p-3 rounded-xl border border-red-200 dark:border-red-900/40 flex justify-between items-start">
-                            <span>{error}</span>
-                            <button onClick={() => setError(null)}><X size={14} /></button>
+                    {error && !(currentStep === 1 && isValidationError) && (
+                        <div
+                            className={`mb-4 p-3 rounded-xl border text-xs font-semibold flex justify-between items-start transition-all ${isValidationError
+                                ? `bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/40 ${showWarning ? 'animate-shake' : ''}`
+                                : 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/40'
+                                }`}
+                        >
+                            <div className="flex items-start gap-2">
+                                {isValidationError && <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />}
+                                <span>{error}</span>
+                            </div>
+                            <button
+                                onClick={() => { setError(null); setIsValidationError(false); }}
+                                className="flex-shrink-0 ml-2"
+                            >
+                                <X size={14} />
+                            </button>
                         </div>
                     )}
                     {currentStep === 1 && renderStep1()}

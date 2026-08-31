@@ -156,7 +156,12 @@ const TenantsPage = () => {
                         <Search className="h-5 w-5 text-gray-400" />
                     </div>
                     <input
-                        type="text"
+                        type="search"
+                        id="tenant_search_filter"
+                        name="tenant_search_filter"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        spellCheck="false"
                         placeholder="Search by company name, tenant ID, or email..."
                         className="block w-full rounded-2xl border-0 py-3.5 pl-12 pr-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm font-bold bg-gray-50/50 transition-all"
                         value={search}
