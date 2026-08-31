@@ -512,7 +512,7 @@ export class WalletService {
                     customer_id: customerId,
                     plan_id: planId,
                     status: 'active',
-                    override_balance_check: true
+                    override_balance_check: false
                 })
             );
             if (response.data && response.data.success) {
