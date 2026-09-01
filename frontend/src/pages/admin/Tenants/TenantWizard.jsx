@@ -866,7 +866,7 @@ const TenantWizard = ({ onClose, onSuccess }) => {
             `}</style>
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] ring-1 ring-gray-200 dark:ring-slate-800">
                 {/* Header */}
-                <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-800 bg-gray-50/60 dark:bg-slate-900/80 flex justify-between items-center">
+                <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center">
                     <div className="flex items-center gap-2.5">
                         <div className="p-2 rounded-xl bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 border border-primary-100 dark:border-primary-900/40">
                             <Building2 size={18} />
@@ -880,19 +880,37 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                 </div>
 
                 {/* Progress */}
-                <div className="px-6 py-3.5 border-b border-gray-100 dark:border-slate-800 bg-gray-50/30 dark:bg-slate-900/50 flex justify-between">
+                <div className="px-6 py-3.5 border-b border-gray-100 dark:border-slate-800 flex justify-between select-none">
                     {STEPS.map((step, idx) => {
                         const Icon = step.icon;
                         const isActive = currentStep === step.number;
                         const isCompleted = currentStep > step.number;
                         return (
-                            <div key={step.number} className={`flex flex-col items-center flex-1 relative ${idx !== STEPS.length - 1 ? 'after:content-[""] after:h-[2px] after:w-1/2 after:bg-gray-200 dark:after:bg-slate-700 after:absolute after:top-4 after:-right-1/4 after:z-0' : ''}`}>
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center z-10 transition-colors text-xs font-bold ${isActive ? 'bg-primary-600 text-white shadow-sm ring-2 ring-primary-500/20' :
-                                    isCompleted ? 'bg-emerald-500 text-white' : 'bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-slate-700'
+                            <div key={step.number} className={`flex justify-between flex-col items-center flex-1 relative ${idx !== STEPS.length - 1 ? 'after:content-[""] after:h-[2px] after:w-1/2 after:bg-gray-300 dark:after:bg-slate-700 after:absolute after:top-4 after:-right-1/4 after:z-0' : ''}`}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (step.number < currentStep || (step.number === 2 && validateStep1())) {
+                                            setError(null);
+                                            setCurrentStep(step.number);
+                                        }
+                                    }}
+                                    disabled={loading || (step.number > currentStep && step.number !== 2)}
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center z-10 transition-colors text-xs font-bold ${isCompleted
+                                        ? 'bg-emerald-500 text-white shadow-sm ring-2 ring-emerald-500/20 cursor-pointer'
+                                        : isActive
+                                            ? 'bg-primary-600 text-white shadow-sm ring-2 ring-primary-500/20'
+                                            : 'bg-transparent text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-slate-700'
+                                        }`}
+                                >
+                                    {isCompleted ? <Check size={16} strokeWidth={2.5} /> : <Icon size={16} />}
+                                </button>
+                                <span className={`text-[11px] mt-1.5 font-bold transition-colors ${isCompleted
+                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                    : isActive
+                                        ? 'text-primary-600 dark:text-primary-400'
+                                        : 'text-gray-500 dark:text-slate-400'
                                     }`}>
-                                    {isCompleted ? <Check size={16} /> : <Icon size={16} />}
-                                </div>
-                                <span className={`text-[11px] mt-1.5 font-bold transition-colors ${isActive ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-slate-400'}`}>
                                     {step.title}
                                 </span>
                             </div>
