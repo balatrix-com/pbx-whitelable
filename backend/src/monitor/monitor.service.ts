@@ -20,53 +20,91 @@ export class MonitorService {
      */
     async getActiveCalls(tenantId?: string) {
         try {
-            let resolvedTenantId = tenantId;
-            if (tenantId && tenantId !== 'all') {
+            const patterns = new Set<string>();
+
+            if (!tenantId || tenantId === 'all') {
+                patterns.add('customer:*:call:*');
+            } else {
                 const tenant = await this.prisma.tenant.findUnique({
                     where: { id: tenantId },
-                    select: { customerCode: true }
+                    select: { customerCode: true, subBillingCustomerId: true }
                 });
+
+                const candidateCodes = new Set<string>();
+                candidateCodes.add(tenantId);
+                if (tenantId.startsWith('U')) {
+                    candidateCodes.add(tenantId.slice(1));
+                } else {
+                    candidateCodes.add(`U${tenantId}`);
+                }
+
                 if (tenant?.customerCode) {
-                    resolvedTenantId = tenant.customerCode;
+                    candidateCodes.add(tenant.customerCode);
+                    if (tenant.customerCode.startsWith('U')) {
+                        candidateCodes.add(tenant.customerCode.slice(1));
+                    } else {
+                        candidateCodes.add(`U${tenant.customerCode}`);
+                    }
+                }
+                if (tenant?.subBillingCustomerId) {
+                    candidateCodes.add(tenant.subBillingCustomerId);
+                    if (tenant.subBillingCustomerId.startsWith('U')) {
+                        candidateCodes.add(tenant.subBillingCustomerId.slice(1));
+                    } else {
+                        candidateCodes.add(`U${tenant.subBillingCustomerId}`);
+                    }
+                }
+
+                for (const code of candidateCodes) {
+                    patterns.add(`customer:${code}:call:*`);
                 }
             }
-            const isAll = resolvedTenantId === 'all' || !resolvedTenantId;
-            const pattern = isAll ? 'customer:*:call:*' : `customer:${resolvedTenantId}:call:*`;
-            const keys: string[] = [];
 
-            for await (const chunk of this.redisClient.scanIterator({
-                MATCH: pattern,
-                COUNT: 100
-            })) {
-                keys.push(...chunk);
+            const keys = new Set<string>();
+            for (const pattern of patterns) {
+                for await (const chunk of this.redisClient.scanIterator({
+                    MATCH: pattern,
+                    COUNT: 100
+                })) {
+                    for (const key of chunk) {
+                        keys.add(key);
+                    }
+                }
             }
 
             const calls = [];
+            const activeStatuses = ['new', 'ringing', 'answered', 'connected'];
 
             for (const key of keys) {
                 const callData = await this.redisClient.hGetAll(key);
+                const rawStatus = (callData.call_status || '').toLowerCase().trim();
 
-                // Filter only active calls (new, ringing, answered)
-                if (['new', 'ringing', 'answered'].includes(callData.call_status)) {
+                // Filter only active calls (new, ringing, answered, connected)
+                if (activeStatuses.includes(rawStatus)) {
+                    const normalizedStatus = rawStatus === 'connected' ? 'answered' : rawStatus;
                     calls.push({
                         uuid: callData.uuid,
-                        bUuid: callData.b_uuid,
-                        caller: callData.caller,
-                        callee: callData.callee,
-                        status: callData.call_status,
-                        destType: callData.dest_type,
-                        destValue: callData.dest_value,
-                        direction: callData.direction,
-                        startTime: callData.start_ts ? new Date(parseInt(callData.start_ts) * 1000) : null,
-                        answerTime: callData.answer_ts ? new Date(parseInt(callData.answer_ts) * 1000) : null,
+                        bUuid: callData.b_uuid || '',
+                        caller: callData.caller || '',
+                        callee: callData.callee || '',
+                        status: normalizedStatus,
+                        destType: callData.dest_type || '',
+                        destValue: callData.dest_value || '',
+                        direction: callData.direction || '',
+                        startTime: callData.start_ts || null,
+                        answerTime: callData.answer_ts || null,
                         duration: callData.duration ? parseInt(callData.duration) : 0,
-                        tenantId: callData.customer_id || key.split(':')[1] || resolvedTenantId || null,
+                        tenantId: callData.customer_id || key.split(':')[1] || tenantId || null,
                     });
                 }
             }
 
             // Sort by start time desc
-            return calls.sort((a, b) => (b.startTime?.getTime() || 0) - (a.startTime?.getTime() || 0));
+            return calls.sort((a, b) => {
+                const timeA = a.startTime ? parseInt(a.startTime.toString()) : 0;
+                const timeB = b.startTime ? parseInt(b.startTime.toString()) : 0;
+                return timeB - timeA;
+            });
 
         } catch (error) {
             this.logger.error(`Failed to get active calls for tenant ${tenantId}`, error);
@@ -79,19 +117,45 @@ export class MonitorService {
      */
     async verifyCallTenant(uuid: string, tenantId: string): Promise<boolean> {
         try {
-            let resolvedTenantId = tenantId;
-            if (tenantId && tenantId !== 'all') {
-                const tenant = await this.prisma.tenant.findUnique({
-                    where: { id: tenantId },
-                    select: { customerCode: true }
-                });
-                if (tenant?.customerCode) {
-                    resolvedTenantId = tenant.customerCode;
+            if (!tenantId || tenantId === 'all') return true;
+
+            const tenant = await this.prisma.tenant.findUnique({
+                where: { id: tenantId },
+                select: { customerCode: true, subBillingCustomerId: true }
+            });
+
+            const candidateCodes = new Set<string>();
+            candidateCodes.add(tenantId);
+            if (tenantId.startsWith('U')) {
+                candidateCodes.add(tenantId.slice(1));
+            } else {
+                candidateCodes.add(`U${tenantId}`);
+            }
+
+            if (tenant?.customerCode) {
+                candidateCodes.add(tenant.customerCode);
+                if (tenant.customerCode.startsWith('U')) {
+                    candidateCodes.add(tenant.customerCode.slice(1));
+                } else {
+                    candidateCodes.add(`U${tenant.customerCode}`);
                 }
             }
-            const key = `customer:${resolvedTenantId}:call:${uuid}`;
-            const exists = await this.redisClient.exists(key);
-            return exists === 1;
+            if (tenant?.subBillingCustomerId) {
+                candidateCodes.add(tenant.subBillingCustomerId);
+                if (tenant.subBillingCustomerId.startsWith('U')) {
+                    candidateCodes.add(tenant.subBillingCustomerId.slice(1));
+                } else {
+                    candidateCodes.add(`U${tenant.subBillingCustomerId}`);
+                }
+            }
+
+            for (const code of candidateCodes) {
+                const key = `customer:${code}:call:${uuid}`;
+                if (await this.redisClient.exists(key) === 1) {
+                    return true;
+                }
+            }
+            return false;
         } catch (error) {
             this.logger.error(`Failed to verify call tenant ownership for ${uuid}: ${error.message}`);
             return false;
