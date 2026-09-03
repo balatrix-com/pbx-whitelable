@@ -15,10 +15,19 @@ const MonitoringPage = () => {
     const [socket, setSocket] = useState(null);
     const [isConnected, setIsConnected] = useState(false);
     const [bargeStatus, setBargeStatus] = useState('');
+    const [currentTime, setCurrentTime] = useState(Date.now());
 
     const isSuperAdmin = user?.role === 'SUPER_ADMIN';
     const targetTenantId = isSuperAdmin ? selectedTenantId : user?.tenantId;
     const adminExtension = user?.monitoringExtension || user?.extension;
+
+    // 1-second timer ticker for live call durations
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(Date.now());
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
 
     // Fetch tenant list for Super Admin dropdown filter
     useEffect(() => {
@@ -32,13 +41,8 @@ const MonitoringPage = () => {
         }
     }, [isSuperAdmin]);
 
+    // Connect socket once on mount
     useEffect(() => {
-        if (!targetTenantId) return;
-
-        // 1. Initial Load
-        loadActiveCalls();
-
-        // 2. Connect Socket
         const token = sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken');
 
         if (!token) {
@@ -66,9 +70,7 @@ const MonitoringPage = () => {
 
         newSocket.on('connect', () => {
             console.log('Monitor Socket Connected');
-            console.log('Joining room:', targetTenantId);
             setIsConnected(true);
-            newSocket.emit('join_room', targetTenantId);
         });
 
         newSocket.on('disconnect', (reason) => {
@@ -99,7 +101,19 @@ const MonitoringPage = () => {
         return () => {
             newSocket.disconnect();
         };
-    }, [targetTenantId]);
+    }, []);
+
+    // Smooth tenant switching without socket reconnect: join new room & refresh calls
+    useEffect(() => {
+        if (!targetTenantId) return;
+
+        if (socket && isConnected) {
+            console.log('Switching to room:', targetTenantId);
+            socket.emit('join_room', targetTenantId);
+        }
+
+        loadActiveCalls();
+    }, [targetTenantId, socket, isConnected]);
 
     const sendPing = () => {
         if (socket) {
@@ -182,6 +196,34 @@ const MonitoringPage = () => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const getLiveDuration = (call) => {
+        // If call has ended, show the final recorded duration
+        if (call.status === 'ended' && call.duration) {
+            return call.duration;
+        }
+
+        // Measure from answerTime if answered, otherwise from startTime if ringing
+        const baseTime = call.status === 'answered' ? (call.answerTime || call.startTime) : call.startTime;
+        if (!baseTime) return call.duration || 0;
+
+        let startMs = 0;
+        if (typeof baseTime === 'number') {
+            startMs = baseTime > 1e11 ? baseTime : baseTime * 1000;
+        } else if (typeof baseTime === 'string') {
+            const num = parseInt(baseTime, 10);
+            if (!isNaN(num)) {
+                startMs = num > 1e11 ? num : num * 1000;
+            } else {
+                startMs = new Date(baseTime).getTime();
+            }
+        } else if (baseTime instanceof Date) {
+            startMs = baseTime.getTime();
+        }
+
+        if (!startMs || isNaN(startMs)) return call.duration || 0;
+        return Math.max(0, Math.floor((currentTime - startMs) / 1000));
     };
 
     if (loading) return (
@@ -318,7 +360,7 @@ const MonitoringPage = () => {
                                             </div>
                                             <div className="text-sm font-mono font-bold text-gray-900 flex items-center bg-gray-50 px-2 py-1 rounded-md ring-1 ring-inset ring-gray-200">
                                                 {call.status === 'answered' && <span className="mr-2 h-2 w-2 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.6)] animate-pulse"></span>}
-                                                {formatDuration(call.duration)}
+                                                {formatDuration(getLiveDuration(call))}
                                             </div>
                                         </div>
 
