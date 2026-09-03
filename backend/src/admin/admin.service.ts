@@ -284,32 +284,57 @@ export class AdminService {
     async getTelecomStats() {
         const [
             totalDIDs,
+            totalTFNs,
             totalExtensions,
             totalRingGroups,
             totalIVRs,
             totalSchedules,
         ] = await Promise.all([
             this.prisma.dID.count(),
+            this.prisma.tFN.count(),
             this.prisma.extension.count(),
             this.prisma.ringGroup.count(),
             this.prisma.iVR.count(),
             this.prisma.operationalSchedule.count(),
         ]);
 
-        // Get active tenants (tenants with at least one DID)
-        const tenantsWithDIDs = await this.prisma.dID.groupBy({
-            by: ['tenantId'],
-        });
-        const activeTenants = tenantsWithDIDs.length;
+        // Get active tenants (tenants with at least one DID or TFN)
+        const [tenantsWithDIDs, tenantsWithTFNs] = await Promise.all([
+            this.prisma.dID.groupBy({
+                by: ['tenantId'],
+            }),
+            this.prisma.tFN.groupBy({
+                by: ['tenantId'],
+                where: { tenantId: { not: null } }
+            }),
+        ]);
 
-        // Calculate monthly revenue from DIDs
-        const didsWithFees = await this.prisma.dID.findMany({
-            select: { monthlyFee: true },
-        });
-        const monthlyRevenue = didsWithFees.reduce(
-            (sum, did) => sum + (did.monthlyFee ? parseFloat(did.monthlyFee.toString()) : 0),
-            0,
-        );
+        const activeTenantIds = new Set([
+            ...tenantsWithDIDs.map(t => t.tenantId).filter(Boolean),
+            ...tenantsWithTFNs.map(t => t.tenantId).filter(Boolean),
+        ]);
+        const activeTenants = activeTenantIds.size;
+
+        // Calculate monthly revenue from DIDs and assigned TFNs
+        const [didsWithFees, tfnsWithFees] = await Promise.all([
+            this.prisma.dID.findMany({
+                select: { monthlyFee: true },
+            }),
+            this.prisma.tFN.findMany({
+                where: { tenantId: { not: null } },
+                select: { price: true },
+            }),
+        ]);
+
+        const monthlyRevenue =
+            didsWithFees.reduce(
+                (sum, did) => sum + (did.monthlyFee ? parseFloat(did.monthlyFee.toString()) : 0),
+                0,
+            ) +
+            tfnsWithFees.reduce(
+                (sum, tfn) => sum + (tfn.price ? parseFloat(tfn.price.toString()) : 0),
+                0,
+            );
 
         const limitStr = process.env.SYSTEM_LIMIT_EXTENSIONS;
         const limit = limitStr ? parseInt(limitStr, 10) : 500;
@@ -317,6 +342,7 @@ export class AdminService {
 
         return {
             totalDIDs,
+            totalTFNs,
             totalExtensions,
             availableExtensions,
             limitExtensions: limit,
@@ -348,27 +374,40 @@ export class AdminService {
      * Get tenant-specific telecom stats (for detailed view)
      */
     async getTenantTelecomStats(tenantId: string) {
-        const [dids, extensions, ringGroups, ivrs, schedules] = await Promise.all([
+        const [dids, tfns, extensions, ringGroups, ivrs, schedules] = await Promise.all([
             this.prisma.dID.count({ where: { tenantId } }),
+            this.prisma.tFN.count({ where: { tenantId } }),
             this.prisma.extension.count({ where: { tenantId } }),
             this.prisma.ringGroup.count({ where: { tenantId } }),
             this.prisma.iVR.count({ where: { tenantId } }),
             this.prisma.operationalSchedule.count({ where: { tenantId } }),
         ]);
 
-        // Calculate DID monthly fees for this tenant
-        const tenantDIDs = await this.prisma.dID.findMany({
-            where: { tenantId },
-            select: { monthlyFee: true },
-        });
+        // Calculate DID + TFN monthly fees for this tenant
+        const [tenantDIDs, tenantTFNs] = await Promise.all([
+            this.prisma.dID.findMany({
+                where: { tenantId },
+                select: { monthlyFee: true },
+            }),
+            this.prisma.tFN.findMany({
+                where: { tenantId },
+                select: { price: true },
+            }),
+        ]);
 
-        const monthlyFee = tenantDIDs.reduce(
-            (sum, did) => sum + (did.monthlyFee ? parseFloat(did.monthlyFee.toString()) : 0),
-            0,
-        );
+        const monthlyFee =
+            tenantDIDs.reduce(
+                (sum, did) => sum + (did.monthlyFee ? parseFloat(did.monthlyFee.toString()) : 0),
+                0,
+            ) +
+            tenantTFNs.reduce(
+                (sum, tfn) => sum + (tfn.price ? parseFloat(tfn.price.toString()) : 0),
+                0,
+            );
 
         return {
             dids,
+            tfns,
             extensions,
             ringGroups,
             ivrs,
