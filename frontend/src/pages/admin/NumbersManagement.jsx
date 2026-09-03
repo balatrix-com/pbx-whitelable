@@ -51,16 +51,16 @@ const NumbersManagement = () => {
             if (numberList.length === 0) return;
 
             if (activeTab === 'tfn') {
-                await telecomService.adminAddTFNBulk({ 
-                    numbers: numberList, 
+                await telecomService.adminAddTFNBulk({
+                    numbers: numberList,
                     price: parseFloat(newNumber.price),
-                    isDemo: newNumber.isDemo 
+                    isDemo: newNumber.isDemo
                 });
             } else {
-                await telecomService.adminAddDIDBulk({ 
-                    numbers: numberList, 
-                    monthlyFee: parseFloat(newNumber.price), 
-                    provider: newNumber.provider 
+                await telecomService.adminAddDIDBulk({
+                    numbers: numberList,
+                    monthlyFee: parseFloat(newNumber.price),
+                    provider: newNumber.provider
                 });
             }
             setShowAddModal(false);
@@ -111,10 +111,10 @@ const NumbersManagement = () => {
     const filteredNumbers = currentNumbers.filter(n => {
         const matchesSearch = n.number.includes(search) || n.tenant?.name?.toLowerCase().includes(search.toLowerCase());
         if (activeTab === 'did') return matchesSearch;
-        
-        const matchesDemoFilter = demoFilter === 'all' || 
-                                (demoFilter === 'demo' && n.isDemo) || 
-                                (demoFilter === 'standard' && !n.isDemo);
+
+        const matchesDemoFilter = demoFilter === 'all' ||
+            (demoFilter === 'demo' && n.isDemo) ||
+            (demoFilter === 'standard' && !n.isDemo);
         return matchesSearch && matchesDemoFilter;
     });
 
@@ -304,49 +304,6 @@ const NumbersManagement = () => {
                                     required
                                 />
                             </div>
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-extrabold text-gray-500 uppercase tracking-widest ml-1">Monthly Price ($)</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl focus:ring-2 focus:ring-primary-500 font-bold"
-                                    value={newNumber.price}
-                                    onChange={e => setNewNumber({ ...newNumber, price: e.target.value })}
-                                    required
-                                />
-                            </div>
-                            {activeTab === 'tfn' && (
-                                <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-2xl border border-amber-100/50">
-                                    <div className="flex items-center h-5">
-                                        <input
-                                            id="isDemo"
-                                            type="checkbox"
-                                            className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                                            checked={newNumber.isDemo}
-                                            onChange={e => setNewNumber({ ...newNumber, isDemo: e.target.checked })}
-                                        />
-                                    </div>
-                                    <div className="text-sm">
-                                        <label htmlFor="isDemo" className="font-bold text-amber-900">Mark as Demo Number</label>
-                                        <p className="text-amber-700/70 text-[10px] font-medium leading-tight mt-0.5">Will be available exclusively in the Demo Dashboard.</p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {activeTab === 'did' && (
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-extrabold text-gray-500 uppercase tracking-widest ml-1">Provider</label>
-                                    <select
-                                        className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl focus:ring-2 focus:ring-primary-500 font-bold"
-                                        value={newNumber.provider}
-                                        onChange={e => setNewNumber({ ...newNumber, provider: e.target.value })}
-                                    >
-                                        <option value="telnyx">Telnyx</option>
-                                        <option value="twilio">Twilio</option>
-                                        <option value="other">Other</option>
-                                    </select>
-                                </div>
-                            )}
                             <button
                                 type="submit"
                                 className="w-full bg-primary-600 text-white py-4 rounded-2xl font-extrabold text-lg shadow-lg shadow-primary-600/20 hover:bg-primary-700 transition-all active:scale-95"

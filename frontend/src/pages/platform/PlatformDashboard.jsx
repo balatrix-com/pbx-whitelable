@@ -33,6 +33,7 @@ const PlatformDashboard = () => {
         totalWalletBalance: 0,
         telecom: {
             totalDIDs: 0,
+            totalTFNs: 0,
             totalExtensions: 0,
             availableExtensions: 0,
             limitExtensions: 500,
@@ -73,6 +74,7 @@ const PlatformDashboard = () => {
                     ...res.data,
                     telecom: {
                         totalDIDs: 0,
+                        totalTFNs: 0,
                         totalExtensions: res.data.totalExtensions || 0,
                         availableExtensions: res.data.availableExtensions || 0,
                         limitExtensions: res.data.limitExtensions || 500,
@@ -182,7 +184,7 @@ const PlatformDashboard = () => {
                         <Activity className="h-5 w-5 text-blue-500" />
                         Telecom Overview
                     </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         <StatCard
                             icon={Phone}
                             label="Total DIDs"
@@ -190,46 +192,52 @@ const PlatformDashboard = () => {
                             color="blue"
                         />
                         <StatCard
+                            icon={Phone}
+                            label="Total TFNs"
+                            value={stats.telecom.totalTFNs}
+                            color="blue"
+                        />
+                        <StatCard
                             icon={Users}
                             label="Total Extensions"
                             value={stats.telecom.totalExtensions}
-                            color="purple"
+                            color="blue"
                         />
                         <StatCard
                             icon={Database}
                             label="Available Extensions"
                             value={`${stats.telecom.availableExtensions} / ${stats.telecom.limitExtensions}`}
-                            color="orange"
+                            color="blue"
                         />
                         <StatCard
                             icon={Users}
                             label="Ring Groups"
                             value={stats.telecom.totalRingGroups}
-                            color="green"
+                            color="blue"
                         />
                         <StatCard
                             icon={PhoneCall}
                             label="IVR Menus"
                             value={stats.telecom.totalIVRs}
-                            color="orange"
+                            color="blue"
                         />
                         <StatCard
                             icon={Clock}
                             label="Schedules"
                             value={stats.telecom.totalSchedules}
-                            color="indigo"
+                            color="blue"
                         />
                         <StatCard
                             icon={Building2}
                             label="Active Telecom Tenants"
                             value={stats.telecom.activeTenants}
-                            color="teal"
+                            color="blue"
                         />
                         <StatCard
                             icon={CreditCard}
                             label="Monthly Telecom Revenue"
                             value={`$${Number(stats.telecom.monthlyRevenue).toFixed(2)}`}
-                            color="emerald"
+                            color="blue"
                         />
                     </div>
                 </div>
