@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { FreeSwitchSyncService } from '../freeswitch/freeswitch-sync.service';
@@ -264,11 +264,51 @@ export class TenantsService {
             this.logger.warn(`Could not fetch subscription details for tenant ${id}: ${error.message}`);
         }
 
+        // Fetch primary admin user for this tenant
+        const adminUser = await this.prisma.user.findFirst({
+            where: { tenantId: id, role: 'ADMIN' },
+            select: { id: true, email: true, name: true, createdAt: true }
+        });
+
+        // Fetch real-time customer onboarding details from sub-billing
+        let customerDetails = null;
+        try {
+            customerDetails = await this.walletService.getCustomerDetails(id);
+        } catch (error) {
+            this.logger.warn(`Could not fetch customer details for tenant ${id}: ${error.message}`);
+        }
+
+        // Derive first and last name if not explicitly in customerDetails
+        let firstName = customerDetails?.first_name || '';
+        let lastName = customerDetails?.last_name || '';
+        if (!firstName && !lastName && adminUser?.name) {
+            const parts = adminUser.name.split(' ');
+            firstName = parts[0] || '';
+            lastName = parts.slice(1).join(' ') || '';
+        }
+
+        const enrichedCustomerDetails = {
+            customerType: customerDetails?.customer_type || 'company',
+            companyName: customerDetails?.company_name || tenant.name,
+            companyTaxId: customerDetails?.company_tax_id || '',
+            firstName: firstName,
+            lastName: lastName,
+            adminEmail: customerDetails?.admin_email || adminUser?.email || '',
+            phone: customerDetails?.phone || '',
+            address: customerDetails?.address_st || '',
+            city: customerDetails?.city || '',
+            state: customerDetails?.state || '',
+            country: customerDetails?.country || 'USA',
+            creditLimit: (realWallet as any)?.creditLimit !== undefined ? Number((realWallet as any).creditLimit) : (customerDetails?.credit_limit !== undefined ? Number(customerDetails.credit_limit) : 0)
+        };
+
         return {
             ...tenant,
             wallet: realWallet,
             tenantFeatures: features,
             subscription,
+            adminUser,
+            customerDetails: enrichedCustomerDetails,
             stats: {
                 users: tenant._count.users,
                 extensions: tenant._count.extensions,
@@ -279,6 +319,86 @@ export class TenantsService {
             }
         };
     }
+
+    async updateTenantDetails(id: string, dto: {
+        customerType?: 'company' | 'individual';
+        companyName?: string;
+        companyTaxId?: string;
+        firstName?: string;
+        lastName?: string;
+        adminEmail?: string;
+        adminPassword?: string;
+        phone?: string;
+        address?: string;
+        city?: string;
+        state?: string;
+        country?: string;
+        creditLimit?: number;
+    }) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id }
+        });
+        if (!tenant) throw new NotFoundException('Tenant not found');
+
+        // 1. Update Sub-Billing customer details & Credit limit
+        try {
+            await this.walletService.updateCustomerDetails(id, dto);
+        } catch (err) {
+            this.logger.warn(`Sub-billing update failed or skipped: ${err.message}`);
+        }
+
+        // 2. Update PBX Tenant Name if companyName or firstName/lastName changed
+        let newTenantName = tenant.name;
+        if (dto.customerType === 'company' && dto.companyName) {
+            newTenantName = dto.companyName.trim();
+        } else if (dto.customerType === 'individual' && (dto.firstName || dto.lastName)) {
+            newTenantName = `${dto.firstName || ''} ${dto.lastName || ''}`.trim();
+        } else if (dto.companyName) {
+            newTenantName = dto.companyName.trim();
+        }
+
+        if (newTenantName && newTenantName !== tenant.name) {
+            await this.prisma.tenant.update({
+                where: { id },
+                data: { name: newTenantName }
+            });
+        }
+
+        // 3. Update PBX Admin User
+        const adminUser = await this.prisma.user.findFirst({
+            where: { tenantId: id, role: 'ADMIN' }
+        });
+
+        if (adminUser) {
+            const userUpdateData: any = {};
+            if (dto.firstName || dto.lastName) {
+                userUpdateData.name = `${dto.firstName || ''} ${dto.lastName || ''}`.trim();
+            }
+            if (dto.adminEmail && dto.adminEmail.toLowerCase() !== adminUser.email.toLowerCase()) {
+                const emailExists = await this.prisma.user.findUnique({
+                    where: { email: dto.adminEmail.toLowerCase() }
+                });
+                if (emailExists && emailExists.id !== adminUser.id) {
+                    throw new BadRequestException('Email already in use by another user');
+                }
+                userUpdateData.email = dto.adminEmail.toLowerCase();
+            }
+            if (dto.adminPassword && dto.adminPassword.trim().length > 0) {
+                const hashedPassword = await import('bcrypt').then(m => m.hash(dto.adminPassword!, 10));
+                userUpdateData.password = hashedPassword;
+            }
+
+            if (Object.keys(userUpdateData).length > 0) {
+                await this.prisma.user.update({
+                    where: { id: adminUser.id },
+                    data: userUpdateData
+                });
+            }
+        }
+
+        return this.getTenantDetails(id);
+    }
+
 
     async updateTenantFeatures(id: string, dto: {
         ivrEnabled?: boolean;

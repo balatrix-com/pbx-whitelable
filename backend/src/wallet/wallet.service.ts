@@ -597,4 +597,76 @@ export class WalletService {
             throw new BadRequestException(`Failed to update credit limit: ${errorMsg}`);
         }
     }
+
+    async getCustomerDetails(tenantId: string) {
+        try {
+            const customerId = await this.getSubBillingCustomerId(tenantId);
+            const response = await firstValueFrom(
+                this.httpService.get(`${this.subBillingUrl}/customers/${customerId}`)
+            );
+            if (response.data && response.data.success) {
+                return response.data.data;
+            }
+            return response.data;
+        } catch (error) {
+            this.logger.warn(`Failed to fetch customer details from sub-billing for tenant ${tenantId}: ${error.message}`);
+            return null;
+        }
+    }
+
+    async updateCustomerDetails(tenantId: string, details: {
+        customerType?: string;
+        companyName?: string;
+        companyTaxId?: string;
+        firstName?: string;
+        lastName?: string;
+        adminEmail?: string;
+        phone?: string;
+        address?: string;
+        city?: string;
+        state?: string;
+        country?: string;
+        creditLimit?: number;
+    }) {
+        const customerId = await this.getSubBillingCustomerId(tenantId);
+
+        let mappedCountry = details.country ? details.country.toUpperCase() : undefined;
+        if (mappedCountry) {
+            if (mappedCountry === 'INDIA') mappedCountry = 'IND';
+            else if (mappedCountry === 'CANADA') mappedCountry = 'CAD';
+            else if (mappedCountry === 'PAKISTAN') mappedCountry = 'PAK';
+            else if (mappedCountry === 'PHILIPPINES') mappedCountry = 'PHI';
+            else if (mappedCountry === 'BANGLADESH') mappedCountry = 'BNG';
+        }
+
+        const payload: any = {};
+        if (details.customerType !== undefined) payload.customer_type = details.customerType;
+        if (details.companyName !== undefined) payload.company_name = details.companyName;
+        if (details.companyTaxId !== undefined) payload.company_tax_id = details.companyTaxId;
+        if (details.firstName !== undefined) payload.first_name = details.firstName;
+        if (details.lastName !== undefined) payload.last_name = details.lastName;
+        if (details.adminEmail !== undefined) payload.admin_email = details.adminEmail;
+        if (details.phone !== undefined) payload.phone = details.phone;
+        if (details.address !== undefined) payload.address_st = details.address;
+        if (details.city !== undefined) payload.city = details.city;
+        if (details.state !== undefined) payload.state = details.state;
+        if (mappedCountry !== undefined) payload.country = mappedCountry;
+        if (details.creditLimit !== undefined && details.creditLimit !== null && (details.creditLimit as any) !== '') {
+            payload.credit_limit = Number(details.creditLimit);
+        }
+
+        try {
+            const response = await firstValueFrom(
+                this.httpService.put(`${this.subBillingUrl}/customers/${customerId}`, payload)
+            );
+            if (response.data && response.data.success) {
+                return response.data.data;
+            }
+            return response.data;
+        } catch (error) {
+            const errorMsg = error.response?.data?.message || error.message;
+            this.logger.error(`Failed to update customer details in sub-billing for ${customerId}: ${errorMsg}`);
+            throw new BadRequestException(`Failed to update sub-billing customer: ${errorMsg}`);
+        }
+    }
 }
