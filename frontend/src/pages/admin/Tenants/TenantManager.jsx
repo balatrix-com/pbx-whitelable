@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Wallet, Phone, Users, Info, Building2, Plus, Trash2, Loader, CreditCard, RefreshCw, User, LogIn, Sliders, ShieldAlert, Clock, Server, Mic, Zap, Loader2, Radio, HardDrive, Activity, Package } from 'lucide-react';
+import { X, Wallet, Phone, Users, Info, Building2, Plus, Trash2, Loader, CreditCard, RefreshCw, User, LogIn, Sliders, ShieldAlert, Clock, Server, Mic, Zap, Loader2, Radio, HardDrive, Activity, Package, Palette, Edit3, Save, Check, CheckCircle2, Globe, MapPin, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import api from '../../../services/api';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
@@ -16,7 +16,8 @@ const TABS = [
     { id: 'users', label: 'Users', icon: User },
     { id: 'features', label: 'Feature Controller', icon: Sliders },
     { id: 'carrier', label: 'Outbound Carrier', icon: Server },
-    { id: 'addons', label: 'Add-ons', icon: CreditCard }
+    { id: 'addons', label: 'Add-ons', icon: CreditCard },
+    { id: 'customize', label: 'Customize', icon: Palette }
 ];
 
 const TenantManager = ({ tenantId, onClose }) => {
@@ -118,6 +119,7 @@ const TenantManager = ({ tenantId, onClose }) => {
                         {activeTab === 'features' && <FeaturesTab tenant={tenant} onUpdate={handleRefresh} />}
                         {activeTab === 'carrier' && <CarrierTab tenant={tenant} onUpdate={handleRefresh} />}
                         {activeTab === 'addons' && <AddonsTab tenant={tenant} onUpdate={handleRefresh} />}
+                        {activeTab === 'customize' && <CustomizeTab tenant={tenant} onUpdate={handleRefresh} />}
                     </div>
                 </div>
             </div>
@@ -1682,6 +1684,527 @@ const AddonsTab = ({ tenant, onUpdate }) => {
                 customerId={tenant?.id}
                 onSuccess={handleRefreshAll}
             />
+        </div>
+    );
+};
+
+const CustomizeTab = ({ tenant, onUpdate }) => {
+    const { addToast } = useToast();
+    const [isEditing, setIsEditing] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+
+    const getInitialData = () => {
+        const cd = tenant?.customerDetails || {};
+        return {
+            customerType: cd.customerType || 'company',
+            companyName: cd.companyName || tenant?.name || '',
+            companyTaxId: cd.companyTaxId || '',
+            firstName: cd.firstName || (tenant?.adminUser?.name ? tenant.adminUser.name.split(' ')[0] : ''),
+            lastName: cd.lastName || (tenant?.adminUser?.name ? tenant.adminUser.name.split(' ').slice(1).join(' ') : ''),
+            adminEmail: cd.adminEmail || tenant?.adminUser?.email || '',
+            adminPassword: '',
+            creditLimit: cd.creditLimit !== undefined ? cd.creditLimit : (tenant?.wallet?.creditLimit || 0),
+            phone: cd.phone || '',
+            country: cd.country || 'USA',
+            address: cd.address || '',
+            city: cd.city || '',
+            state: cd.state || '',
+        };
+    };
+
+    const [formData, setFormData] = useState(getInitialData);
+
+    useEffect(() => {
+        setFormData(getInitialData());
+    }, [tenant]);
+
+    const handleCancel = () => {
+        setFormData(getInitialData());
+        setIsEditing(false);
+    };
+
+    const handleChange = (field, value) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleSave = async (e) => {
+        if (e) e.preventDefault();
+        setSaving(true);
+        try {
+            const payload = {
+                customerType: formData.customerType,
+                companyName: formData.customerType === 'company' ? (formData.companyName || tenant?.name) : undefined,
+                companyTaxId: formData.customerType === 'company' ? formData.companyTaxId : undefined,
+                firstName: formData.firstName,
+                lastName: formData.lastName,
+                adminEmail: formData.adminEmail,
+                phone: formData.phone,
+                address: formData.address,
+                city: formData.city,
+                state: formData.state,
+                country: formData.country,
+                creditLimit: Number(formData.creditLimit) || 0
+            };
+
+            if (formData.adminPassword && formData.adminPassword.trim().length > 0) {
+                payload.adminPassword = formData.adminPassword.trim();
+            }
+
+            await api.patch(`/tenants/${tenant.id}/details`, payload);
+            if (addToast) {
+                addToast('success', 'Tenant details updated successfully');
+            }
+            setIsEditing(false);
+            setFormData(prev => ({ ...prev, adminPassword: '' }));
+            if (onUpdate) {
+                onUpdate();
+            }
+        } catch (err) {
+            console.error('Failed to update tenant details:', err);
+            const msg = err.response?.data?.message || err.message || 'Failed to update tenant details';
+            if (addToast) addToast('error', msg);
+            else alert(msg);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const countryOptions = [
+        { code: 'USA', label: 'United States (USA)' },
+        { code: 'CAD', label: 'Canada (CAD)' },
+        { code: 'IND', label: 'India (IND)' },
+        { code: 'PAK', label: 'Pakistan (PAK)' },
+        { code: 'PHI', label: 'Philippines (PHI)' },
+        { code: 'BNG', label: 'Bangladesh (BNG)' },
+        { code: 'OTHER', label: 'Other' },
+    ];
+
+    const getCountryLabel = (code) => {
+        const found = countryOptions.find(c => c.code === code);
+        return found ? found.label : code || 'N/A';
+    };
+
+    return (
+        <div className="space-y-6 max-w-4xl">
+            {/* Header with Top Right Corner Edit / Action Buttons */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-100 gap-4">
+                <div>
+                    <div className="flex items-center gap-2 mb-1">
+                        <div className="p-2 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600">
+                            <Palette size={20} />
+                        </div>
+                        <h3 className="text-xl font-extrabold text-gray-900 tracking-tight">
+                            Tenant Details & Customization
+                        </h3>
+                    </div>
+                    <p className="text-sm font-medium text-gray-500">
+                        View and customize organization identity, administrator profile, and billing limits.
+                    </p>
+                </div>
+
+                {/* Top Right Corner Edit / Save Buttons */}
+                <div className="flex items-center gap-2">
+                    {!isEditing ? (
+                        <button
+                            type="button"
+                            onClick={() => setIsEditing(true)}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 active:scale-95 transition-all"
+                        >
+                            <Edit3 size={15} /> Edit Details
+                        </button>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={handleCancel}
+                                disabled={saving}
+                                className="px-3.5 py-2 rounded-xl text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-all disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleSave}
+                                disabled={saving}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 active:scale-95 transition-all disabled:opacity-50"
+                            >
+                                {saving ? (
+                                    <>
+                                        <Loader2 size={15} className="animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save size={15} />
+                                        Save Changes
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* 1. Tenant Type & Company Info Section */}
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-5">
+                <div className="flex items-center gap-2 pb-3 border-b border-gray-50">
+                    <Building2 className="h-5 w-5 text-indigo-600" />
+                    <div>
+                        <h4 className="text-base font-extrabold text-gray-900 tracking-tight">
+                            Tenant & Company Information
+                        </h4>
+                        <p className="text-xs font-medium text-gray-500">
+                            Organization type, commercial name, and tax identification
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    {/* Tenant Type */}
+                    <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                            Tenant Type
+                        </label>
+                        {!isEditing ? (
+                            <div className="mt-1">
+                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold ring-1 ring-inset uppercase tracking-wider ${
+                                    formData.customerType === 'company'
+                                        ? 'bg-blue-50 text-blue-700 ring-blue-600/20'
+                                        : 'bg-emerald-50 text-emerald-700 ring-emerald-600/20'
+                                }`}>
+                                    {formData.customerType === 'company' ? <Building2 size={13} /> : <User size={13} />}
+                                    {formData.customerType === 'company' ? 'Company' : 'Individual'}
+                                </span>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 gap-2 bg-gray-100/80 p-1 rounded-xl">
+                                <button
+                                    type="button"
+                                    onClick={() => handleChange('customerType', 'company')}
+                                    className={`py-2 text-xs font-bold rounded-lg transition-all ${
+                                        formData.customerType === 'company'
+                                            ? 'bg-white text-indigo-700 shadow-sm'
+                                            : 'text-gray-500 hover:text-gray-900'
+                                    }`}
+                                >
+                                    Company
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleChange('customerType', 'individual')}
+                                    className={`py-2 text-xs font-bold rounded-lg transition-all ${
+                                        formData.customerType === 'individual'
+                                            ? 'bg-white text-indigo-700 shadow-sm'
+                                            : 'text-gray-500 hover:text-gray-900'
+                                    }`}
+                                >
+                                    Individual
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Company Name */}
+                    {formData.customerType === 'company' && (
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                                Company Name
+                            </label>
+                            {!isEditing ? (
+                                <p className="text-sm font-semibold text-gray-900 mt-1">
+                                    {formData.companyName || tenant?.name || 'N/A'}
+                                </p>
+                            ) : (
+                                <input
+                                    type="text"
+                                    value={formData.companyName}
+                                    onChange={(e) => handleChange('companyName', e.target.value)}
+                                    placeholder="e.g. Acme Corporation Inc"
+                                    className="block w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm font-semibold text-gray-900 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-gray-50/50 hover:bg-white transition-all"
+                                />
+                            )}
+                        </div>
+                    )}
+
+                    {/* Company Tax ID */}
+                    {formData.customerType === 'company' && (
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                                Company Tax ID
+                            </label>
+                            {!isEditing ? (
+                                <p className="text-sm font-mono font-medium text-gray-900 mt-1">
+                                    {formData.companyTaxId || <span className="text-gray-400 font-sans italic">Not provided</span>}
+                                </p>
+                            ) : (
+                                <input
+                                    type="text"
+                                    value={formData.companyTaxId}
+                                    onChange={(e) => handleChange('companyTaxId', e.target.value)}
+                                    placeholder="e.g. TAX-998822"
+                                    className="block w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm font-mono font-medium text-gray-900 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-gray-50/50 hover:bg-white transition-all"
+                                />
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* 2. Personal Details Section */}
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-5">
+                <div className="flex items-center gap-2 pb-3 border-b border-gray-50">
+                    <User className="h-5 w-5 text-indigo-600" />
+                    <div>
+                        <h4 className="text-base font-extrabold text-gray-900 tracking-tight">
+                            Personal Details
+                        </h4>
+                        <p className="text-xs font-medium text-gray-500">
+                            Primary administrator identity, contact email, and credentials
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    {/* First Name */}
+                    <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                            First Name
+                        </label>
+                        {!isEditing ? (
+                            <p className="text-sm font-medium text-gray-900 mt-1">
+                                {formData.firstName || 'N/A'}
+                            </p>
+                        ) : (
+                            <input
+                                type="text"
+                                value={formData.firstName}
+                                onChange={(e) => handleChange('firstName', e.target.value)}
+                                placeholder="First Name"
+                                className="block w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm font-medium text-gray-900 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-gray-50/50 hover:bg-white transition-all"
+                            />
+                        )}
+                    </div>
+
+                    {/* Last Name */}
+                    <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                            Last Name
+                        </label>
+                        {!isEditing ? (
+                            <p className="text-sm font-medium text-gray-900 mt-1">
+                                {formData.lastName || 'N/A'}
+                            </p>
+                        ) : (
+                            <input
+                                type="text"
+                                value={formData.lastName}
+                                onChange={(e) => handleChange('lastName', e.target.value)}
+                                placeholder="Last Name"
+                                className="block w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm font-medium text-gray-900 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-gray-50/50 hover:bg-white transition-all"
+                            />
+                        )}
+                    </div>
+
+                    {/* Email */}
+                    <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                            Email
+                        </label>
+                        {!isEditing ? (
+                            <div className="flex items-center gap-1.5 mt-1 text-sm font-medium text-gray-900">
+                                <Mail size={15} className="text-gray-400" />
+                                {formData.adminEmail || 'N/A'}
+                            </div>
+                        ) : (
+                            <div className="relative rounded-xl shadow-sm">
+                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400">
+                                    <Mail size={16} />
+                                </div>
+                                <input
+                                    type="email"
+                                    value={formData.adminEmail}
+                                    onChange={(e) => handleChange('adminEmail', e.target.value)}
+                                    placeholder="admin@example.com"
+                                    className="block w-full pl-10 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-gray-50/50 hover:bg-white transition-all"
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Password */}
+                    <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                            Password
+                        </label>
+                        {!isEditing ? (
+                            <div className="flex items-center gap-1.5 mt-1 text-sm font-mono text-gray-500">
+                                <Lock size={15} className="text-gray-400" />
+                                ••••••••••••
+                            </div>
+                        ) : (
+                            <div className="relative rounded-xl shadow-sm">
+                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400">
+                                    <Lock size={16} />
+                                </div>
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    value={formData.adminPassword}
+                                    onChange={(e) => handleChange('adminPassword', e.target.value)}
+                                    placeholder="Leave blank to keep unchanged"
+                                    className="block w-full pl-10 pr-10 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-gray-50/50 hover:bg-white transition-all"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                                >
+                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* 3. Billing & Limits Section */}
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-5">
+                <div className="flex items-center gap-2 pb-3 border-b border-gray-50">
+                    <CreditCard className="h-5 w-5 text-indigo-600" />
+                    <div>
+                        <h4 className="text-base font-extrabold text-gray-900 tracking-tight">
+                            Billing & Limits
+                        </h4>
+                        <p className="text-xs font-medium text-gray-500">
+                            Credit limits, telephone contact, country, and registered address
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    {/* Credit Limit */}
+                    <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                            Credit Limit
+                        </label>
+                        {!isEditing ? (
+                            <p className="text-lg font-mono font-extrabold text-gray-900 mt-1">
+                                ${Number(formData.creditLimit || 0).toFixed(2)}
+                            </p>
+                        ) : (
+                            <div className="relative rounded-xl shadow-sm">
+                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 font-bold sm:text-sm">
+                                    $
+                                </div>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={formData.creditLimit}
+                                    onChange={(e) => handleChange('creditLimit', e.target.value)}
+                                    placeholder="0.00"
+                                    className="block w-full pl-8 rounded-xl border border-gray-200 py-2.5 text-sm font-mono font-bold text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-gray-50/50 hover:bg-white transition-all"
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Phone */}
+                    <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                            Phone
+                        </label>
+                        {!isEditing ? (
+                            <div className="flex items-center gap-1.5 mt-1 text-sm font-medium text-gray-900">
+                                <Phone size={15} className="text-gray-400" />
+                                {formData.phone || <span className="text-gray-400 font-sans italic">Not provided</span>}
+                            </div>
+                        ) : (
+                            <div className="relative rounded-xl shadow-sm">
+                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400">
+                                    <Phone size={16} />
+                                </div>
+                                <input
+                                    type="text"
+                                    value={formData.phone}
+                                    onChange={(e) => handleChange('phone', e.target.value)}
+                                    placeholder="+1 234 567 890"
+                                    className="block w-full pl-10 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-gray-50/50 hover:bg-white transition-all"
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Country */}
+                    <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                            Country
+                        </label>
+                        {!isEditing ? (
+                            <div className="flex items-center gap-1.5 mt-1 text-sm font-medium text-gray-900">
+                                <Globe size={15} className="text-gray-400" />
+                                {getCountryLabel(formData.country)}
+                            </div>
+                        ) : (
+                            <div className="relative rounded-xl shadow-sm">
+                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400">
+                                    <Globe size={16} />
+                                </div>
+                                <select
+                                    value={formData.country}
+                                    onChange={(e) => handleChange('country', e.target.value)}
+                                    className="block w-full pl-10 rounded-xl border border-gray-200 py-2.5 pr-8 text-sm font-semibold text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-gray-50/50 hover:bg-white transition-all"
+                                >
+                                    {countryOptions.map(c => (
+                                        <option key={c.code} value={c.code}>{c.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Address */}
+                    <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                            Address
+                        </label>
+                        {!isEditing ? (
+                            <div className="flex items-start gap-1.5 mt-1 text-sm font-medium text-gray-900">
+                                <MapPin size={15} className="text-gray-400 mt-0.5 shrink-0" />
+                                <span>
+                                    {[formData.address, formData.city, formData.state].filter(Boolean).join(', ') || <span className="text-gray-400 italic">Not provided</span>}
+                                </span>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <input
+                                    type="text"
+                                    value={formData.address}
+                                    onChange={(e) => handleChange('address', e.target.value)}
+                                    placeholder="Street Address (e.g. 123 Business Way, Suite 400)"
+                                    className="block w-full rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-gray-50/50 hover:bg-white transition-all"
+                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <input
+                                        type="text"
+                                        value={formData.city}
+                                        onChange={(e) => handleChange('city', e.target.value)}
+                                        placeholder="City"
+                                        className="block w-full rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-gray-50/50 hover:bg-white transition-all"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={formData.state}
+                                        onChange={(e) => handleChange('state', e.target.value)}
+                                        placeholder="State / Province"
+                                        className="block w-full rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-gray-50/50 hover:bg-white transition-all"
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };
