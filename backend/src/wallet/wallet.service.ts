@@ -42,16 +42,16 @@ export class WalletService {
 
     async getBalance(tenantId: string) {
         const customerId = await this.getSubBillingCustomerId(tenantId);
-        
+
         try {
             const response = await firstValueFrom(
                 this.httpService.get(`${this.subBillingUrl}/pbx/balance/${customerId}`)
             );
-            
+
             const data = response.data;
             // Parse "USD 189.00" into ["USD", "189.00"]
             const [currency, balanceStr] = data.f_balance.split(' ');
-            
+
             return {
                 balance: parseFloat(balanceStr),
                 currency: currency || 'USD',
@@ -65,13 +65,13 @@ export class WalletService {
             };
         } catch (error) {
             this.logger.warn(`Sub Billing fetch failed for ${customerId}, checking local DB fallback...`);
-            
+
             // Fallback to local Wallet and Subscription data
             const wallet = await this.prisma.wallet.findUnique({ where: { tenantId } });
-            const subscription = await this.prisma.subscription.findFirst({ 
-                where: { tenantId, status: 'ACTIVE' } 
+            const subscription = await this.prisma.subscription.findFirst({
+                where: { tenantId, status: 'ACTIVE' }
             });
- 
+
             return {
                 balance: wallet?.balance || 0,
                 currency: wallet?.currency || 'USD',
@@ -88,12 +88,12 @@ export class WalletService {
 
     async getTransactions(tenantId: string) {
         const customerId = await this.getSubBillingCustomerId(tenantId);
-        
+
         try {
             const response = await firstValueFrom(
                 this.httpService.get(`${this.subBillingUrl}/pbx/transactions/${customerId}`)
             );
-            
+
             // Sub Billing /api/pbx/transactions returns mapped array directly
             return response.data.map((tx: any) => ({
                 id: tx.id,
@@ -112,7 +112,7 @@ export class WalletService {
     async adjustBalance(tenantId: string, amount: number, type: TransactionType, description: string, referenceId?: string, tx?: Prisma.TransactionClient) {
         const customerId = await this.getSubBillingCustomerId(tenantId);
         const signedAmount = type === 'DEBIT' ? -Math.abs(amount) : Math.abs(amount);
-        
+
         try {
             const response = await firstValueFrom(
                 this.httpService.post(`${this.subBillingUrl}/payments/manual`, {
@@ -297,11 +297,11 @@ export class WalletService {
                 if (currentExtCount < allowedExtensions) {
                     const toCreate = allowedExtensions - currentExtCount;
                     this.logger.log(`Auto-provisioning ${toCreate} extension(s) for tenant ${tenantId} (plan allowance: ${allowedExtensions})`);
-                    
+
                     for (let i = currentExtCount; i < allowedExtensions; i++) {
                         const suffix = (i + 1).toString().padStart(2, '0');
                         const extNum = `${tenant.customerCode}${suffix}`;
-                        
+
                         const existingExt = await this.prisma.extension.findUnique({
                             where: {
                                 tenantId_extensionNumber: {
@@ -341,7 +341,7 @@ export class WalletService {
                     }
 
                     // Sync with Redis Lookup DB
-                    await this.lookupRedis.updateExtensionLookup(tenantId).catch(() => {});
+                    await this.lookupRedis.updateExtensionLookup(tenantId).catch(() => { });
                 }
             }
 
@@ -463,7 +463,7 @@ export class WalletService {
             }
 
             this.logger.log(`Creating customer ${data.customerId} in sub-billing: ${data.email}`);
-            
+
             let mappedCountry = data.country.toUpperCase();
             const allowedCountries = ['IND', 'USA', 'CAD', 'PAK', 'PHI', 'BNG', 'OTHER'];
             if (!allowedCountries.includes(mappedCountry)) {

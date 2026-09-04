@@ -16,7 +16,7 @@ const TABS = [
     { id: 'users', label: 'Users', icon: User },
     { id: 'features', label: 'Feature Controller', icon: Sliders },
     { id: 'carrier', label: 'Outbound Carrier', icon: Server },
-    { id: 'addons', label: 'Add-ons', icon: CreditCard },
+    { id: 'addons', label: 'Add-ons', icon: CreditCard }
 ];
 
 const TenantManager = ({ tenantId, onClose }) => {
@@ -494,8 +494,8 @@ const NumbersTab = ({ tenant, onUpdate }) => {
                                         </td>
                                         <td className="px-5 py-4 whitespace-nowrap text-xs">
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-extrabold tracking-wide uppercase ${sourceType === 'PLAN'
-                                                    ? 'bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/20'
-                                                    : 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20'
+                                                ? 'bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/20'
+                                                : 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20'
                                                 }`}>
                                                 {sourceType}
                                             </span>
@@ -1050,15 +1050,8 @@ const AssignNumberModal = ({ type, targetItem, tenantId, onClose, onSuccess }) =
 const UsersTab = ({ tenant }) => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const { } = useAuth(); // No longer needed for impersonation, but maybe for other things? 
-    // actually we don't need useAuth here anymore if we use api directly.
-    // But let's check if it was used elsewhere in the file.
-    // It is imported at top.
-    // UsersTab uses it.
-    // Let's just remove the destructuring of impersonateUser.
+    const { } = useAuth();
     const [impersonatingId, setImpersonatingId] = useState(null);
-    const [showMonitoringModal, setShowMonitoringModal] = useState(false);
-    const [monitoringTarget, setMonitoringTarget] = useState(null);
 
     useEffect(() => {
         fetchUsers();
@@ -1089,38 +1082,6 @@ const UsersTab = ({ tenant }) => {
             alert('Impersonation failed: ' + (err.response?.data?.message || err.message));
         } finally {
             setImpersonatingId(null);
-        }
-    };
-
-    const handleToggleMonitoring = async (user, currentValue) => {
-        if (!currentValue) {
-            setMonitoringTarget(user.id);
-            setShowMonitoringModal(true);
-        } else {
-            try {
-                await api.patch(`/users/${user.id}/permissions`, { monitoringEnabled: false });
-                fetchUsers();
-            } catch (err) {
-                console.error('Failed to disable monitoring', err);
-            }
-        }
-    };
-
-    const handleEnableMonitoring = async ({ monitoringExtension, monitoringSecret, name }) => {
-        if (!monitoringTarget) return;
-        try {
-            await api.patch(`/users/${monitoringTarget}/permissions`, {
-                monitoringEnabled: true,
-                monitoringExtension,
-                monitoringSecret,
-                name
-            });
-            setShowMonitoringModal(false);
-            setMonitoringTarget(null);
-            fetchUsers();
-        } catch (err) {
-            console.error('Failed to enable monitoring', err);
-            alert('Failed to enable monitoring: ' + (err.response?.data?.message || err.message));
         }
     };
 
@@ -1174,21 +1135,6 @@ const UsersTab = ({ tenant }) => {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-4 shrink-0 mt-2 sm:mt-0">
-                                        <label className="flex items-center gap-2 cursor-pointer group/toggle">
-                                            <div className="relative flex items-center">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={user.monitoringEnabled || false}
-                                                    onChange={() => handleToggleMonitoring(user, user.monitoringEnabled)}
-                                                    className="sr-only peer"
-                                                />
-                                                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-600 transition-colors"></div>
-                                            </div>
-                                            <span className="text-xs font-bold text-gray-600 group-hover/toggle:text-gray-900 transition-colors">
-                                                Monitoring
-                                            </span>
-                                        </label>
-                                        <div className="hidden sm:block w-px h-6 bg-gray-200"></div>
                                         <button
                                             onClick={() => handleImpersonate(user.id)}
                                             disabled={impersonatingId === user.id}
@@ -1204,17 +1150,6 @@ const UsersTab = ({ tenant }) => {
                     )}
                 </div>
             )}
-
-            {showMonitoringModal && monitoringTarget && (
-                <MonitoringExtensionModal
-                    onClose={() => {
-                        setShowMonitoringModal(false);
-                        setMonitoringTarget(null);
-                    }}
-                    onSubmit={handleEnableMonitoring}
-                    tenantId={tenant.id}
-                />
-            )}
         </div>
     );
 };
@@ -1229,10 +1164,29 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
         schedulerLimit: 10,
         didForwardEnabled: true,
         didForwardLimit: 10,
-        monitorEnabled: true,
-        monitorLimit: 10,
     });
     const [updatingFeature, setUpdatingFeature] = useState(null);
+    const [adminUser, setAdminUser] = useState(null);
+    const [userMonitoringEnabled, setUserMonitoringEnabled] = useState(false);
+    const [showMonitoringModal, setShowMonitoringModal] = useState(false);
+
+    // Fetch tenant admin user to know user-level monitoring status
+    useEffect(() => {
+        fetchAdminUser();
+    }, [tenant.id]);
+
+    const fetchAdminUser = async () => {
+        try {
+            const res = await api.get(`/users?tenantId=${tenant.id}`);
+            const usersList = res.data?.data || [];
+            // Find tenant admin (or first user)
+            const targetAdmin = usersList.find(u => u.role === 'ADMIN') || usersList[0] || null;
+            setAdminUser(targetAdmin);
+            setUserMonitoringEnabled(targetAdmin?.monitoringEnabled || false);
+        } catch (err) {
+            console.error('Failed to fetch admin user for monitoring toggle:', err);
+        }
+    };
 
     // Keep state in sync if tenant prop updates
     useEffect(() => {
@@ -1242,6 +1196,35 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
     }, [tenant.tenantFeatures]);
 
     const handleToggle = async (key) => {
+        if (key === 'monitoringEnabled') {
+            if (!adminUser) {
+                alert('No admin user found for this tenant to configure monitoring permissions.');
+                return;
+            }
+
+            if (!userMonitoringEnabled) {
+                // Opening modal to collect monitoring extension and secret
+                setShowMonitoringModal(true);
+            } else {
+                // Turn OFF via user permissions API
+                setUpdatingFeature('monitoringEnabled');
+                try {
+                    await api.patch(`/users/${adminUser.id}/permissions`, {
+                        monitoringEnabled: false
+                    });
+                    setUserMonitoringEnabled(false);
+                    await fetchAdminUser();
+                    onUpdate();
+                } catch (err) {
+                    console.error('Failed to disable monitoring:', err);
+                    alert('Failed to disable monitoring: ' + (err.response?.data?.message || err.message));
+                } finally {
+                    setUpdatingFeature(null);
+                }
+            }
+            return;
+        }
+
         setUpdatingFeature(key);
         const updatedFeatures = {
             ...features,
@@ -1254,6 +1237,28 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
         } catch (err) {
             console.error('Failed to update tenant features:', err);
             alert('Failed to update tenant features');
+        } finally {
+            setUpdatingFeature(null);
+        }
+    };
+
+    const handleEnableMonitoring = async ({ monitoringExtension, monitoringSecret, name }) => {
+        if (!adminUser) return;
+        setUpdatingFeature('monitoringEnabled');
+        try {
+            await api.patch(`/users/${adminUser.id}/permissions`, {
+                monitoringEnabled: true,
+                monitoringExtension,
+                monitoringSecret,
+                name
+            });
+            setUserMonitoringEnabled(true);
+            setShowMonitoringModal(false);
+            await fetchAdminUser();
+            onUpdate();
+        } catch (err) {
+            console.error('Failed to enable monitoring:', err);
+            alert('Failed to enable monitoring: ' + (err.response?.data?.message || err.message));
         } finally {
             setUpdatingFeature(null);
         }
@@ -1282,12 +1287,26 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
 
     const FEATURE_ITEMS = [
         {
+            key: 'recordingAllowed',
+            title: 'Call Recording Permission',
+            description: 'Allow tenant administrators to toggle automatic call recording for extensions.',
+            icon: Mic,
+            color: 'text-blue-600 bg-blue-50 border-blue-100',
+        },
+        {
+            key: 'monitoringEnabled',
+            title: 'Call Monitoring',
+            description: 'Allows administrators to view real-time calls and listen-in to active calls.',
+            icon: ShieldAlert,
+            color: 'text-blue-600 bg-blue-50 border-blue-100',
+        },
+        {
             key: 'ivrEnabled',
             limitKey: 'ivrLimit',
             title: 'Interactive Voice Response (IVR)',
             description: 'Enable multi-level auto-attendant phone menus and call routing prompts.',
             icon: Phone,
-            color: 'text-indigo-600 bg-indigo-50 border-indigo-100',
+            color: 'text-blue-600 bg-blue-50 border-blue-100',
         },
         {
             key: 'ringGroupEnabled',
@@ -1295,7 +1314,7 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
             title: 'Ring Groups',
             description: 'Group extensions together to ring sequentially or simultaneously for incoming calls.',
             icon: Users,
-            color: 'text-emerald-600 bg-emerald-50 border-emerald-100',
+            color: 'text-blue-600 bg-blue-50 border-blue-100',
         },
         {
             key: 'schedulerEnabled',
@@ -1303,7 +1322,7 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
             title: 'Operational Schedules (Scheduler)',
             description: 'Route calls automatically based on operational business hours, holidays, and times.',
             icon: Clock,
-            color: 'text-amber-600 bg-amber-50 border-amber-100',
+            color: 'text-blue-600 bg-blue-50 border-blue-100',
         },
         {
             key: 'didForwardEnabled',
@@ -1311,23 +1330,8 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
             title: 'DID Forwarding',
             description: 'Directly forward incoming phone numbers to external lines or specific destinations.',
             icon: Phone,
-            color: 'text-sky-600 bg-sky-50 border-sky-100',
-        },
-        {
-            key: 'monitorEnabled',
-            limitKey: 'monitorLimit',
-            title: 'Active Call Monitoring (Barge/Listen)',
-            description: 'Allows administrators to view real-time calls, listen-in, whisper, or barge into active conversations.',
-            icon: ShieldAlert,
-            color: 'text-rose-600 bg-rose-50 border-rose-100',
-        },
-        {
-            key: 'recordingAllowed',
-            title: 'Call Recording Permission',
-            description: 'Allow tenant administrators to toggle automatic call recording for extensions.',
-            icon: Mic,
-            color: 'text-violet-600 bg-violet-50 border-violet-100',
-        },
+            color: 'text-blue-600 bg-blue-50 border-blue-100',
+        }
     ];
 
     return (
@@ -1342,7 +1346,7 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
             <div className="grid grid-cols-1 gap-4">
                 {FEATURE_ITEMS.map((item) => {
                     const Icon = item.icon;
-                    const isEnabled = features[item.key];
+                    const isEnabled = item.key === 'monitoringEnabled' ? userMonitoringEnabled : features[item.key];
                     const isUpdating = updatingFeature === item.key || updatingFeature === item.limitKey;
                     const limitVal = features[item.limitKey] ?? 10;
 
@@ -1417,6 +1421,15 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
                     );
                 })}
             </div>
+
+            {showMonitoringModal && adminUser && (
+                <MonitoringExtensionModal
+                    onClose={() => setShowMonitoringModal(false)}
+                    onSubmit={handleEnableMonitoring}
+                    tenantId={tenant.id}
+                    initialUserId={adminUser.id}
+                />
+            )}
         </div>
     );
 };
