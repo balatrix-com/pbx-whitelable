@@ -37,14 +37,16 @@ import {
     Radio
 } from 'lucide-react';
 import { Menu, Transition } from '@headlessui/react';
-import { Fragment, useState } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { UserProfileModal } from '../profile';
+import { getMediaUrl } from '../../utils/media.utils';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
     const { user, logout } = useAuth();
     const { branding } = useBranding();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [logoError, setLogoError] = useState(false);
     const location = useLocation();
     const role = user?.role;
 
@@ -53,7 +55,18 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     );
 
     // Resolve branding (User's tenant partner or domain-resolved fallback)
-    const currentBranding = user?.partner || branding;
+    const currentBranding = {
+        ...branding,
+        ...(user?.partner || {}),
+        logoSidebar: user?.partner?.logoSidebar || branding?.logoSidebar,
+        logoMain: user?.partner?.logoMain || branding?.logoMain,
+        favicon: user?.partner?.favicon || branding?.favicon,
+        name: user?.partner?.name || branding?.name,
+    };
+
+    useEffect(() => {
+        setLogoError(false);
+    }, [currentBranding.logoSidebar, currentBranding.logoMain]);
 
 
     // ... existing nav items logic ...
@@ -181,14 +194,21 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             <div className={clsx("flex h-16 shrink-0 items-center relative", isCollapsed ? "justify-center px-0" : "justify-between px-6")}>
                 <Link to="/dashboard" className="flex items-center outline-none">
                     {!isCollapsed ? (
-                        <img
-                            src={currentBranding.logoSidebar || currentBranding.logoMain}
-                            alt={currentBranding.name}
-                            className="h-8 w-auto object-contain"
-                        />
+                        (currentBranding.logoSidebar || currentBranding.logoMain) && !logoError ? (
+                            <img
+                                src={getMediaUrl(currentBranding.logoSidebar || currentBranding.logoMain)}
+                                alt={currentBranding.name}
+                                className="h-8 w-auto max-w-[180px] object-contain"
+                                onError={() => setLogoError(true)}
+                            />
+                        ) : (
+                            <span className="font-extrabold text-lg tracking-tight text-gray-900 truncate">
+                                {currentBranding.name || 'Cloud PBX'}
+                            </span>
+                        )
                     ) : (
                         <div className="h-8 w-8 bg-primary-600 text-white rounded-lg flex items-center justify-center font-bold text-xl shadow-sm">
-                            {currentBranding.name?.charAt(0)}
+                            {currentBranding.name?.charAt(0) || 'P'}
                         </div>
                     )}
                 </Link>
