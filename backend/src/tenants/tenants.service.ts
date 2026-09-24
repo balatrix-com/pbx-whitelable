@@ -6,6 +6,7 @@ import { AdminService } from '../admin/admin.service';
 import { LookupRedisService } from '../redis/lookup-redis.module';
 import { WalletService } from '../wallet/wallet.service';
 import { ExtensionsService } from '../telecom/extensions/extensions.service';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class TenantsService {
@@ -18,6 +19,7 @@ export class TenantsService {
         private lookupRedis: LookupRedisService,
         private walletService: WalletService,
         private extensionsService: ExtensionsService,
+        private mailService: MailService,
     ) { }
 
     async listTenants(query: {
@@ -720,6 +722,34 @@ export class TenantsService {
         await this.extensionsService.syncMissingExtensionsFromSubBilling(result.tenant.id).catch(err => {
             this.logger.warn(`Post-tenant creation extension sync warning: ${err.message}`);
         });
+
+        // 8. Send credentials email (fire-and-forget, non-blocking)
+        try {
+            const tenantWithExts = await this.prisma.tenant.findUnique({
+                where: { id: result.tenant.id },
+                include: { extensions: true, tfns: true },
+            });
+            const tfn = tenantWithExts?.tfns[0]?.number || 'N/A';
+            const extList = tenantWithExts?.extensions
+                .map(e => `&bull; <b>${e.extensionNumber}</b> - ${e.name}<br>`)
+                .join('') || 'None';
+            const extHtml = `<div style="text-align:left;display:inline-block;margin:10px auto;">${extList}</div>`;
+
+            await this.mailService.sendOnboardingCompletionEmail(
+                data.adminEmail,
+                `${data.firstName} ${data.lastName}`,
+                result.tenant.customerCode || '',
+                tfn,
+                extHtml,
+                data.adminEmail,
+                'N/A',
+                'N/A',
+                data.adminPassword,
+            );
+            this.logger.log(`Credentials email sent to ${data.adminEmail} for tenant ${result.tenant.id}`);
+        } catch (emailErr: any) {
+            this.logger.error(`Failed to send credentials email to ${data.adminEmail}: ${emailErr.message}`);
+        }
 
         return result;
     }
