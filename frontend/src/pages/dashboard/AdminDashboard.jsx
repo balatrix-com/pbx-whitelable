@@ -202,21 +202,11 @@ const AdminDashboard = () => {
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
 
                 {/* Billing Health Card */}
-                <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100 hover:shadow-md transition-shadow relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform duration-500 group-hover:opacity-20">
-                        <ShieldCheck className="h-24 w-24 text-primary-600" />
-                    </div>
+                <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all relative overflow-hidden group">
+                    <ShieldCheck className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />
                     <div className="relative z-10 flex items-center justify-between">
-                        <div className={`rounded-xl p-3 shadow-sm ${intelligence.health.status === 'SAFE' ? 'bg-green-50 text-green-600' :
-                            intelligence.health.status === 'WARNING' ? 'bg-yellow-50 text-yellow-600' : 'bg-red-50 text-red-600'
-                            }`}>
-                            {intelligence.health.status === 'SAFE' ? (
-                                <CheckCircle className="h-6 w-6" />
-                            ) : intelligence.health.status === 'WARNING' ? (
-                                <AlertTriangle className="h-6 w-6" />
-                            ) : (
-                                <AlertOctagon className="h-6 w-6" />
-                            )}
+                        <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                            <ShieldCheck className="h-4 w-4 stroke-[2.2]" />
                         </div>
                         <span className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border ${intelligence.health.status === 'SAFE' ? 'text-green-700 bg-green-50 border-green-200' :
                             intelligence.health.status === 'WARNING' ? 'text-yellow-700 bg-yellow-50 border-yellow-200' : 'text-red-700 bg-red-50 border-red-200'
@@ -224,9 +214,9 @@ const AdminDashboard = () => {
                             {intelligence.health.status}
                         </span>
                     </div>
-                    <div className="relative z-10 mt-6">
-                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">System Health</h3>
-                        <p className="mt-2 text-xl font-extrabold text-gray-900 tracking-tight">
+                    <div className="relative z-10 mt-4">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">System Health</h3>
+                        <p className="mt-2 text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
                             {intelligence.health.status === 'SAFE' ? 'Operational' : 'Action Needed'}
                         </p>
                         {intelligence.financial.runwayDays < 30 && (
@@ -239,18 +229,16 @@ const AdminDashboard = () => {
                 </div>
 
                 {/* Wallet Balance Card */}
-                <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100 hover:shadow-md transition-shadow relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform duration-500 group-hover:opacity-20">
-                        <Wallet className="h-24 w-24 text-primary-600" />
-                    </div>
+                <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all relative overflow-hidden group">
+                    <Wallet className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />
                     <div className="relative z-10 flex items-center justify-between">
-                        <div className="rounded-xl bg-primary-50 p-3 shadow-sm">
-                            <Wallet className="h-6 w-6 text-primary-600" />
+                        <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                            <Wallet className="h-4 w-4 stroke-[2.2]" />
                         </div>
                     </div>
-                    <div className="relative z-10 mt-6">
+                    <div className="relative z-10 mt-4">
                         <div className="flex items-center justify-between">
-                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Available Balance</h3>
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Available Balance</h3>
                             <button
                                 onClick={() => refreshWallet()}
                                 disabled={refreshing}
@@ -261,7 +249,7 @@ const AdminDashboard = () => {
                             </button>
                         </div>
                         <div className="mt-2 flex flex-col">
-                            <span className="text-4xl font-extrabold tracking-tight text-gray-900">
+                            <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
                                 ${Number(wallet?.balance || 0).toFixed(2)}
                             </span>
                             {wallet?.creditLimit !== undefined && (
@@ -279,24 +267,22 @@ const AdminDashboard = () => {
                 </div>
 
                 {/* Total Usage Card */}
-                <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100 hover:shadow-md transition-shadow relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform duration-500 group-hover:opacity-20">
-                        <Phone className="h-24 w-24 text-primary-600" />
-                    </div>
+                <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all relative overflow-hidden group">
+                    <Phone className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />
                     <div className="relative z-10 flex items-center justify-between">
-                        <div className="rounded-xl bg-primary-50 p-3 shadow-sm">
-                            <Phone className="h-6 w-6 text-primary-600" />
+                        <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                            <Phone className="h-4 w-4 stroke-[2.2]" />
                         </div>
                     </div>
-                    <div className="relative z-10 mt-6">
-                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Free Minutes Usage</h3>
+                    <div className="relative z-10 mt-4">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Free Minutes Usage</h3>
                         <p className="mt-2 flex items-baseline gap-x-2">
-                            <span className="text-4xl font-extrabold tracking-tight text-gray-900">
+                            <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
                                 {intelligence.usage.usedMins}
                             </span>
-                            <span className="text-lg font-bold text-gray-400 uppercase">/ {intelligence.usage.totalMins} min</span>
+                            <span className="text-sm font-bold text-gray-400 uppercase">/ {intelligence.usage.totalMins} min</span>
                         </p>
-                        <div className="mt-4 w-full bg-gray-100 rounded-full h-2 overflow-hidden shadow-inner">
+                        <div className="mt-3 w-full bg-gray-100 rounded-full h-2 overflow-hidden shadow-inner">
                             <div
                                 className={`h-full transition-all duration-1000 ${intelligence.usage.usedPercent > 90 ? 'bg-red-500' : intelligence.usage.usedPercent > 75 ? 'bg-amber-500' : 'bg-primary-600'}`}
                                 style={{ width: `${intelligence.usage.usedPercent}%` }}
@@ -311,29 +297,25 @@ const AdminDashboard = () => {
 
                 {/* Tenant Settings Card */}
                 {recordingAllowed && (
-                    <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100 hover:shadow-md transition-shadow relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform duration-500 group-hover:opacity-20">
-                            <Mic className="h-24 w-24 text-primary-600" />
-                        </div>
+                    <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all relative overflow-hidden group">
+                        <Mic className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />
                         <div className="relative z-10 flex items-center justify-between">
-                            <div className="rounded-xl bg-primary-50 p-3 shadow-sm">
-                                <Mic className="h-6 w-6 text-primary-600" />
+                            <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                                <Mic className="h-4 w-4 stroke-[2.2]" />
                             </div>
+                            <button
+                                onClick={handleToggleRecording}
+                                disabled={toggling}
+                                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 ${recordingEnabled ? 'bg-primary-600' : 'bg-gray-200'} ${toggling ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${recordingEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                            </button>
                         </div>
-                        <div className="relative z-10 mt-6">
-                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Global Settings</h3>
-                            <div className="mt-4 flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm font-extrabold text-gray-900">Call Recording</p>
-                                    <p className="text-xs text-gray-500 mt-1">Record all inbound and outbound calls</p>
-                                </div>
-                                <button
-                                    onClick={handleToggleRecording}
-                                    disabled={toggling}
-                                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 ${recordingEnabled ? 'bg-primary-600' : 'bg-gray-200'} ${toggling ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                >
-                                    <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${recordingEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
-                                </button>
+                        <div className="relative z-10 mt-4">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Global Settings</h3>
+                            <div className="mt-1">
+                                <p className="text-sm font-extrabold text-gray-900">Call Recording</p>
+                                <p className="text-xs text-gray-500 mt-1">Record all inbound and outbound calls</p>
                             </div>
                         </div>
                     </div>

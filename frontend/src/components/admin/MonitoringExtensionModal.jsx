@@ -1,13 +1,59 @@
 import React, { useState } from 'react';
-import { X, Hash, Lock } from 'lucide-react';
+import { Hash, Lock } from 'lucide-react';
 import api from '../../services/api';
 
-const MonitoringExtensionModal = ({ onClose, onSubmit, loading, isEditing = false, initialExtension = '', initialSecret = '', initialName = '', tenantId }) => {
+const MonitoringExtensionModal = ({
+    onClose,
+    onSubmit,
+    loading,
+    isEditing = false,
+    initialExtension = '',
+    initialSecret = '',
+    initialName = '',
+    initialUserId = '',
+    users = [],
+    tenantId
+}) => {
     const [extension, setExtension] = useState(initialExtension);
     const [secret, setSecret] = useState(initialSecret);
     const [name, setName] = useState(initialName);
+    const [selectedUserId, setSelectedUserId] = useState(initialUserId);
+    const [userList, setUserList] = useState(users);
     const [error, setError] = useState('');
     const [fetching, setFetching] = useState(true);
+
+    // Fetch users if not passed via props (runs once on mount or when tenantId changes)
+    React.useEffect(() => {
+        if (users && users.length > 0) {
+            setUserList(users);
+            if (!selectedUserId && users[0]) {
+                setSelectedUserId(users[0].id);
+                if (!name) setName(users[0].name || users[0].email);
+            }
+            return;
+        }
+
+        let isMounted = true;
+        const fetchUsers = async () => {
+            try {
+                const params = tenantId ? { tenantId, limit: 100 } : { limit: 100 };
+                const res = await api.get('/users', { params });
+                if (!isMounted) return;
+                const fetched = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+                setUserList(fetched);
+                if (!selectedUserId && fetched.length > 0) {
+                    const first = fetched.find(u => u.id === initialUserId) || fetched[0];
+                    setSelectedUserId(first.id);
+                    if (!name) setName(first.name || first.email);
+                }
+            } catch (err) {
+                console.error('Failed to fetch users in MonitoringExtensionModal:', err);
+            }
+        };
+
+        fetchUsers();
+        return () => { isMounted = false; };
+    }, [tenantId]);
 
     // Fetch next available extension
     React.useEffect(() => {
@@ -34,12 +80,23 @@ const MonitoringExtensionModal = ({ onClose, onSubmit, loading, isEditing = fals
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+
+        if (!selectedUserId && !isEditing) {
+            setError('Please select a user');
+            return;
+        }
+
         if (!extension || !secret) {
             setError('Extension and Secret are required');
             return;
         }
 
-        onSubmit({ monitoringExtension: extension, monitoringSecret: secret, name });
+        onSubmit({
+            monitoringExtension: extension,
+            monitoringSecret: secret,
+            name,
+            userId: selectedUserId
+        });
     };
 
     return (
@@ -61,6 +118,37 @@ const MonitoringExtensionModal = ({ onClose, onSubmit, loading, isEditing = fals
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* User Selection Dropdown */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Select User</label>
+                        <select
+                            className={`w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-primary-500 outline-none ${isEditing ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`}
+                            value={selectedUserId}
+                            onChange={e => {
+                                const uid = e.target.value;
+                                setSelectedUserId(uid);
+                                const selected = userList.find(u => u.id === uid);
+                                if (selected && !name) {
+                                    setName(selected.name || selected.email);
+                                }
+                            }}
+                            disabled={isEditing}
+                            required
+                        >
+                            <option value="" disabled>Select a user...</option>
+                            {userList.map(user => {
+                                const tenantName = user.tenant?.name ? ` [${user.tenant.name}]` : '';
+                                const role = user.role ? ` (${user.role})` : '';
+                                return (
+                                    <option key={user.id} value={user.id}>
+                                        {user.name || user.email}{role}{tenantName}
+                                    </option>
+                                );
+                            })}
+                        </select>
+                        {isEditing && <p className="text-xs text-gray-500 mt-1">User cannot be changed once assigned.</p>}
+                    </div>
+
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Monitoring Extension</label>
                         <div className="relative">
@@ -84,6 +172,7 @@ const MonitoringExtensionModal = ({ onClose, onSubmit, loading, isEditing = fals
                         </div>
                         {isEditing && <p className="text-xs text-gray-500 mt-1">Extension number cannot be changed once assigned.</p>}
                     </div>
+
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">User Name (Caller ID Name)</label>
                         <input
@@ -94,6 +183,7 @@ const MonitoringExtensionModal = ({ onClose, onSubmit, loading, isEditing = fals
                             placeholder="John Doe"
                         />
                     </div>
+
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">SIP Password</label>
                         <input

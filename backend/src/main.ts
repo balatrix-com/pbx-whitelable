@@ -24,12 +24,18 @@ async function bootstrap() {
   // Hardening
   app.use(helmet({
     contentSecurityPolicy: false, // Disable CSP to allow custom logos/favicons from other sources if needed
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
   }));
   app.use(compression());
 
   // Configure body parsers with raw body for webhook
   const express = require('express');
-  app.use('/api/uploads', express.static(uploadsDir));
+  app.use('/api/uploads', express.static(uploadsDir, {
+    setHeaders: (res: any) => {
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+  }));
   app.use(express.json({
     verify: (req: any, res: any, buf: any, encoding: any) => {
       if (req.url === '/billing/webhook') {

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { getMediaUrl } from '../utils/media.utils';
 
 const BrandingContext = createContext(null);
 
@@ -65,9 +66,9 @@ export const BrandingProvider = ({ children }) => {
     });
     const [loading, setLoading] = useState(true);
 
-    const fetchBranding = async () => {
+    const fetchBranding = async (isInitial = false) => {
         try {
-            setLoading(true);
+            if (isInitial) setLoading(true);
             const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
             const response = await axios.get(`${apiBaseUrl}/branding`);
 
@@ -103,18 +104,28 @@ export const BrandingProvider = ({ children }) => {
                         link.rel = 'icon';
                         document.getElementsByTagName('head')[0].appendChild(link);
                     }
-                    link.href = data.favicon;
+                    const fullFaviconUrl = getMediaUrl(data.favicon);
+                    if (data.favicon.endsWith('.png')) {
+                        link.type = 'image/png';
+                    } else if (data.favicon.endsWith('.svg')) {
+                        link.type = 'image/svg+xml';
+                    } else if (data.favicon.endsWith('.ico')) {
+                        link.type = 'image/x-icon';
+                    } else {
+                        link.removeAttribute('type');
+                    }
+                    link.href = `${fullFaviconUrl}${fullFaviconUrl.includes('?') ? '&' : '?'}v=${Date.now()}`;
                 }
             }
         } catch (error) {
             console.error('Failed to load branding:', error);
         } finally {
-            setLoading(false);
+            if (isInitial) setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchBranding();
+        fetchBranding(true);
     }, []);
 
     return (

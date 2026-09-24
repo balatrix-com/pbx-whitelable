@@ -182,23 +182,29 @@ const AllUsersPage = () => {
             </div>
 
             {/* Stats Overview */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
-                    { label: 'Total Users', value: stats.total, icon: Users, color: 'text-primary-600', bg: 'bg-primary-50' },
-                    { label: 'Active', value: users.filter(u => u.status === 'ACTIVE').length + '+', icon: UserCheck, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                    { label: 'Suspended', value: users.filter(u => u.status === 'SUSPENDED').length, icon: ShieldAlert, color: 'text-red-600', bg: 'bg-red-50' },
-                    { label: 'Multi-Tenant', value: tenants.length, icon: Globe, color: 'text-blue-600', bg: 'bg-blue-50' },
-                ].map((stat, i) => (
-                    <div key={i} className="bg-white p-6 rounded-3xl shadow-sm ring-1 ring-gray-100 flex items-center gap-5">
-                        <div className={clsx("p-3 rounded-2xl", stat.bg)}>
-                            <stat.icon className={clsx("h-6 w-6", stat.color)} />
+                    { label: 'Total Users', value: stats.total, icon: Users },
+                    { label: 'Active Users', value: users.filter(u => u.status === 'ACTIVE').length + '+', icon: UserCheck },
+                    { label: 'Suspended Users', value: users.filter(u => u.status === 'SUSPENDED').length, icon: ShieldAlert },
+                    { label: 'Multi-Tenant', value: tenants.length, icon: Globe },
+                ].map((stat, i) => {
+                    const Icon = stat.icon;
+                    return (
+                        <div key={i} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                            <Icon className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-2.5 mb-2">
+                                    <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                                        <Icon className="h-4 w-4 stroke-[2.2]" />
+                                    </div>
+                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{stat.label}</p>
+                                </div>
+                                <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">{stat.value}</div>
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{stat.label}</p>
-                            <p className="text-2xl font-black text-gray-900">{stat.value}</p>
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Filters bar */}

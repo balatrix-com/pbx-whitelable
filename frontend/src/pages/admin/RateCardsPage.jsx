@@ -170,10 +170,22 @@ const RateCardsPage = () => {
                             : 'Configure recording storage and rates per minute, then assign to tenants'}
                     </p>
                 </div>
+                {activeTab === 'standard' && (
+                    <button
+                        onClick={() => {
+                            setEditingCard(null);
+                            setShowModal(true);
+                        }}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary-600/20 hover:bg-primary-700 transition-all w-full sm:w-auto"
+                    >
+                        <Plus size={20} />
+                        Add New Rate Card
+                    </button>
+                )}
             </header>
 
             {/* Tabs Selector */}
-            <div className="flex bg-gray-100 p-1.5 rounded-2xl w-fit border border-gray-200/50">
+            <div className="flex bg-slate-100/80 p-1.5 rounded-2xl w-fit border border-slate-200/60">
                 <button
                     onClick={() => {
                         setActiveTab('standard');
@@ -183,8 +195,8 @@ const RateCardsPage = () => {
                     className={clsx(
                         "px-6 py-2.5 rounded-xl text-sm font-extrabold transition-all duration-200",
                         activeTab === 'standard'
-                            ? "bg-white text-primary-600 shadow-md shadow-gray-200/50 ring-1 ring-gray-100"
-                            : "text-gray-500 hover:text-gray-900"
+                            ? "bg-white text-indigo-900 shadow-sm border border-indigo-200/80 ring-1 ring-indigo-500/10"
+                            : "text-slate-500 hover:text-slate-900"
                     )}
                 >
                     Standard Rate Cards
@@ -198,8 +210,8 @@ const RateCardsPage = () => {
                     className={clsx(
                         "px-6 py-2.5 rounded-xl text-sm font-extrabold transition-all duration-200",
                         activeTab === 'recording'
-                            ? "bg-white text-primary-600 shadow-md shadow-gray-200/50 ring-1 ring-gray-100"
-                            : "text-gray-500 hover:text-gray-900"
+                            ? "bg-white text-indigo-900 shadow-sm border border-indigo-200/80 ring-1 ring-indigo-500/10"
+                            : "text-slate-500 hover:text-slate-900"
                     )}
                 >
                     Recording Rate Cards

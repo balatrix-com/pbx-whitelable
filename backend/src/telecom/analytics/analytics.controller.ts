@@ -123,13 +123,14 @@ export class AnalyticsController {
 
     /**
      * GET /telecom/analytics/global/dashboard
-     * Get platform-wide analytics for Super Admin
+     * Get platform-wide analytics for Super Admin (with optional tenant filter)
      */
     @Get('global/dashboard')
     @Roles('SUPER_ADMIN')
     getGlobalDashboard(
         @Query('range') range?: string,
+        @Query('customer_id') customerId?: string,
     ) {
-        return this.analyticsService.getGlobalDashboard(range || 'today');
+        return this.analyticsService.getGlobalDashboard(range || 'today', customerId);
     }
 }

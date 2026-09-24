@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import telecomService from '../../services/telecom.service';
 import api from '../../services/api';
-import { Phone, Mic, Volume2, Shield, Activity, RotateCw, Globe, Building2 } from 'lucide-react';
+import { Phone, Mic, Volume2, Shield, Activity, RotateCw, Globe, Building2, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const MonitoringPage = () => {
@@ -15,10 +15,19 @@ const MonitoringPage = () => {
     const [socket, setSocket] = useState(null);
     const [isConnected, setIsConnected] = useState(false);
     const [bargeStatus, setBargeStatus] = useState('');
+    const [currentTime, setCurrentTime] = useState(Date.now());
 
     const isSuperAdmin = user?.role === 'SUPER_ADMIN';
     const targetTenantId = isSuperAdmin ? selectedTenantId : user?.tenantId;
     const adminExtension = user?.monitoringExtension || user?.extension;
+
+    // 1-second timer ticker for live call durations
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(Date.now());
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
 
     // Fetch tenant list for Super Admin dropdown filter
     useEffect(() => {
@@ -32,13 +41,8 @@ const MonitoringPage = () => {
         }
     }, [isSuperAdmin]);
 
+    // Connect socket once on mount
     useEffect(() => {
-        if (!targetTenantId) return;
-
-        // 1. Initial Load
-        loadActiveCalls();
-
-        // 2. Connect Socket
         const token = sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken');
 
         if (!token) {
@@ -66,9 +70,7 @@ const MonitoringPage = () => {
 
         newSocket.on('connect', () => {
             console.log('Monitor Socket Connected');
-            console.log('Joining room:', targetTenantId);
             setIsConnected(true);
-            newSocket.emit('join_room', targetTenantId);
         });
 
         newSocket.on('disconnect', (reason) => {
@@ -99,7 +101,19 @@ const MonitoringPage = () => {
         return () => {
             newSocket.disconnect();
         };
-    }, [targetTenantId]);
+    }, []);
+
+    // Smooth tenant switching without socket reconnect: join new room & refresh calls
+    useEffect(() => {
+        if (!targetTenantId) return;
+
+        if (socket && isConnected) {
+            console.log('Switching to room:', targetTenantId);
+            socket.emit('join_room', targetTenantId);
+        }
+
+        loadActiveCalls();
+    }, [targetTenantId, socket, isConnected]);
 
     const sendPing = () => {
         if (socket) {
@@ -184,6 +198,34 @@ const MonitoringPage = () => {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
+    const getLiveDuration = (call) => {
+        // If call has ended, show the final recorded duration
+        if (call.status === 'ended' && call.duration) {
+            return call.duration;
+        }
+
+        // Measure from answerTime if answered, otherwise from startTime if ringing
+        const baseTime = call.status === 'answered' ? (call.answerTime || call.startTime) : call.startTime;
+        if (!baseTime) return call.duration || 0;
+
+        let startMs = 0;
+        if (typeof baseTime === 'number') {
+            startMs = baseTime > 1e11 ? baseTime : baseTime * 1000;
+        } else if (typeof baseTime === 'string') {
+            const num = parseInt(baseTime, 10);
+            if (!isNaN(num)) {
+                startMs = num > 1e11 ? num : num * 1000;
+            } else {
+                startMs = new Date(baseTime).getTime();
+            }
+        } else if (baseTime instanceof Date) {
+            startMs = baseTime.getTime();
+        }
+
+        if (!startMs || isNaN(startMs)) return call.duration || 0;
+        return Math.max(0, Math.floor((currentTime - startMs) / 1000));
+    };
+
     if (loading) return (
         <div className="max-w-7xl mx-auto pb-12">
             <div className="animate-pulse flex space-x-4">
@@ -215,20 +257,22 @@ const MonitoringPage = () => {
                 {/* Control Panel Box */}
                 <div className="bg-white rounded-2xl shadow-sm ring-1 ring-indigo-200/60 p-3 px-4 flex flex-wrap items-center gap-3 md:gap-4 mx-4 sm:mx-0 shadow-indigo-500/5">
                     {isSuperAdmin && (
-                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-2.5 py-1.5 shadow-xs">
-                            <Globe className="h-4 w-4 text-blue-600 shrink-0" />
+                        <div className="relative bg-slate-50 border border-slate-200/80 shadow-xs rounded-xl flex items-center px-3 py-1.5 gap-2 hover:border-slate-300 transition-all">
+                            <Building2 className="h-4 w-4 text-slate-500 shrink-0" />
                             <select
                                 value={selectedTenantId}
                                 onChange={(e) => setSelectedTenantId(e.target.value)}
-                                className="bg-transparent text-xs font-bold text-gray-800 focus:outline-none cursor-pointer pr-1"
+                                className="bg-transparent text-xs font-bold text-gray-800 pr-5 py-0.5 focus:outline-none cursor-pointer border-none ring-0 appearance-none font-sans"
+                                style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
                             >
-                                <option value="all">All Tenants</option>
+                                <option value="all">🌐 All Tenants</option>
                                 {tenants.map((t) => (
                                     <option key={t.id} value={t.id}>
-                                        {t.name}
+                                        🏢 {t.name}
                                     </option>
                                 ))}
                             </select>
+                            <ChevronDown className="h-3.5 w-3.5 text-slate-400 pointer-events-none -ml-4" />
                         </div>
                     )}
 
@@ -316,7 +360,7 @@ const MonitoringPage = () => {
                                             </div>
                                             <div className="text-sm font-mono font-bold text-gray-900 flex items-center bg-gray-50 px-2 py-1 rounded-md ring-1 ring-inset ring-gray-200">
                                                 {call.status === 'answered' && <span className="mr-2 h-2 w-2 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.6)] animate-pulse"></span>}
-                                                {formatDuration(call.duration)}
+                                                {formatDuration(getLiveDuration(call))}
                                             </div>
                                         </div>
 

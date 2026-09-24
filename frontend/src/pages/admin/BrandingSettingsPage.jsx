@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useBranding } from '../../context/BrandingContext';
 import api from '../../services/api';
+import { getMediaUrl } from '../../utils/media.utils';
 import { 
     Palette, 
     Mail, 
@@ -16,7 +17,7 @@ import {
 } from 'lucide-react';
 
 const BrandingSettingsPage = () => {
-    const { isSuperAdmin } = useAuth();
+    const { isSuperAdmin, refreshUser } = useAuth();
     const { refreshBranding } = useBranding();
     
     // States for current branding settings
@@ -43,6 +44,11 @@ const BrandingSettingsPage = () => {
     
     // Upload state tracking
     const [uploadingField, setUploadingField] = useState(null); // 'logoMain' | 'logoSidebar' | 'favicon'
+    const [previewLogoError, setPreviewLogoError] = useState(false);
+
+    useEffect(() => {
+        setPreviewLogoError(false);
+    }, [currentBranding.logoSidebar, currentBranding.logoMain]);
 
     useEffect(() => {
         if (isSuperAdmin) {
@@ -120,8 +126,11 @@ const BrandingSettingsPage = () => {
         try {
             setSavingCurrent(true);
             await api.put('/admin/branding/current', currentBranding);
-            // Refresh branding context instantly to update UI colors & logos dynamically
-            await refreshBranding();
+            // Refresh branding context & user context instantly to update UI colors & logos dynamically
+            await Promise.all([
+                refreshBranding(),
+                refreshUser ? refreshUser() : Promise.resolve()
+            ]);
             alert('Global platform branding updated successfully!');
         } catch (error) {
             console.error('Failed to save branding:', error);
@@ -221,6 +230,17 @@ const BrandingSettingsPage = () => {
                                             />
                                         </label>
                                     </div>
+                                    {currentBranding.favicon && (
+                                        <div className="flex items-center gap-2 mt-1 px-2.5 py-1.5 bg-gray-50 rounded-lg border border-gray-200 w-fit">
+                                            <img
+                                                src={getMediaUrl(currentBranding.favicon)}
+                                                alt="Favicon preview"
+                                                className="w-4 h-4 object-contain"
+                                                onError={(e) => { e.target.style.display = 'none'; }}
+                                            />
+                                            <span className="text-[11px] font-medium text-gray-500">Current Favicon</span>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Logo Main */}
@@ -250,6 +270,17 @@ const BrandingSettingsPage = () => {
                                             />
                                         </label>
                                     </div>
+                                    {currentBranding.logoMain && (
+                                        <div className="flex items-center gap-2 mt-1 px-2.5 py-1.5 bg-gray-50 rounded-lg border border-gray-200 w-fit">
+                                            <img
+                                                src={getMediaUrl(currentBranding.logoMain)}
+                                                alt="Main Logo preview"
+                                                className="h-6 max-w-[120px] object-contain"
+                                                onError={(e) => { e.target.style.display = 'none'; }}
+                                            />
+                                            <span className="text-[11px] font-medium text-gray-500">Current Main Logo</span>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Logo Sidebar */}
@@ -279,6 +310,17 @@ const BrandingSettingsPage = () => {
                                             />
                                         </label>
                                     </div>
+                                    {currentBranding.logoSidebar && (
+                                        <div className="flex items-center gap-2 mt-1 px-2.5 py-1.5 bg-gray-50 rounded-lg border border-gray-200 w-fit">
+                                            <img
+                                                src={getMediaUrl(currentBranding.logoSidebar)}
+                                                alt="Sidebar Logo preview"
+                                                className="h-6 max-w-[120px] object-contain"
+                                                onError={(e) => { e.target.style.display = 'none'; }}
+                                            />
+                                            <span className="text-[11px] font-medium text-gray-500">Current Sidebar Logo</span>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Primary Color */}
@@ -478,15 +520,15 @@ const BrandingSettingsPage = () => {
                             <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
                                 <div className="flex items-center gap-3 border-b border-gray-100 pb-3">
                                     <div className="h-8 w-28 bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 rounded overflow-hidden p-1 border">
-                                        {currentBranding.logoSidebar || currentBranding.logoMain ? (
+                                        {(currentBranding.logoSidebar || currentBranding.logoMain) && !previewLogoError ? (
                                             <img 
-                                                src={currentBranding.logoSidebar || currentBranding.logoMain} 
+                                                src={getMediaUrl(currentBranding.logoSidebar || currentBranding.logoMain)} 
                                                 alt="Brand Logo" 
                                                 className="h-full w-full object-contain"
-                                                onError={(e) => { e.target.style.display = 'none'; }}
+                                                onError={() => setPreviewLogoError(true)}
                                             />
                                         ) : (
-                                            currentBranding.name || 'Cloud PBX'
+                                            <span className="truncate px-1">{currentBranding.name || 'Cloud PBX'}</span>
                                         )}
                                     </div>
                                     <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-extrabold">PREVIEW</span>

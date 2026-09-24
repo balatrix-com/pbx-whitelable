@@ -5,13 +5,17 @@ import { WalletService } from './wallet.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { BillingModule } from '../billing/billing.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { FreeswitchModule } from '../freeswitch/freeswitch.module';
+import { LookupRedisModule } from '../redis/lookup-redis.module';
 
 @Module({
   imports: [
     HttpModule,
     PrismaModule,
     forwardRef(() => BillingModule),
-    NotificationsModule
+    NotificationsModule,
+    FreeswitchModule,
+    LookupRedisModule,
   ],
   controllers: [WalletController],
   providers: [WalletService],

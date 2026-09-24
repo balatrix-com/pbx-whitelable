@@ -8,9 +8,10 @@ import { AdminModule } from '../admin/admin.module';
 import { LookupRedisModule } from '../redis/lookup-redis.module';
 import { WalletModule } from '../wallet/wallet.module';
 import { MailModule } from '../mail/mail.module';
+import { ExtensionsModule } from '../telecom/extensions/extensions.module';
 
 @Module({
-    imports: [FreeswitchModule, AdminModule, LookupRedisModule, WalletModule, MailModule],
+    imports: [FreeswitchModule, AdminModule, LookupRedisModule, WalletModule, MailModule, ExtensionsModule],
     controllers: [TenantsController],
     providers: [TenantsService, PrismaService],
     exports: [TenantsService],

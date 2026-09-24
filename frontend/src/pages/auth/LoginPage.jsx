@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useBranding } from '../../context/BrandingContext';
 import { Loader2, Mail, Lock, ShieldCheck, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
+import { getMediaUrl } from '../../utils/media.utils';
 
 const LoginPage = () => {
     const { branding } = useBranding();
@@ -121,7 +122,7 @@ const LoginPage = () => {
                 <div className="mx-auto w-full max-w-sm lg:max-w-md">
                     <div className="mb-10 text-center lg:text-left flex flex-col items-center lg:items-start">
                         <img
-                            src={branding.logoMain}
+                            src={getMediaUrl(branding.logoMain)}
                             alt={`${branding.name} Command Center`}
                             className="h-32 md:h-40 w-auto mb-8 lg:mb-10 object-contain bg-transparent"
                         />

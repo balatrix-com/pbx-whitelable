@@ -176,6 +176,9 @@ const CdrsPage = () => {
                 duration: cdr.duration_sec ?? cdr.duration ?? 0,
                 billsec: cdr.billsec ?? 0,
                 cost: cdr.bill_amount ?? cdr.cost ?? 0,
+                callCost: cdr.call_cost ?? cdr.call_charge ?? cdr.bill_amount ?? cdr.cost ?? 0,
+                recordingCost: cdr.recording_cost ?? cdr.recording_charge ?? 0,
+                totalCost: cdr.total_cost ?? cdr.total_amount ?? ((Number(cdr.call_cost ?? cdr.call_charge ?? cdr.bill_amount ?? cdr.cost ?? 0)) + (Number(cdr.recording_cost ?? cdr.recording_charge ?? 0))),
                 status: cdr.status || 'answered',
                 destType: cdr.dest_type || cdr.destType,
                 destValue: cdr.dest_value || cdr.destValue,
@@ -447,7 +450,9 @@ const CdrsPage = () => {
                                         <th scope="col" className="hidden sm:table-cell px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Type</th>
                                         <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Dur</th>
                                         <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Billsec</th>
-                                        <th scope="col" className="hidden md:table-cell px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Amount</th>
+                                        <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Call Charge</th>
+                                        <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Recording Charge</th>
+                                        <th scope="col" className="hidden md:table-cell px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Total Amount</th>
                                         <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Status</th>
                                         {!isSuperAdmin && (
                                             <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Recording</th>
@@ -482,8 +487,14 @@ const CdrsPage = () => {
                                             <td className="whitespace-nowrap px-3 py-4 text-sm font-bold text-gray-600">
                                                 <div className="text-gray-900">{Math.floor(cdr.billsec / 60)}m {cdr.billsec % 60}s</div>
                                             </td>
-                                            <td className="hidden md:table-cell whitespace-nowrap px-3 py-4 text-sm font-extrabold text-gray-900">
-                                                ${Number(cdr.cost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                                            <td className="whitespace-nowrap px-3 py-4 text-sm font-bold text-gray-600">
+                                                ${Number(cdr.callCost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                                            </td>
+                                            <td className="whitespace-nowrap px-3 py-4 text-sm font-bold text-gray-600">
+                                                ${Number(cdr.recordingCost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                                            </td>
+                                            <td className="hidden md:table-cell whitespace-nowrap px-3 py-4 text-sm font-bold text-gray-600">
+                                                ${Number(cdr.totalCost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
                                             </td>
                                             <td className="whitespace-nowrap px-3 py-4">
                                                 <div className="flex items-center gap-2">
@@ -491,7 +502,7 @@ const CdrsPage = () => {
                                                         ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50'
                                                         : 'bg-rose-500'
                                                         }`}></div>
-                                                    <span className="text-xs font-bold text-gray-700 capitalize md:text-sm">{cdr.status}</span>
+                                                    <span className="text-xs font-bold text-gray-600 capitalize md:text-sm">{cdr.status}</span>
                                                 </div>
                                             </td>
                                             {!isSuperAdmin && (

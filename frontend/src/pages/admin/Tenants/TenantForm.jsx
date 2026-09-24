@@ -97,6 +97,8 @@ const TenantForm = ({ onClose, onSuccess }) => {
                                     <input
                                         required
                                         type="email"
+                                        name="tenant_form_admin_email"
+                                        autoComplete="off"
                                         className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all shadow-sm"
                                         placeholder="admin@company.com"
                                         value={formData.adminEmail}
@@ -113,6 +115,8 @@ const TenantForm = ({ onClose, onSuccess }) => {
                                         <input
                                             required
                                             type={showPassword ? "text" : "password"}
+                                            name="tenant_form_admin_password"
+                                            autoComplete="new-password"
                                             className="w-full pl-10 pr-10 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all shadow-sm"
                                             placeholder="••••••••"
                                             value={formData.adminPassword}
@@ -135,6 +139,8 @@ const TenantForm = ({ onClose, onSuccess }) => {
                                         <input
                                             required
                                             type={showConfirmPassword ? "text" : "password"}
+                                            name="tenant_form_confirm_password"
+                                            autoComplete="new-password"
                                             className="w-full pl-10 pr-10 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all shadow-sm"
                                             placeholder="••••••••"
                                             value={formData.confirmPassword}

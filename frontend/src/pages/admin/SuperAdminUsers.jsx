@@ -495,7 +495,7 @@ const AdminCard = ({ admin, supportUsers, expanded, onToggle, onSuspend, onImper
     return (
         <div className={clsx(
             "bg-white rounded-3xl shadow-sm ring-1 transition-all duration-300 overflow-hidden",
-            expanded ? "ring-primary-600 shadow-xl shadow-primary-600/5 scale-[1.01]" : "ring-gray-200 hover:ring-primary-300"
+            expanded ? "ring-primary-600 shadow-xl shadow-primary-600/5 card-active" : "ring-gray-200 hover:ring-primary-300 card-hover"
         )}>
             <div 
                 className={clsx(

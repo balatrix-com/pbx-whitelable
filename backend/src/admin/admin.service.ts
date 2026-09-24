@@ -1,4 +1,4 @@
-import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, Logger, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
@@ -284,32 +284,57 @@ export class AdminService {
     async getTelecomStats() {
         const [
             totalDIDs,
+            totalTFNs,
             totalExtensions,
             totalRingGroups,
             totalIVRs,
             totalSchedules,
         ] = await Promise.all([
             this.prisma.dID.count(),
+            this.prisma.tFN.count(),
             this.prisma.extension.count(),
             this.prisma.ringGroup.count(),
             this.prisma.iVR.count(),
             this.prisma.operationalSchedule.count(),
         ]);
 
-        // Get active tenants (tenants with at least one DID)
-        const tenantsWithDIDs = await this.prisma.dID.groupBy({
-            by: ['tenantId'],
-        });
-        const activeTenants = tenantsWithDIDs.length;
+        // Get active tenants (tenants with at least one DID or TFN)
+        const [tenantsWithDIDs, tenantsWithTFNs] = await Promise.all([
+            this.prisma.dID.groupBy({
+                by: ['tenantId'],
+            }),
+            this.prisma.tFN.groupBy({
+                by: ['tenantId'],
+                where: { tenantId: { not: null } }
+            }),
+        ]);
 
-        // Calculate monthly revenue from DIDs
-        const didsWithFees = await this.prisma.dID.findMany({
-            select: { monthlyFee: true },
-        });
-        const monthlyRevenue = didsWithFees.reduce(
-            (sum, did) => sum + (did.monthlyFee ? parseFloat(did.monthlyFee.toString()) : 0),
-            0,
-        );
+        const activeTenantIds = new Set([
+            ...tenantsWithDIDs.map(t => t.tenantId).filter(Boolean),
+            ...tenantsWithTFNs.map(t => t.tenantId).filter(Boolean),
+        ]);
+        const activeTenants = activeTenantIds.size;
+
+        // Calculate monthly revenue from DIDs and assigned TFNs
+        const [didsWithFees, tfnsWithFees] = await Promise.all([
+            this.prisma.dID.findMany({
+                select: { monthlyFee: true },
+            }),
+            this.prisma.tFN.findMany({
+                where: { tenantId: { not: null } },
+                select: { price: true },
+            }),
+        ]);
+
+        const monthlyRevenue =
+            didsWithFees.reduce(
+                (sum, did) => sum + (did.monthlyFee ? parseFloat(did.monthlyFee.toString()) : 0),
+                0,
+            ) +
+            tfnsWithFees.reduce(
+                (sum, tfn) => sum + (tfn.price ? parseFloat(tfn.price.toString()) : 0),
+                0,
+            );
 
         const limitStr = process.env.SYSTEM_LIMIT_EXTENSIONS;
         const limit = limitStr ? parseInt(limitStr, 10) : 500;
@@ -317,6 +342,7 @@ export class AdminService {
 
         return {
             totalDIDs,
+            totalTFNs,
             totalExtensions,
             availableExtensions,
             limitExtensions: limit,
@@ -348,27 +374,40 @@ export class AdminService {
      * Get tenant-specific telecom stats (for detailed view)
      */
     async getTenantTelecomStats(tenantId: string) {
-        const [dids, extensions, ringGroups, ivrs, schedules] = await Promise.all([
+        const [dids, tfns, extensions, ringGroups, ivrs, schedules] = await Promise.all([
             this.prisma.dID.count({ where: { tenantId } }),
+            this.prisma.tFN.count({ where: { tenantId } }),
             this.prisma.extension.count({ where: { tenantId } }),
             this.prisma.ringGroup.count({ where: { tenantId } }),
             this.prisma.iVR.count({ where: { tenantId } }),
             this.prisma.operationalSchedule.count({ where: { tenantId } }),
         ]);
 
-        // Calculate DID monthly fees for this tenant
-        const tenantDIDs = await this.prisma.dID.findMany({
-            where: { tenantId },
-            select: { monthlyFee: true },
-        });
+        // Calculate DID + TFN monthly fees for this tenant
+        const [tenantDIDs, tenantTFNs] = await Promise.all([
+            this.prisma.dID.findMany({
+                where: { tenantId },
+                select: { monthlyFee: true },
+            }),
+            this.prisma.tFN.findMany({
+                where: { tenantId },
+                select: { price: true },
+            }),
+        ]);
 
-        const monthlyFee = tenantDIDs.reduce(
-            (sum, did) => sum + (did.monthlyFee ? parseFloat(did.monthlyFee.toString()) : 0),
-            0,
-        );
+        const monthlyFee =
+            tenantDIDs.reduce(
+                (sum, did) => sum + (did.monthlyFee ? parseFloat(did.monthlyFee.toString()) : 0),
+                0,
+            ) +
+            tenantTFNs.reduce(
+                (sum, tfn) => sum + (tfn.price ? parseFloat(tfn.price.toString()) : 0),
+                0,
+            );
 
         return {
             dids,
+            tfns,
             extensions,
             ringGroups,
             ivrs,
@@ -462,27 +501,92 @@ export class AdminService {
         });
     }
 
-    async assignNumber(type: 'TFN' | 'DID', id: string, tenantId: string) {
+    private async syncAssetsToSubBilling(tenantId: string, assets: { tfns?: string[], dids?: string[] }) {
+        try {
+            const subscription = await this.prisma.subscription.findFirst({
+                where: { tenantId },
+                orderBy: { createdAt: 'desc' }
+            });
+
+            const targetId = subscription?.subBillingSubscriptionId || tenantId;
+
+            if (!this.subBillingUrl) {
+                this.logger.warn(`Sub-billing API URL not configured, skipping asset sync`);
+                return;
+            }
+
+            const endpoint = `${this.subBillingUrl}/pbx/sync-assets/${targetId}`;
+            await lastValueFrom(this.httpService.post(endpoint, assets));
+            this.logger.log(`Successfully synced assets for tenant ${tenantId} to sub-billing`);
+        } catch (error: any) {
+            this.logger.error(`Failed to sync assets to sub-billing for tenant ${tenantId}: ${error.message}`);
+        }
+    }
+
+    private async unassignAssetsInSubBilling(assets: { tfns?: string[], dids?: string[] }) {
+        try {
+            if (!this.subBillingUrl) return;
+            const endpoint = `${this.subBillingUrl}/pbx/unassign-assets`;
+            await lastValueFrom(this.httpService.post(endpoint, assets));
+            this.logger.log(`Successfully unassigned assets in sub-billing: ${JSON.stringify(assets)}`);
+        } catch (error: any) {
+            this.logger.error(`Failed to unassign assets in sub-billing: ${error.message}`);
+        }
+    }
+
+    async assignNumber(type: 'TFN' | 'DID', idOrNumber: string, tenantId: string) {
         if (type === 'TFN') {
-            return this.prisma.tFN.update({
-                where: { id },
+            const tfn = await this.prisma.tFN.findFirst({
+                where: { OR: [{ id: idOrNumber }, { number: idOrNumber }] }
+            });
+            if (!tfn) throw new NotFoundException(`TFN ${idOrNumber} not found`);
+
+            const updated = await this.prisma.tFN.update({
+                where: { id: tfn.id },
                 data: {
                     tenantId,
                     status: 'ASSIGNED',
                     purchasedAt: new Date()
                 }
             });
+
+            // Sync FreeSWITCH & Redis
+            await this.freeswitchSync.syncTFN(updated.id).catch(err => {
+                this.logger.error(`Failed to sync FreeSWITCH for TFN ${updated.number}: ${err.message}`);
+            });
+            await this.lookupRedis.updateNumberLookup(updated.number, tenantId);
+
+            // Sync to Sub-Billing
+            await this.syncAssetsToSubBilling(tenantId, { tfns: [updated.number] });
+
+            return updated;
         } else {
-            return this.prisma.dID.update({
-                where: { id },
+            const did = await this.prisma.dID.findFirst({
+                where: { OR: [{ id: idOrNumber }, { number: idOrNumber }] }
+            });
+            if (!did) throw new NotFoundException(`DID ${idOrNumber} not found`);
+
+            const updated = await this.prisma.dID.update({
+                where: { id: did.id },
                 data: { tenantId }
             });
+
+            // Update Redis Lookup
+            await this.lookupRedis.updateNumberLookup(updated.number, tenantId);
+
+            // Sync to Sub-Billing
+            await this.syncAssetsToSubBilling(tenantId, { dids: [updated.number] });
+
+            return updated;
         }
     }
 
-    async unassignNumber(type: 'TFN' | 'DID', id: string) {
+    async unassignNumber(type: 'TFN' | 'DID', idOrNumber: string) {
         if (type === 'TFN') {
-            const tfn = await this.prisma.tFN.findUnique({ where: { id }, include: { tenant: true } });
+            const tfn = await this.prisma.tFN.findFirst({
+                where: { OR: [{ id: idOrNumber }, { number: idOrNumber }] },
+                include: { tenant: true }
+            });
             if (tfn) {
                 // Cleanup routing in FreeSWITCH
                 await this.freeswitchSync.deleteTFN(tfn).catch(err => {
@@ -492,8 +596,11 @@ export class AdminService {
                 // Cleanup Redis mapping
                 await this.lookupRedis.deleteNumberLookup(tfn.number);
 
+                // Unassign in Sub-Billing
+                await this.unassignAssetsInSubBilling({ tfns: [tfn.number] });
+
                 return this.prisma.tFN.update({
-                    where: { id },
+                    where: { id: tfn.id },
                     data: {
                         tenantId: null,
                         status: 'AVAILABLE',
@@ -504,8 +611,12 @@ export class AdminService {
                     }
                 });
             }
+            throw new NotFoundException(`TFN ${idOrNumber} not found`);
         } else {
-            const did = await this.prisma.dID.findUnique({ where: { id }, include: { tenant: true } });
+            const did = await this.prisma.dID.findFirst({
+                where: { OR: [{ id: idOrNumber }, { number: idOrNumber }] },
+                include: { tenant: true }
+            });
             if (did) {
                 // Cleanup routing in FreeSWITCH
                 await this.freeswitchSync.deleteDID(did).catch(err => {
@@ -514,18 +625,22 @@ export class AdminService {
 
                 // Cleanup Redis mapping
                 await this.lookupRedis.deleteNumberLookup(did.number);
-            }
 
-            return this.prisma.dID.update({
-                where: { id },
-                data: {
-                    tenantId: null,
-                    routeType: null,
-                    routeTargetId: null,
-                    forwardEnabled: false,
-                    forwardNumber: null
-                }
-            });
+                // Unassign in Sub-Billing
+                await this.unassignAssetsInSubBilling({ dids: [did.number] });
+
+                return this.prisma.dID.update({
+                    where: { id: did.id },
+                    data: {
+                        tenantId: null,
+                        routeType: null,
+                        routeTargetId: null,
+                        forwardEnabled: false,
+                        forwardNumber: null
+                    }
+                });
+            }
+            throw new NotFoundException(`DID ${idOrNumber} not found`);
         }
     }
 

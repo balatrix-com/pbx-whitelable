@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { X, User, Phone, CreditCard, Activity, Eye } from 'lucide-react';
+import { X, User, Phone, CreditCard, Activity, Eye, Server } from 'lucide-react';
 import api from '../../services/api';
 import './TenantDetailModal.css';
 
@@ -52,7 +52,7 @@ const TenantDetailModal = ({ tenantId, onClose }) => {
                         </div>
 
                         {/* Tabs */}
-                        <div className="modal-tabs">
+                        <div className="modal-tabs flex bg-slate-100/80 p-1.5 rounded-2xl w-fit border border-slate-200/60 gap-1 mb-4">
                             <TabButton id="overview" label="Overview" icon={Server} active={activeTab} onClick={setActiveTab} />
                             <TabButton id="users" label="Users" icon={User} active={activeTab} onClick={setActiveTab} />
                             <TabButton id="telecom" label="Telecom" icon={Phone} active={activeTab} onClick={setActiveTab} />
@@ -76,16 +76,6 @@ const TenantDetailModal = ({ tenantId, onClose }) => {
         </div>
     );
 };
-
-const TabButton = ({ id, label, icon: Icon, active, onClick }) => (
-    <button
-        className={`tab-btn ${active === id ? 'active' : ''}`}
-        onClick={() => onClick(id)}
-    >
-        <Icon size={16} />
-        {label}
-    </button>
-);
 
 const OverviewTab = ({ details }) => (
     <div className="tab-content overview-tab">
@@ -205,6 +195,20 @@ const ActivityTab = ({ details }) => (
             <p>Recent activity logs coming soon.</p>
         </div>
     </div>
+);
+
+const TabButton = ({ id, label, icon: Icon, active, onClick }) => (
+    <button
+        onClick={() => onClick(id)}
+        className={`px-4 py-2 rounded-xl text-sm font-extrabold flex items-center gap-2 transition-all duration-200 ${
+            active === id
+                ? 'bg-white text-indigo-900 shadow-sm border border-indigo-200/80 ring-1 ring-indigo-500/10'
+                : 'text-slate-500 hover:text-slate-900'
+        }`}
+    >
+        {Icon && <Icon size={16} />}
+        {label}
+    </button>
 );
 
 const StatBox = ({ label, value, color }) => (

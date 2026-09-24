@@ -14,14 +14,20 @@ export const REDIS_SUBSCRIBER = 'REDIS_SUBSCRIBER';
                     url: `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
                     password: process.env.REDIS_PASSWORD,
                     socket: {
-                        connectTimeout: 5000,
+                        connectTimeout: 10000,
                         reconnectStrategy: (retries) => {
-                            if (retries > 3) return new Error('Redis connection failed');
-                            return 500;
+                            if (retries > 20) return new Error('Redis connection failed');
+                            return Math.min(retries * 200, 3000);
                         }
                     }
                 });
-                client.on('error', (err) => console.error('Redis Client Error', err));
+                client.on('error', (err) => {
+                    if (err?.message?.includes('Connection timeout')) {
+                        console.warn('Redis Client connection timed out, reconnecting...');
+                    } else {
+                        console.error('Redis Client Error:', err?.message || err);
+                    }
+                });
                 try {
                     await client.connect();
                 } catch (e) {
@@ -51,14 +57,20 @@ export const REDIS_SUBSCRIBER = 'REDIS_SUBSCRIBER';
                     url: `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
                     password: process.env.REDIS_PASSWORD,
                     socket: {
-                        connectTimeout: 5000,
+                        connectTimeout: 10000,
                         reconnectStrategy: (retries) => {
-                            if (retries > 3) return new Error('Redis subscriber connection failed');
-                            return 500;
+                            if (retries > 20) return new Error('Redis subscriber connection failed');
+                            return Math.min(retries * 200, 3000);
                         }
                     }
                 });
-                client.on('error', (err) => console.error('Redis Subscriber Error', err));
+                client.on('error', (err) => {
+                    if (err?.message?.includes('Connection timeout')) {
+                        console.warn('Redis Subscriber connection timed out, reconnecting...');
+                    } else {
+                        console.error('Redis Subscriber Error:', err?.message || err);
+                    }
+                });
                 try {
                     await client.connect();
                 } catch (e) {
