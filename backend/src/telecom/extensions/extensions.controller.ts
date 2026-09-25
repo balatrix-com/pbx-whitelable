@@ -16,6 +16,7 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { GetUser } from '../../auth/decorators/get-user.decorator';
 import { Role } from '@prisma/client';
+import { Public } from '../../auth/decorators/public.decorator';
 
 @Controller('telecom/extensions')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -78,8 +79,8 @@ export class ExtensionsController {
      * POST /telecom/extensions/sync-from-billing
      * Sync extensions from sub-billing assets into PBX DB, Kamailio, and FreeSWITCH
      */
+    @Public()
     @Post('sync-from-billing')
-    @Roles(Role.SUPER_ADMIN, Role.SUPPORT, Role.ADMIN)
     async syncFromBilling(@Body() body: { customerId?: string; tenantId?: string }) {
         const target = body.tenantId || body.customerId;
         if (!target) return { success: false, message: 'customerId or tenantId is required' };
