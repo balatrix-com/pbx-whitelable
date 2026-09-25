@@ -504,6 +504,26 @@ export class WalletService {
         }
     }
 
+    async deleteSubBillingCustomer(customerId: string): Promise<void> {
+        try {
+            this.logger.log(`Deleting sub-billing customer ${customerId}`);
+            const response = await firstValueFrom(
+                this.httpService.delete(`${this.subBillingUrl}/customers/${customerId}`)
+            );
+            if (response.data && response.data.success) {
+                this.logger.log(`Sub-billing customer ${customerId} deleted successfully`);
+                return;
+            }
+            this.logger.warn(`Sub-billing DELETE returned unexpected body for ${customerId}: ${JSON.stringify(response.data)}`);
+        } catch (error) {
+            if (error.response?.status === 404) {
+                this.logger.warn(`Sub-billing customer ${customerId} not found (404). Skipping.`);
+                return;
+            }
+            this.logger.error(`Failed to delete sub-billing customer ${customerId}: ${error.response?.data?.message || error.message}`);
+        }
+    }
+
     async createSubBillingSubscription(customerId: string, planId: string) {
         try {
             this.logger.log(`Creating subscription in sub-billing for customer ${customerId} to plan ${planId}`);

@@ -606,10 +606,8 @@ export class TenantsService {
 
             const existsInSubBilling = await this.walletService.checkCustomerExists(customerCode);
             if (existsInSubBilling) {
-                nextCode++;
-                customerCode = `U${nextCode}`;
-                retries++;
-                continue;
+                this.logger.warn(`Stale sub-billing record found for ${customerCode}. Cleaning up before re-creation.`);
+                await this.walletService.deleteSubBillingCustomer(customerCode);
             }
 
             isUnique = true;
@@ -788,6 +786,14 @@ export class TenantsService {
 
         // 0.2 Cleanup Redis lookups
         await this.lookupRedis.deleteTenantLookups(id);
+
+        // 0.3 Delete sub-billing customer (cascades wallet, subscriptions, assets in bala_billing)
+        if (tenant.subBillingCustomerId) {
+            await this.walletService.deleteSubBillingCustomer(tenant.subBillingCustomerId);
+        } else if (tenant.customerCode) {
+            // Fallback: customerCode doubles as customer_id in sub-billing
+            await this.walletService.deleteSubBillingCustomer(tenant.customerCode);
+        }
 
         // Proceed to delete local database records via single transaction
         return this.prisma.$transaction(async (prisma) => {
