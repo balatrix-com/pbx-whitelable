@@ -6,6 +6,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { Audit } from '../audit/audit.decorator';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -59,18 +60,21 @@ export class AdminController {
 
     @Post('packages')
     @Roles('SUPER_ADMIN')
+    @Audit('PLAN_CREATED', 'PLANS_ADDONS')
     createPackage(@Body() data: any) {
         return this.adminService.createPackage(data);
     }
 
     @Put('packages/:id')
     @Roles('SUPER_ADMIN')
+    @Audit('PLAN_UPDATED', 'PLANS_ADDONS')
     updatePackage(@Param('id') id: string, @Body() data: any) {
         return this.adminService.updatePackage(id, data);
     }
 
     @Delete('packages/:id')
     @Roles('SUPER_ADMIN')
+    @Audit('PLAN_DELETED', 'PLANS_ADDONS')
     deletePackage(@Param('id') id: string) {
         return this.adminService.deletePackage(id);
     }
@@ -98,18 +102,21 @@ export class AdminController {
 
     @Post('rate-cards')
     @Roles('SUPER_ADMIN')
+    @Audit('RATE_CARD_CREATED', 'RATE_CARD')
     createRateCard(@Body() data: any) {
         return this.adminService.createRateCard(data);
     }
 
     @Put('rate-cards/:id')
     @Roles('SUPER_ADMIN')
+    @Audit('RATE_CARD_UPDATED', 'RATE_CARD')
     updateRateCard(@Param('id') id: string, @Body() data: any) {
         return this.adminService.updateRateCard(id, data);
     }
 
     @Post('rate-cards/mappings')
     @Roles('SUPER_ADMIN')
+    @Audit('RATE_CARD_MAPPING_UPDATED', 'RATE_CARD')
     updateCustomerRateCardMapping(@Body() data: { customer_id: string; ratecard_id: number }) {
         return this.adminService.updateCustomerRateCardMapping(data);
     }
@@ -137,12 +144,14 @@ export class AdminController {
 
     @Put('rec-rate-cards/:id')
     @Roles('SUPER_ADMIN')
+    @Audit('RATE_CARD_UPDATED', 'RATE_CARD')
     updateRecRateCard(@Param('id') id: string, @Body() data: any) {
         return this.adminService.updateRecRateCard(id, data);
     }
 
     @Put('rec-rate-cards/customer/:customerId')
     @Roles('SUPER_ADMIN')
+    @Audit('RATE_CARD_MAPPING_UPDATED', 'RATE_CARD')
     updateCustomerRecRateCardMapping(@Param('customerId') customerId: string, @Body() data: { rec_rc_id: number }) {
         return this.adminService.updateCustomerRecRateCardMapping(customerId, data);
     }
@@ -158,12 +167,14 @@ export class AdminController {
 
     @Post('numbers/tfn')
     @Roles('SUPER_ADMIN')
+    @Audit('TFN_CREATED', 'MANAGE_NUMBERS')
     addTFN(@Body() data: { number: string; price?: number; isDemo?: boolean }) {
         return this.adminService.addTFN(data);
     }
 
     @Post('numbers/tfn/bulk')
     @Roles('SUPER_ADMIN')
+    @Audit('TFN_CREATED', 'MANAGE_NUMBERS')
     addTFNBulk(@Body() data: { numbers: string[]; price?: number; isDemo?: boolean }) {
         return this.adminService.addTFNBulk(data);
     }
@@ -171,30 +182,35 @@ export class AdminController {
 
     @Post('numbers/did')
     @Roles('SUPER_ADMIN')
+    @Audit('DID_CREATED', 'MANAGE_NUMBERS')
     addDID(@Body() data: { number: string; monthlyFee?: number; provider?: string }) {
         return this.adminService.addDID(data);
     }
 
     @Post('numbers/did/bulk')
     @Roles('SUPER_ADMIN')
+    @Audit('DID_CREATED', 'MANAGE_NUMBERS')
     addDIDBulk(@Body() data: { numbers: string[]; monthlyFee?: number; provider?: string }) {
         return this.adminService.addDIDBulk(data);
     }
 
     @Post('numbers/assign')
     @Roles('SUPER_ADMIN')
+    @Audit('NUMBER_ASSIGNED', 'MANAGE_NUMBERS')
     assignNumber(@Body() data: { type: 'TFN' | 'DID'; id: string; tenantId: string }) {
         return this.adminService.assignNumber(data.type, data.id, data.tenantId);
     }
 
     @Post('numbers/unassign')
     @Roles('SUPER_ADMIN')
+    @Audit('NUMBER_UNASSIGNED', 'MANAGE_NUMBERS')
     unassignNumber(@Body() data: { type: 'TFN' | 'DID'; id: string }) {
         return this.adminService.unassignNumber(data.type, data.id);
     }
 
     @Post('numbers/delete')
     @Roles('SUPER_ADMIN')
+    @Audit('NUMBER_DELETED', 'MANAGE_NUMBERS')
     deleteNumber(@Body() data: { type: 'TFN' | 'DID'; id: string }) {
         return this.adminService.deleteNumber(data.type, data.id);
     }
@@ -210,6 +226,7 @@ export class AdminController {
 
     @Put('branding/current')
     @Roles('SUPER_ADMIN')
+    @Audit('SYSTEM_SETTINGS_UPDATED', 'SYSTEM_SETTINGS')
     async updateCurrentBranding(@Body() data: any) {
         return this.adminService.updateCurrentBranding(data);
     }

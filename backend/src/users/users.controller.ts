@@ -15,6 +15,7 @@ import { UpdatePermissionsDto } from './dto/update-permissions.dto';
 import { InviteSupportUserDto } from './dto/invite-support-user.dto';
 import { AcceptInviteDto } from './dto/accept-invite.dto';
 import { PaginationQueryDto } from './dto/pagination-query.dto';
+import { Audit } from '../audit/audit.decorator';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -33,6 +34,7 @@ export class UsersController {
 
     @Post('support')
     @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+    @Audit('USER_CREATED', 'USER_MANAGEMENT')
     createSupportUser(@GetUser() user: User, @Body() dto: CreateSupportUserDto) {
         return this.usersService.createSupportUser(user.id, dto);
     }
@@ -41,6 +43,7 @@ export class UsersController {
 
     @Patch(':id/status')
     @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+    @Audit('USER_STATUS_UPDATED', 'USER_MANAGEMENT')
     updateUserStatus(
         @GetUser() user: User,
         @Param('id') targetUserId: string,
@@ -51,6 +54,7 @@ export class UsersController {
 
     @Patch(':id/permissions')
     @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+    @Audit('USER_ROLE_UPDATED', 'USER_MANAGEMENT')
     updatePermissions(
         @GetUser() user: User,
         @Param('id') targetUserId: string,
@@ -106,6 +110,7 @@ export class UsersController {
      */
     @Post('impersonate/:id')
     @Roles(Role.SUPER_ADMIN)
+    @Audit('IMPERSONATION_START', 'AUTH')
     async impersonateUser(
         @Param('id') targetUserId: string,
         @GetUser() superAdmin: User
@@ -123,21 +128,6 @@ export class UsersController {
         // Update refresh token for target user
         await this.authService.updateRefreshToken(result.user.id, tokens.refreshToken);
 
-        // Log to system audit
-        await this.auditService.log({
-            action: 'IMPERSONATION_START',
-            category: 'AUTH',
-            actorId: superAdmin.id,
-            actorEmail: superAdmin.email,
-            actorType: 'USER',
-            targetId: targetUserId,
-            targetType: 'USER',
-            metadata: {
-                impersonatedEmail: result.user.email,
-                tenantId: result.user.tenantId
-            }
-        });
-
         return {
             ...result,
             ...tokens
@@ -152,6 +142,7 @@ export class UsersController {
 
     @Delete(':id')
     @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+    @Audit('USER_DELETED', 'USER_MANAGEMENT')
     deleteUser(@GetUser() user: User, @Param('id') targetId: string) {
         return this.usersService.deleteUser(user.id, targetId);
     }
