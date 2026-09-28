@@ -585,9 +585,11 @@ CREATE TABLE "rate_cards" (
     "currency" CHAR(3) NOT NULL DEFAULT 'USD',
     "country" TEXT,
     "in_rate_per_min" DECIMAL(14,6) NOT NULL DEFAULT 0.000000,
+    "in_rate_per_sec" DECIMAL(14,8),
     "in_initial_increment_sec" INTEGER NOT NULL DEFAULT 60,
     "in_increment_sec" INTEGER NOT NULL DEFAULT 60,
     "ob_rate_per_min" DECIMAL(14,6) NOT NULL DEFAULT 0.000000,
+    "ob_rate_per_sec" DECIMAL(14,8),
     "ob_initial_increment_sec" INTEGER NOT NULL DEFAULT 60,
     "ob_increment_sec" INTEGER NOT NULL DEFAULT 60,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -600,6 +602,9 @@ CREATE TABLE "rate_cards" (
 CREATE TABLE "customer_ratecard" (
     "customer_id" TEXT NOT NULL,
     "ratecard_id" INTEGER NOT NULL,
+    "effective_from" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "effective_to" TIMESTAMP(3),
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "customer_ratecard_pkey" PRIMARY KEY ("customer_id")
