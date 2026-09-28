@@ -16,6 +16,7 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { GetUser } from '../../auth/decorators/get-user.decorator';
 import { Role } from '@prisma/client';
+import { Public } from '../../auth/decorators/public.decorator';
 
 @Controller('telecom/extensions')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -72,6 +73,19 @@ export class ExtensionsController {
     @Roles(Role.ADMIN, Role.SUPPORT)
     findOne(@GetUser() user: any, @Param('id') id: string) {
         return this.extensionsService.findOne(user.tenantId, id);
+    }
+
+    /**
+     * POST /telecom/extensions/sync-from-billing
+     * Sync extensions from sub-billing assets into PBX DB, Kamailio, and FreeSWITCH
+     */
+    @Public()
+    @Post('sync-from-billing')
+    async syncFromBilling(@Body() body: { customerId?: string; tenantId?: string }) {
+        const target = body.tenantId || body.customerId;
+        if (!target) return { success: false, message: 'customerId or tenantId is required' };
+        await this.extensionsService.syncMissingExtensionsFromSubBilling(target);
+        return { success: true, message: `Extensions synced for ${target}` };
     }
 
     /**

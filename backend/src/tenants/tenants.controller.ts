@@ -1,15 +1,26 @@
 
-import { Controller, Get, Post, Delete, Body, Patch, Param, UseGuards, Query, Put } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Patch, Param, UseGuards, Query, Put, Req, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { TenantsService } from './tenants.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '@prisma/client';
+import { UpdateTenantDetailsDto } from './dto/update-tenant-details.dto';
 
 @Controller('tenants')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class TenantsController {
     constructor(private readonly tenantsService: TenantsService) { }
+
+    @Get('profile/details')
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+    getMyTenantDetails(@Req() req: any, @Query('tenantId') queryTenantId?: string) {
+        const tenantId = req.user.role === Role.SUPER_ADMIN ? (queryTenantId || req.user.tenantId) : req.user.tenantId;
+        if (!tenantId) {
+            throw new BadRequestException('No tenant associated with this account');
+        }
+        return this.tenantsService.getTenantDetails(tenantId);
+    }
 
     @Get()
     @Roles(Role.SUPER_ADMIN)
@@ -52,9 +63,21 @@ export class TenantsController {
     }
 
     @Get(':id')
-    @Roles(Role.SUPER_ADMIN)
-    getTenantDetails(@Param('id') id: string) {
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+    getTenantDetails(@Param('id') id: string, @Req() req: any) {
+        if (req.user.role === Role.ADMIN && req.user.tenantId !== id) {
+            throw new ForbiddenException('Access denied to other tenant details');
+        }
         return this.tenantsService.getTenantDetails(id);
+    }
+
+    @Patch(':id/details')
+    @Roles(Role.SUPER_ADMIN)
+    updateTenantDetails(
+        @Param('id') id: string,
+        @Body() body: UpdateTenantDetailsDto
+    ) {
+        return this.tenantsService.updateTenantDetails(id, body);
     }
 
     @Patch(':id/features')

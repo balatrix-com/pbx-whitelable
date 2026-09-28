@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import api from '../../services/api';
 import { clsx } from 'clsx';
-import { Users, Shield, UserPlus, Activity, Trash2, CheckCircle2, Ban, Eye, X, ShieldCheck, Mail, Calendar } from 'lucide-react';
+import { Users, Shield, UserPlus, Activity, Trash2, CheckCircle2, Ban, Eye, X, ShieldCheck, Mail, Calendar, Link as LinkIcon, RotateCw, Copy, Check } from 'lucide-react';
 import ActivityModal from '../../components/admin/ActivityModal';
 import MonitoringExtensionModal from '../../components/admin/MonitoringExtensionModal';
 import Pagination from '../../components/common/Pagination';
@@ -153,41 +154,56 @@ const UserManagement = () => {
             </div>
 
             {/* Quick Stats Summary */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white p-6 rounded-3xl shadow-sm ring-1 ring-gray-100 flex items-center gap-5">
-                    <div className="p-3 rounded-2xl bg-primary-50">
-                        <Shield className="h-6 w-6 text-primary-600" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Admins</p>
-                        <p className="text-2xl font-black text-gray-900">{users.filter(u => u.role === 'ADMIN').length}</p>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-3xl shadow-sm ring-1 ring-gray-100 flex items-center gap-5">
-                    <div className="p-3 rounded-2xl bg-blue-50">
-                        <Users className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Support Team</p>
-                        <p className="text-2xl font-black text-gray-900">{users.filter(u => u.role === 'SUPPORT').length}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                    <Shield className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2.5 mb-2">
+                            <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                                <Shield className="h-4 w-4 stroke-[2.2]" />
+                            </div>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Admins</p>
+                        </div>
+                        <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">{users.filter(u => u.role === 'ADMIN').length}</div>
                     </div>
                 </div>
-                <div className="bg-white p-6 rounded-3xl shadow-sm ring-1 ring-gray-100 flex items-center gap-5">
-                    <div className="p-3 rounded-2xl bg-emerald-50">
-                        <UserPlus className="h-6 w-6 text-emerald-600" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Active Now</p>
-                        <p className="text-2xl font-black text-gray-900">{users.filter(u => u.status === 'ACTIVE').length}</p>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                    <Users className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2.5 mb-2">
+                            <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                                <Users className="h-4 w-4 stroke-[2.2]" />
+                            </div>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Support Team</p>
+                        </div>
+                        <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">{users.filter(u => u.role === 'SUPPORT').length}</div>
                     </div>
                 </div>
-                <div className="bg-white p-6 rounded-3xl shadow-sm ring-1 ring-gray-100 flex items-center gap-5">
-                    <div className="p-3 rounded-2xl bg-red-50">
-                        <Ban className="h-6 w-6 text-red-600" />
+
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                    <UserPlus className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2.5 mb-2">
+                            <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                                <UserPlus className="h-4 w-4 stroke-[2.2]" />
+                            </div>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Now</p>
+                        </div>
+                        <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">{users.filter(u => u.status === 'ACTIVE').length}</div>
                     </div>
-                    <div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Suspended</p>
-                        <p className="text-2xl font-black text-gray-900">{users.filter(u => u.status === 'SUSPENDED').length}</p>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                    <Ban className="absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 text-blue-400/30 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2]" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2.5 mb-2">
+                            <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 ring-1 ring-blue-500/10 flex items-center justify-center">
+                                <Ban className="h-4 w-4 stroke-[2.2]" />
+                            </div>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Suspended</p>
+                        </div>
+                        <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">{users.filter(u => u.status === 'SUSPENDED').length}</div>
                     </div>
                 </div>
             </div>
@@ -221,6 +237,7 @@ const UserManagement = () => {
                                         onUpdateStatus={handleUpdateStatus}
                                         onToggleMonitoring={handleToggleMonitoring}
                                         onViewActivity={handleViewActivity}
+                                        onRefresh={fetchUsers}
                                         isSuperAdmin={isSuperAdmin}
                                     />
                                 ))
@@ -270,8 +287,11 @@ const UserManagement = () => {
     );
 };
 
-const UserRow = ({ user, currentUserId, onUpdateStatus, onToggleMonitoring, onViewActivity, isSuperAdmin }) => {
+const UserRow = ({ user, currentUserId, onUpdateStatus, onToggleMonitoring, onViewActivity, onRefresh, isSuperAdmin }) => {
     const isSelf = user.id === currentUserId;
+    const { addToast } = useToast();
+    const [copied, setCopied] = useState(false);
+    const [resending, setResending] = useState(false);
 
     const getStatusStyles = (status) => {
         const styles = {
@@ -283,10 +303,49 @@ const UserRow = ({ user, currentUserId, onUpdateStatus, onToggleMonitoring, onVi
         return styles[status] || 'bg-gray-50 text-gray-700';
     };
 
+    const handleCopyInviteLink = async (e) => {
+        if (e) e.stopPropagation();
+        try {
+            let token = user.inviteToken;
+            if (!token) {
+                const res = await api.get(`/users/${user.id}/invite-link`);
+                token = res.data?.inviteToken;
+            }
+            if (!token) {
+                addToast('error', 'No active invite token found for this user.');
+                return;
+            }
+            const inviteLink = `${window.location.origin}/invite/accept?token=${token}`;
+            await navigator.clipboard.writeText(inviteLink);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+            addToast('success', 'Invite link copied to clipboard!');
+        } catch (err) {
+            const msg = err?.response?.data?.message || 'Failed to copy invite link';
+            addToast('error', msg);
+        }
+    };
+
+    const handleResendInvite = async (e) => {
+        if (e) e.stopPropagation();
+        if (resending) return;
+        try {
+            setResending(true);
+            await api.post(`/users/${user.id}/invite/resend`);
+            addToast('success', `Invitation resent to ${user.email}!`);
+            if (onRefresh) onRefresh();
+        } catch (err) {
+            const msg = err?.response?.data?.message || 'Failed to resend invite';
+            addToast('error', msg);
+        } finally {
+            setResending(false);
+        }
+    };
+
     return (
         <tr className={clsx(
-            "hover:bg-gray-50/50 transition-all duration-200 group",
-            isSelf && "bg-primary-50/30"
+            "transition-all duration-200 group cursor-pointer",
+            isSelf && "table-row-selected"
         )}>
             <td className="px-6 py-5 whitespace-nowrap">
                 <div className="flex items-center gap-4">
@@ -303,12 +362,30 @@ const UserRow = ({ user, currentUserId, onUpdateStatus, onToggleMonitoring, onVi
                 </div>
             </td>
             <td className="px-6 py-5 whitespace-nowrap">
-                <span className={clsx(
-                    "inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-tight shadow-sm ring-1",
-                    getStatusStyles(user.status)
-                )}>
-                    {user.status}
-                </span>
+                <div className="flex items-center gap-2">
+                    <span className={clsx(
+                        "inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-tight shadow-sm ring-1",
+                        getStatusStyles(user.status)
+                    )}>
+                        {user.status}
+                    </span>
+                    {user.status === 'INVITED' && (
+                        <button
+                            type="button"
+                            onClick={handleCopyInviteLink}
+                            className={clsx(
+                                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-sm ring-1",
+                                copied
+                                    ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
+                                    : "bg-blue-50 text-blue-700 hover:bg-blue-100 ring-blue-600/20 active:scale-95"
+                            )}
+                            title="Copy Invitation Link"
+                        >
+                            {copied ? <Check size={11} className="stroke-[2.5]" /> : <LinkIcon size={11} className="stroke-[2.5]" />}
+                            <span>{copied ? 'Copied!' : 'Invite Link'}</span>
+                        </button>
+                    )}
+                </div>
             </td>
             <td className="hidden lg:table-cell px-6 py-5 whitespace-nowrap">
                 <span className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
@@ -336,6 +413,34 @@ const UserRow = ({ user, currentUserId, onUpdateStatus, onToggleMonitoring, onVi
             </td>
             <td className="px-6 py-5 whitespace-nowrap text-right">
                 <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0">
+                    {user.status === 'INVITED' && (
+                        <>
+                            <button
+                                type="button"
+                                className={clsx(
+                                    "p-2 rounded-xl transition-all",
+                                    copied ? "text-emerald-600 bg-emerald-50" : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                                )}
+                                onClick={handleCopyInviteLink}
+                                title={copied ? "Copied!" : "Copy Invite Link"}
+                            >
+                                {copied ? <Check size={18} /> : <LinkIcon size={18} />}
+                            </button>
+                            <button
+                                type="button"
+                                className={clsx(
+                                    "p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all",
+                                    resending && "opacity-50 cursor-not-allowed"
+                                )}
+                                onClick={handleResendInvite}
+                                disabled={resending}
+                                title="Resend Invite Email"
+                            >
+                                <RotateCw size={18} className={resending ? "animate-spin" : ""} />
+                            </button>
+                        </>
+                    )}
+
                     <button
                         className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
                         onClick={() => onViewActivity(user)}
@@ -343,7 +448,7 @@ const UserRow = ({ user, currentUserId, onUpdateStatus, onToggleMonitoring, onVi
                     >
                         <Activity size={18} />
                     </button>
-                    
+
                     {user.status === 'ACTIVE' ? (
                         <button
                             className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all disabled:opacity-20"
@@ -383,6 +488,7 @@ const UserRow = ({ user, currentUserId, onUpdateStatus, onToggleMonitoring, onVi
 };
 
 const InviteModal = ({ onClose, onInvite }) => {
+    const { addToast } = useToast();
     const [email, setEmail] = useState('');
     const [name, setName] = useState('');
     const [loading, setLoading] = useState(false);
@@ -409,7 +515,7 @@ const InviteModal = ({ onClose, onInvite }) => {
     const copyToClipboard = (e) => {
         if (e) e.preventDefault();
         navigator.clipboard.writeText(inviteLink).then(() => {
-            alert('Link copied to clipboard!');
+            addToast('success', 'Invite link copied to clipboard!');
         });
     };
 
@@ -434,7 +540,7 @@ const InviteModal = ({ onClose, onInvite }) => {
                         <div className="space-y-8">
                             <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-3xl">
                                 <p className="text-sm text-emerald-800 font-bold leading-relaxed text-center">
-                                    Invitation generated successfully.<br/>Copy the link below to share.
+                                    Invitation generated successfully.<br />Copy the link below to share.
                                 </p>
                             </div>
                             <div className="flex flex-col gap-3">
@@ -445,7 +551,7 @@ const InviteModal = ({ onClose, onInvite }) => {
                                     onClick={copyToClipboard}
                                     className="w-full py-4 bg-gray-900 text-white text-sm font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-gray-900/20 active:scale-95 transition-all"
                                 >
-                                    Copy Link
+                                    Copy Link and Share it to your Sub-Ordinate.
                                 </button>
                             </div>
                             <button

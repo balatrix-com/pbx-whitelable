@@ -3,7 +3,7 @@ import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
-import { TransactionType } from '@prisma/client';
+import { TransactionType, Role } from '@prisma/client';
 import { EnforcementService, ServiceState } from '../enforcement/enforcement.service';
 
 @Injectable()
@@ -80,17 +80,35 @@ export class UsageService {
         return { totalMinutes, totalCost };
     }
 
-    async getCDRs(tenantId: string, filters: { startDate?: string, endDate?: string, limit?: string, offset?: string } = {}) {
-        const customerId = await this.walletService.getSubBillingCustomerId(tenantId);
+    async getCDRs(
+        tenantId: string | null,
+        filters: { startDate?: string; endDate?: string; limit?: string; offset?: string; customerId?: string } = {},
+        userRole?: string
+    ) {
         try {
+            const { customerId: filterCustomerId, ...queryParams } = filters;
+            let targetUrl: string;
+
+            if (userRole === Role.SUPER_ADMIN) {
+                if (filterCustomerId && filterCustomerId !== 'ALL' && filterCustomerId !== 'all') {
+                    targetUrl = `${this.walletService.subBillingUrl}/pbx/cdrs/${filterCustomerId}`;
+                } else {
+                    targetUrl = `${this.walletService.subBillingUrl}/pbx/cdrs`;
+                }
+            } else {
+                if (!tenantId) return { data: [], total: 0 };
+                const customerId = await this.walletService.getSubBillingCustomerId(tenantId);
+                targetUrl = `${this.walletService.subBillingUrl}/pbx/cdrs/${customerId}`;
+            }
+
             const response = await firstValueFrom(
-                this.httpService.get(`${this.walletService.subBillingUrl}/pbx/cdrs/${customerId}`, {
-                    params: filters
+                this.httpService.get(targetUrl, {
+                    params: queryParams
                 })
             );
             return response.data;
         } catch (error) {
-            this.logger.error(`Failed to fetch CDRs from Sub Billing for ${customerId}: ${error.message}`);
+            this.logger.error(`Failed to fetch CDRs from Sub Billing: ${error.message}`);
             return { data: [], total: 0 };
         }
     }

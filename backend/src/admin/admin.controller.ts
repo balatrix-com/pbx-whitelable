@@ -135,12 +135,6 @@ export class AdminController {
         return this.adminService.getCustomerRecRateCard(customerId);
     }
 
-    @Post('rec-rate-cards')
-    @Roles('SUPER_ADMIN')
-    createRecRateCard(@Body() data: any) {
-        return this.adminService.createRecRateCard(data);
-    }
-
     @Put('rec-rate-cards/:id')
     @Roles('SUPER_ADMIN')
     updateRecRateCard(@Param('id') id: string, @Body() data: any) {

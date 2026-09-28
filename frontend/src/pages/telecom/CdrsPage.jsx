@@ -1,35 +1,35 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Download, Search, Filter, DollarSign, PhoneOff, ArrowDownRight, ArrowUpRight, History, Calendar, Play, Pause, Loader2 } from 'lucide-react';
+import { Download, Search, Filter, DollarSign, PhoneOff, ArrowDownRight, ArrowUpRight, History, Calendar, Play, Pause, Loader2, Users, Wallet, Info } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay, startOfMonth } from 'date-fns';
 import { telecomService } from '../../services/telecom.service';
+import api from '../../services/api';
 import { useWalletQuery, useSubscriptionQuery } from '../../hooks/useBillingQueries';
 import { useBillingIntelligence } from '../../hooks/useBillingIntelligence';
-import { Wallet, Info } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
-const PlaybackButton = ({ uuid }) => {
-    const [status, setStatus] = useState('checking');
+
+const PlaybackButton = ({ uuid, cdr }) => {
+    const [status, setStatus] = useState('idle'); // 'idle' | 'loading' | 'playing' | 'none'
     const [audioUrl, setAudioUrl] = useState(null);
     const [downloading, setDownloading] = useState(false);
     const audioRef = React.useRef(null);
 
-    useEffect(() => {
-        if (!uuid) {
-            setStatus('none');
-            return;
-        }
-        telecomService.checkRecording(uuid).then(res => {
-            if (res.hasRecording) {
-                setStatus('available');
-            } else {
-                setStatus('none');
-            }
-        }).catch(() => setStatus('none'));
-    }, [uuid]);
+    // Strictly check if has_recording / hasRecording in the CDR payload is true
+    const hasRecording = Boolean(
+        cdr?.hasRecording === true ||
+        cdr?.has_recording === true ||
+        cdr?.has_recording === 'true' ||
+        cdr?.has_recording === 1
+    );
+
+    if (!hasRecording || status === 'none') {
+        return <span className="text-gray-300 font-medium">-</span>;
+    }
 
     const handlePlay = async () => {
         if (status === 'playing') {
             audioRef.current?.pause();
-            setStatus('available');
+            setStatus('idle');
             return;
         }
         if (audioUrl) {
@@ -37,6 +37,7 @@ const PlaybackButton = ({ uuid }) => {
             setStatus('playing');
             return;
         }
+
         setStatus('loading');
         try {
             const blob = await telecomService.playRecording(uuid);
@@ -44,7 +45,7 @@ const PlaybackButton = ({ uuid }) => {
             setAudioUrl(url);
             setStatus('playing');
         } catch (e) {
-            setStatus('available');
+            setStatus('none');
         }
     };
 
@@ -66,6 +67,7 @@ const PlaybackButton = ({ uuid }) => {
             document.body.removeChild(link);
         } catch (e) {
             console.error('Failed to download recording:', e);
+            setStatus('none');
         } finally {
             setDownloading(false);
         }
@@ -77,34 +79,41 @@ const PlaybackButton = ({ uuid }) => {
         }
     }, [audioUrl, status]);
 
-    if (status === 'none') return <span className="text-gray-300">-</span>;
-    if (status === 'checking') return <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />;
-
     return (
         <div className="flex items-center gap-2">
-            <button 
-                onClick={handlePlay} 
+            <button
+                onClick={handlePlay}
                 disabled={status === 'loading'}
-                title="Play/Pause Recording"
-                className="p-1.5 rounded bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors disabled:opacity-50"
+                title="Play / Pause Recording"
+                className="w-8 h-8 rounded-lg bg-indigo-50/80 text-indigo-600 hover:bg-indigo-100/90 active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
             >
-                {status === 'loading' ? <Loader2 className="w-4 h-4 animate-spin" /> : status === 'playing' ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                {status === 'loading' ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+                ) : status === 'playing' ? (
+                    <Pause className="w-4 h-4 text-indigo-600 fill-indigo-600" />
+                ) : (
+                    <Play className="w-4 h-4 text-indigo-600 ml-0.5" />
+                )}
             </button>
-            <button 
+            <button
                 onClick={handleDownload}
                 disabled={downloading}
                 title="Download Recording"
-                className="p-1.5 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                className="w-8 h-8 rounded-lg bg-emerald-50/80 text-emerald-600 hover:bg-emerald-100/90 active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
             >
-                {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                {downloading ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                ) : (
+                    <Download className="w-4 h-4 text-emerald-600" />
+                )}
             </button>
             {audioUrl && (
-                <audio 
-                    ref={audioRef} 
-                    src={audioUrl} 
-                    onEnded={() => setStatus('available')} 
-                    onPause={() => setStatus('available')}
-                    className="hidden" 
+                <audio
+                    ref={audioRef}
+                    src={audioUrl}
+                    onEnded={() => setStatus('idle')}
+                    onPause={() => setStatus('idle')}
+                    className="hidden"
                 />
             )}
         </div>
@@ -112,6 +121,9 @@ const PlaybackButton = ({ uuid }) => {
 };
 
 const CdrsPage = () => {
+    const { user } = useAuth();
+    const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+
     const [cdrs, setCdrs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -123,10 +135,22 @@ const CdrsPage = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalRecords, setTotalRecords] = useState(0);
     const pageSize = 50;
-    
+
+    // Super Admin Customer Filter
+    const [tenantList, setTenantList] = useState([]);
+    const [selectedCustomer, setSelectedCustomer] = useState('ALL');
+
     const { data: wallet } = useWalletQuery();
     const { data: subscription } = useSubscriptionQuery();
     const intelligence = useBillingIntelligence(wallet, subscription);
+
+    useEffect(() => {
+        if (isSuperAdmin) {
+            api.get('/tenants?limit=100')
+                .then(res => setTenantList(res.data?.data || []))
+                .catch(err => console.error('Failed to fetch tenants for CDR filter:', err));
+        }
+    }, [isSuperAdmin]);
 
     const fetchCDRs = useCallback(async (page = 1) => {
         setLoading(true);
@@ -135,34 +159,42 @@ const CdrsPage = () => {
             const result = await telecomService.getCDRs({
                 startDate: dateRange.start ? `${dateRange.start} 00:00:00` : undefined,
                 endDate: dateRange.end ? `${dateRange.end} 23:59:59` : undefined,
+                search: searchTerm || undefined,
+                customerId: (isSuperAdmin && selectedCustomer !== 'ALL') ? selectedCustomer : undefined,
                 limit: pageSize,
                 offset: offset
             });
-            
-            const mapped = (result.data || []).map((cdr, idx) => ({
+
+            const rawList = Array.isArray(result) ? result : (result?.data || []);
+            const mapped = rawList.map((cdr, idx) => ({
                 id: offset + idx,
-                uuid: cdr.call_uuid,
-                timestamp: cdr.created_at,
-                from: cdr.caller,
-                to: cdr.callee,
-                direction: cdr.call_type?.toUpperCase() || 'OUTBOUND',
-                duration: cdr.duration_sec,
-                billsec: cdr.billsec,
-                cost: cdr.bill_amount || 0,
-                status: cdr.status || 'COMPLETED',
-                destType: cdr.dest_type,
-                destValue: cdr.dest_value
+                uuid: cdr.call_uuid || cdr.uuid || cdr.id || idx,
+                timestamp: cdr.created_at || cdr.timestamp || new Date().toISOString(),
+                from: cdr.caller || cdr.from || '-',
+                to: cdr.callee || cdr.to || '-',
+                direction: (cdr.call_type || cdr.direction || 'OUTBOUND').toUpperCase(),
+                duration: cdr.duration_sec ?? cdr.duration ?? 0,
+                billsec: cdr.billsec ?? 0,
+                cost: cdr.bill_amount ?? cdr.cost ?? 0,
+                callCost: cdr.call_cost ?? cdr.call_charge ?? cdr.bill_amount ?? cdr.cost ?? 0,
+                recordingCost: cdr.recording_cost ?? cdr.recording_charge ?? 0,
+                totalCost: cdr.total_cost ?? cdr.total_amount ?? ((Number(cdr.call_cost ?? cdr.call_charge ?? cdr.bill_amount ?? cdr.cost ?? 0)) + (Number(cdr.recording_cost ?? cdr.recording_charge ?? 0))),
+                status: cdr.status || 'answered',
+                destType: cdr.dest_type || cdr.destType,
+                destValue: cdr.dest_value || cdr.destValue,
+                has_recording: cdr.has_recording,
+                hasRecording: Boolean(cdr.has_recording === true || cdr.has_recording === 'true' || cdr.has_recording === 1 || cdr.hasRecording === true)
             }));
-            
+
             setCdrs(mapped);
-            setTotalRecords(result.total || 0);
+            setTotalRecords(Array.isArray(result) ? result.length : (result?.total || mapped.length));
             setCurrentPage(page);
         } catch (err) {
             console.error('Failed to fetch CDRs:', err);
         } finally {
             setLoading(false);
         }
-    }, [dateRange]);
+    }, [dateRange, searchTerm, selectedCustomer, isSuperAdmin]);
 
     useEffect(() => {
         fetchCDRs(1);
@@ -203,28 +235,29 @@ const CdrsPage = () => {
 
     const handleExportCSV = async () => {
         if (totalRecords === 0) return;
-        
+
         try {
-            // Fetch ALL records for the current date range for export
             const result = await telecomService.getCDRs({
                 startDate: dateRange.start ? `${dateRange.start} 00:00:00` : undefined,
                 endDate: dateRange.end ? `${dateRange.end} 23:59:59` : undefined,
+                search: searchTerm || undefined,
+                customerId: (isSuperAdmin && selectedCustomer !== 'ALL') ? selectedCustomer : undefined,
                 limit: 'all'
             });
 
-            const allCdrs = result.data || [];
+            const allCdrs = Array.isArray(result) ? result : (result?.data || []);
             const headers = ['Date', 'From', 'To', 'Direction', 'Duration (sec)', 'Billsec (sec)', 'Cost ($)', 'Status', 'Dest Type', 'Dest Value'];
             const rows = allCdrs.map(c => [
-                format(new Date(c.created_at), 'yyyy-MM-dd HH:mm:ss'),
-                c.caller,
-                c.callee,
-                (c.call_type || 'OUTBOUND').toUpperCase(),
-                c.duration_sec,
-                c.billsec,
-                c.bill_amount || '0.00',
-                c.status || 'COMPLETED',
-                c.dest_type,
-                c.dest_value
+                format(new Date(c.created_at || c.timestamp || new Date()), 'yyyy-MM-dd HH:mm:ss'),
+                c.caller || c.from || '-',
+                c.callee || c.to || '-',
+                (c.call_type || c.direction || 'OUTBOUND').toUpperCase(),
+                c.duration_sec ?? c.duration ?? 0,
+                c.billsec ?? 0,
+                c.bill_amount || c.cost || '0.00',
+                c.status || 'answered',
+                c.dest_type || c.destType || '-',
+                c.dest_value || c.destValue || '-'
             ]);
 
             const csvContent = [
@@ -247,8 +280,8 @@ const CdrsPage = () => {
     };
 
     const filteredCdrs = cdrs.filter(cdr =>
-        cdr.from.includes(searchTerm) ||
-        cdr.to.includes(searchTerm)
+        (cdr.from || '').includes(searchTerm) ||
+        (cdr.to || '').includes(searchTerm)
     );
 
     const totalPages = Math.ceil(totalRecords / pageSize);
@@ -260,9 +293,9 @@ const CdrsPage = () => {
                     <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">Call Records (CDRs)</h1>
                     <p className="text-gray-500 mt-1 font-medium">Manage and analyze your communication history</p>
                 </div>
-                
+
                 {/* Free Minutes Summary Widget */}
-                {intelligence.usage.totalMins > 0 && (
+                {intelligence.usage.totalMins > 0 && !isSuperAdmin && (
                     <div className="bg-white px-4 py-3 rounded-2xl shadow-sm ring-1 ring-gray-200 flex items-center gap-4 animate-in fade-in zoom-in duration-300">
                         <div className="bg-purple-50 p-2 rounded-xl ring-1 ring-purple-100">
                             <Wallet className="h-5 w-5 text-purple-600" />
@@ -272,7 +305,7 @@ const CdrsPage = () => {
                             <div className="flex items-center gap-2">
                                 <span className="text-lg font-bold text-gray-900 leading-none">{intelligence.usage.usedMins} <span className="text-xs text-gray-400 font-medium">/ {intelligence.usage.totalMins}</span></span>
                                 <div className="w-20 bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                                    <div 
+                                    <div
                                         className="h-full bg-purple-600 transition-all duration-1000"
                                         style={{ width: `${intelligence.usage.usedPercent}%` }}
                                     ></div>
@@ -292,15 +325,15 @@ const CdrsPage = () => {
                             <button
                                 key={p}
                                 onClick={() => handlePresetChange(p)}
-                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${preset === p 
-                                    ? 'bg-primary-600 text-white shadow-sm' 
+                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${preset === p
+                                    ? 'bg-primary-600 text-white shadow-sm'
                                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
                             >
                                 {p.charAt(0).toUpperCase() + p.slice(1).replace('days', ' Days')}
                             </button>
                         ))}
                     </div>
-                    <button 
+                    <button
                         onClick={handleExportCSV}
                         disabled={totalRecords === 0}
                         className="inline-flex items-center justify-center rounded-xl bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
@@ -313,7 +346,27 @@ const CdrsPage = () => {
 
             {/* Filter Bar */}
             <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className={`grid grid-cols-1 md:grid-cols-2 ${isSuperAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-6`}>
+                    {isSuperAdmin && (
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-extrabold text-gray-500 uppercase tracking-wider ml-1">Customer / User</label>
+                            <div className="relative">
+                                <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                <select
+                                    className="block w-full rounded-xl border-0 py-2.5 pl-10 pr-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-primary-600 sm:text-sm font-bold bg-white"
+                                    value={selectedCustomer}
+                                    onChange={e => setSelectedCustomer(e.target.value)}
+                                >
+                                    <option value="ALL">All Customers / Users</option>
+                                    {tenantList.map(t => (
+                                        <option key={t.id} value={t.customerCode || t.subBillingCustomerId || t.id}>
+                                            {t.name} ({t.customerCode || t.id})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    )}
                     <div className="space-y-1.5">
                         <label className="text-xs font-extrabold text-gray-500 uppercase tracking-wider ml-1">Search</label>
                         <div className="relative">
@@ -358,7 +411,7 @@ const CdrsPage = () => {
                         </div>
                     </div>
                     <div className="flex items-end">
-                        <button 
+                        <button
                             onClick={() => fetchCDRs(1)}
                             className="w-full bg-primary-600 text-white font-bold py-2.5 rounded-xl shadow-sm hover:bg-primary-700 transition-all flex items-center justify-center gap-2"
                         >
@@ -397,9 +450,13 @@ const CdrsPage = () => {
                                         <th scope="col" className="hidden sm:table-cell px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Type</th>
                                         <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Dur</th>
                                         <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Billsec</th>
-                                        <th scope="col" className="hidden md:table-cell px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Amount</th>
+                                        <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Call Charge</th>
+                                        <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Recording Charge</th>
+                                        <th scope="col" className="hidden md:table-cell px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Total Amount</th>
                                         <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Status</th>
-                                        <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Recording</th>
+                                        {!isSuperAdmin && (
+                                            <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Recording</th>
+                                        )}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -430,18 +487,29 @@ const CdrsPage = () => {
                                             <td className="whitespace-nowrap px-3 py-4 text-sm font-bold text-gray-600">
                                                 <div className="text-gray-900">{Math.floor(cdr.billsec / 60)}m {cdr.billsec % 60}s</div>
                                             </td>
-                                            <td className="hidden md:table-cell whitespace-nowrap px-3 py-4 text-sm font-extrabold text-gray-900">
-                                                ${Number(cdr.cost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                                            <td className="whitespace-nowrap px-3 py-4 text-sm font-bold text-gray-600">
+                                                ${Number(cdr.callCost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                                            </td>
+                                            <td className="whitespace-nowrap px-3 py-4 text-sm font-bold text-gray-600">
+                                                ${Number(cdr.recordingCost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                                            </td>
+                                            <td className="hidden md:table-cell whitespace-nowrap px-3 py-4 text-sm font-bold text-gray-600">
+                                                ${Number(cdr.totalCost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
                                             </td>
                                             <td className="whitespace-nowrap px-3 py-4">
                                                 <div className="flex items-center gap-2">
-                                                    <div className={`h-2 w-2 rounded-full ${cdr.status === 'COMPLETED' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                                                    <span className="text-xs font-bold text-gray-700 md:text-sm">{cdr.status}</span>
+                                                    <div className={`h-2.5 w-2.5 rounded-full ${['answered', 'completed'].includes((cdr.status || '').toLowerCase())
+                                                        ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50'
+                                                        : 'bg-rose-500'
+                                                        }`}></div>
+                                                    <span className="text-xs font-bold text-gray-600 capitalize md:text-sm">{cdr.status}</span>
                                                 </div>
                                             </td>
-                                            <td className="whitespace-nowrap px-3 py-4">
-                                                <PlaybackButton uuid={cdr.uuid} />
-                                            </td>
+                                            {!isSuperAdmin && (
+                                                <td className="whitespace-nowrap px-3 py-4">
+                                                    <PlaybackButton uuid={cdr.uuid} cdr={cdr} />
+                                                </td>
+                                            )}
                                         </tr>
                                     ))}
                                 </tbody>

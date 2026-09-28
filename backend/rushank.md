@@ -93,4 +93,29 @@ Aggregated global counters received immediately on connect and then every 30 sec
   "outbound": 4,
   "timestamp": 1764078195000
 }
+
+---
+
+## 🌐 4. Integrating the Dropdown (Tenant-Wise Selection)
+
+When the Super Admin selects a tenant from the dropdown, you should switch both the REST queries and WebSocket room to target the specific tenant:
+
+### 1. Selected "All Tenants" (Global)
+- **REST Request:** `GET /api/monitor/active-calls?tenantId=all`
+- **Socket Join:**
+  ```javascript
+  // Leave previous room if any
+  socket.emit('join_room', 'all');
+  ```
+- **Result:** Receives active calls and WebSocket events for **all** tenants system-wide.
+
+### 2. Selected A Specific Tenant (e.g., "WalterAssociates" with UUID `5d09f9b9-4313-4ab7-b86c-28bd05fcdf92`)
+- **REST Request:** `GET /api/monitor/active-calls?tenantId=5d09f9b9-4313-4ab7-b86c-28bd05fcdf92`
+- **Socket Join:**
+  ```javascript
+  // Leave previous room if any
+  socket.emit('join_room', '5d09f9b9-4313-4ab7-b86c-28bd05fcdf92');
+  ```
+- **Result:** Backend will automatically filter calls and WebSocket events to return **only** those belonging to the selected tenant. Super Admin credentials bypass tenant checks so they can safely query any UUID.
+
 ```

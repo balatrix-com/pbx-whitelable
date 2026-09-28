@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Users, 
-    Building2, 
-    Database, 
-    RefreshCcw, 
-    ArrowUpRight, 
-    Wallet, 
+import {
+    Users,
+    Building2,
+    Database,
+    RefreshCcw,
+    ArrowUpRight,
+    Wallet,
     Phone,
+    PhoneCall,
+    Clock,
     BarChart3,
     LayoutDashboard,
     CreditCard,
@@ -31,6 +33,7 @@ const PlatformDashboard = () => {
         totalWalletBalance: 0,
         telecom: {
             totalDIDs: 0,
+            totalTFNs: 0,
             totalExtensions: 0,
             availableExtensions: 0,
             limitExtensions: 500,
@@ -71,6 +74,7 @@ const PlatformDashboard = () => {
                     ...res.data,
                     telecom: {
                         totalDIDs: 0,
+                        totalTFNs: 0,
                         totalExtensions: res.data.totalExtensions || 0,
                         availableExtensions: res.data.availableExtensions || 0,
                         limitExtensions: res.data.limitExtensions || 500,
@@ -133,24 +137,6 @@ const PlatformDashboard = () => {
         }
     };
 
-    const handleSyncRedis = async () => {
-        if (!window.confirm('This will synchronize all Numbers and Extensions to Redis DB 2. Proceed?')) return;
-
-        try {
-            setSyncing(true);
-            const res = await api.post('/admin/lookup-sync/full');
-            const { results } = res.data;
-            alert(`Sync completed!\n- DIDs: ${results.dids}\n- TFNs: ${results.tfns}\n- Extensions: ${results.extensions}`);
-        } catch (error) {
-            console.error('Redis Sync failed', error);
-            alert(error.response?.data?.message || 'Failed to synchronize Redis Lookup DB');
-        } finally {
-            setSyncing(false);
-        }
-    };
-
-
-
     return (
         <div className="max-w-7xl mx-auto pb-12 space-y-8 px-4 sm:px-0">
             <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
@@ -166,27 +152,13 @@ const PlatformDashboard = () => {
                         <BarChart3 className="h-4 w-4" />
                         Global Analytics
                     </Link>
-                    <button
-                        onClick={handleSyncRedis}
-                        disabled={syncing}
-                        className={`inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-95 w-full sm:w-auto ${syncing 
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                            : 'bg-white text-primary-600 ring-1 ring-inset ring-primary-200 hover:bg-primary-50 hover:ring-primary-300'}`}
-                    >
-                        {syncing ? (
-                            <RefreshCcw className="h-4 w-4 animate-spin" />
-                        ) : (
-                            <Database className="h-4 w-4" />
-                        )}
-                        {syncing ? 'Synchronizing...' : 'Sync Redis'}
-                    </button>
                 </div>
             </header>
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <StatCard
-                    icon={LayoutDashboard}
+                    icon={Building2}
                     label="Total Tenants"
                     value={stats.totalTenants}
                     color="blue"
@@ -198,7 +170,7 @@ const PlatformDashboard = () => {
                     color="purple"
                 />
                 <StatCard
-                    icon={CreditCard}
+                    icon={Wallet}
                     label="Wallet Float"
                     value={`$${Number(stats.totalWalletBalance).toFixed(2)}`}
                     color="green"
@@ -209,57 +181,63 @@ const PlatformDashboard = () => {
             {stats.telecom.totalDIDs > 0 && (
                 <div className="space-y-4">
                     <h2 className="text-xl font-extrabold text-gray-900 flex items-center gap-2">
-                        <Activity className="h-5 w-5 text-gray-400" />
+                        <Activity className="h-5 w-5 text-blue-500" />
                         Telecom Overview
                     </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         <StatCard
-                            icon={Activity}
+                            icon={Phone}
                             label="Total DIDs"
                             value={stats.telecom.totalDIDs}
+                            color="blue"
+                        />
+                        <StatCard
+                            icon={Phone}
+                            label="Total TFNs"
+                            value={stats.telecom.totalTFNs}
                             color="blue"
                         />
                         <StatCard
                             icon={Users}
                             label="Total Extensions"
                             value={stats.telecom.totalExtensions}
-                            color="purple"
+                            color="blue"
                         />
                         <StatCard
                             icon={Database}
                             label="Available Extensions"
                             value={`${stats.telecom.availableExtensions} / ${stats.telecom.limitExtensions}`}
-                            color="orange"
+                            color="blue"
                         />
                         <StatCard
-                            icon={LayoutDashboard}
+                            icon={Users}
                             label="Ring Groups"
                             value={stats.telecom.totalRingGroups}
-                            color="green"
+                            color="blue"
                         />
                         <StatCard
-                            icon={Activity}
+                            icon={PhoneCall}
                             label="IVR Menus"
                             value={stats.telecom.totalIVRs}
-                            color="orange"
+                            color="blue"
                         />
                         <StatCard
-                            icon={Activity}
+                            icon={Clock}
                             label="Schedules"
                             value={stats.telecom.totalSchedules}
-                            color="indigo"
+                            color="blue"
                         />
                         <StatCard
-                            icon={LayoutDashboard}
+                            icon={Building2}
                             label="Active Telecom Tenants"
                             value={stats.telecom.activeTenants}
-                            color="teal"
+                            color="blue"
                         />
                         <StatCard
                             icon={CreditCard}
                             label="Monthly Telecom Revenue"
                             value={`$${Number(stats.telecom.monthlyRevenue).toFixed(2)}`}
-                            color="emerald"
+                            color="blue"
                         />
                     </div>
                 </div>
@@ -313,7 +291,7 @@ const PlatformDashboard = () => {
                                         <td colSpan="7" className="text-center py-8 text-sm font-medium text-gray-500">Loading directory...</td>
                                     </tr>
                                 ) : tenants.map(tenant => (
-                                    <tr key={tenant.id} className={`hover:bg-gray-50 transition-colors ${tenant.serviceBlocked ? 'bg-red-50/30' : ''}`}>
+                                    <tr key={tenant.id} onClick={() => setSelectedTenant(tenant)} className={`cursor-pointer transition-all ${selectedTenant?.id === tenant.id ? 'table-row-selected' : tenant.serviceBlocked ? 'bg-red-50/30' : ''}`}>
                                         <td className="whitespace-nowrap py-4 pl-4 md:pl-6 pr-3 text-sm font-bold text-gray-900 truncate max-w-[120px] md:max-w-none">
                                             <div className="flex flex-col">
                                                 <span>{tenant.name}</span>
@@ -503,40 +481,39 @@ const WalletModal = ({ tenant, onClose, onSubmit }) => {
 
 
 const StatCard = ({ icon: Icon, label, value, color }) => {
-    // Map abstract colors to Tailwind classes
     const colorMap = {
-        blue: 'text-blue-600 bg-blue-50 ring-blue-600/20',
-        purple: 'text-purple-600 bg-purple-50 ring-purple-600/20',
-        green: 'text-green-600 bg-green-50 ring-green-600/20',
-        orange: 'text-orange-600 bg-orange-50 ring-orange-600/20',
-        indigo: 'text-indigo-600 bg-indigo-50 ring-indigo-600/20',
-        teal: 'text-teal-600 bg-teal-50 ring-teal-600/20',
-        emerald: 'text-emerald-600 bg-emerald-50 ring-emerald-600/20'
+        blue: 'text-blue-500 bg-blue-50 ring-1 ring-blue-500/10',
+        purple: 'text-blue-500 bg-blue-50 ring-1 ring-blue-500/10',
+        green: 'text-blue-500 bg-blue-50 ring-1 ring-blue-500/10',
+        orange: 'text-blue-500 bg-blue-50 ring-1 ring-blue-500/10',
+        indigo: 'text-blue-500 bg-blue-50 ring-1 ring-blue-500/10',
+        teal: 'text-blue-500 bg-blue-50 ring-1 ring-blue-500/10',
+        emerald: 'text-blue-500 bg-blue-50 ring-1 ring-blue-500/10'
     };
     const iconColorMap = {
-        blue: 'text-blue-500/10',
-        purple: 'text-purple-500/10',
-        green: 'text-green-500/10',
-        orange: 'text-orange-500/10',
-        indigo: 'text-indigo-500/10',
-        teal: 'text-teal-500/10',
-        emerald: 'text-emerald-500/10'
+        blue: 'text-blue-400/30',
+        purple: 'text-blue-400/30',
+        green: 'text-blue-400/30',
+        orange: 'text-blue-400/30',
+        indigo: 'text-blue-400/30',
+        teal: 'text-blue-400/30',
+        emerald: 'text-blue-400/30'
     };
 
-    const scheme = colorMap[color] || 'text-gray-600 bg-gray-50 ring-gray-500/10';
-    const watermark = iconColorMap[color] || 'text-gray-500/10';
+    const scheme = colorMap[color] || 'text-blue-500 bg-blue-50 ring-1 ring-blue-500/10';
+    const watermark = iconColorMap[color] || 'text-blue-400/30';
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 p-6 flex flex-col relative overflow-hidden group hover:shadow-md transition-all">
-            <Icon className={`absolute -bottom-4 -right-4 h-24 w-24 transform -rotate-12 group-hover:scale-110 transition-transform duration-500 ${watermark}`} />
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col relative overflow-hidden group hover:shadow-md transition-all duration-300">
+            <Icon className={`absolute -bottom-3 -right-2 h-24 w-24 transform -rotate-12 group-hover:scale-105 transition-transform duration-500 pointer-events-none stroke-[2.2] ${watermark}`} />
             <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-2">
-                    <div className={`p-2 rounded-lg ${scheme.split(' ').slice(0, 2).join(' ')}`}>
-                        <Icon className="h-5 w-5" />
+                <div className="flex items-center gap-2.5 mb-2">
+                    <div className={`p-1.5 rounded-lg ${scheme} flex items-center justify-center`}>
+                        <Icon className="h-4 w-4 stroke-[2.2]" />
                     </div>
-                    <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">{label}</p>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{label}</p>
                 </div>
-                <div className="text-3xl font-extrabold font-mono text-gray-900 mt-2">
+                <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">
                     {value}
                 </div>
             </div>

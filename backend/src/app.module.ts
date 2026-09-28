@@ -34,6 +34,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { LookupRedisModule } from './redis/lookup-redis.module';
 import { CarriersModule } from './carriers/carriers.module';
 import { InboundWhitelistModule } from './inbound-whitelist/inbound-whitelist.module';
+import { AddonsModule } from './addons/addons.module';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { InboundWhitelistModule } from './inbound-whitelist/inbound-whitelist.mo
     LookupRedisModule,
     CarriersModule,
     InboundWhitelistModule,
+    AddonsModule,
   ],
   controllers: [AppController],
   providers: [

@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { 
-    CreditCard, 
-    Plus, 
-    Search, 
-    Edit2, 
-    Save, 
-    X, 
-    Globe, 
-    PhoneIncoming, 
+import {
+    CreditCard,
+    Plus,
+    Search,
+    Edit2,
+    Save,
+    X,
+    Globe,
+    PhoneIncoming,
     PhoneOutgoing,
     Info,
     CheckCircle,
@@ -22,15 +22,15 @@ import clsx from 'clsx';
 const RateCardsPage = () => {
     const { isSuperAdmin } = useAuth();
     const [activeTab, setActiveTab] = useState('standard'); // 'standard' or 'recording'
-    
+
     // Standard Rate Card States
     const [rateCards, setRateCards] = useState([]);
     const [mappings, setMappings] = useState([]);
-    
+
     // Recording Rate Card States
     const [recRateCards, setRecRateCards] = useState([]);
     const [recMappings, setRecMappings] = useState([]);
-    
+
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [mappingSearchQuery, setMappingSearchQuery] = useState('');
@@ -135,21 +135,22 @@ const RateCardsPage = () => {
     }
 
     // Filter calculations depending on activeTab
-    const filteredRateCards = rateCards.filter(card => 
+    const filteredRateCards = rateCards.filter(card =>
         card.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         card.country?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const filteredMappings = mappings.filter(m => 
+    const filteredMappings = mappings.filter(m =>
         m.customer_id.toLowerCase().includes(mappingSearchQuery.toLowerCase()) ||
         m.customer_email.toLowerCase().includes(mappingSearchQuery.toLowerCase())
     );
 
-    const filteredRecRateCards = recRateCards.filter(card => 
+    const filteredRecRateCards = recRateCards.filter(card =>
+        ['7_days_standard', '15_days_standard', '30_days_standard'].includes(card.name.toLowerCase()) &&
         card.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const filteredRecMappings = recMappings.filter(m => 
+    const filteredRecMappings = recMappings.filter(m =>
         String(m.customer_id).toLowerCase().includes(mappingSearchQuery.toLowerCase()) ||
         String(m.customer_email || '').toLowerCase().includes(mappingSearchQuery.toLowerCase())
     );
@@ -164,25 +165,27 @@ const RateCardsPage = () => {
                         {activeTab === 'standard' ? 'Rate Card Management' : 'Recording Rate Cards'}
                     </h1>
                     <p className="text-gray-500 mt-1 font-medium text-sm md:text-base">
-                        {activeTab === 'standard' 
-                            ? 'Configure call rates and assign them to customers' 
+                        {activeTab === 'standard'
+                            ? 'Configure call rates and assign them to customers'
                             : 'Configure recording storage and rates per minute, then assign to tenants'}
                     </p>
                 </div>
-                <button
-                    onClick={() => {
-                        setEditingCard(null);
-                        setShowModal(true);
-                    }}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary-600/20 hover:bg-primary-700 transition-all w-full sm:w-auto"
-                >
-                    <Plus size={20} />
-                    {activeTab === 'standard' ? 'Add New Rate Card' : 'Add Recording Rate Card'}
-                </button>
+                {activeTab === 'standard' && (
+                    <button
+                        onClick={() => {
+                            setEditingCard(null);
+                            setShowModal(true);
+                        }}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary-600/20 hover:bg-primary-700 transition-all w-full sm:w-auto"
+                    >
+                        <Plus size={20} />
+                        Add New Rate Card
+                    </button>
+                )}
             </header>
 
             {/* Tabs Selector */}
-            <div className="flex bg-gray-100 p-1.5 rounded-2xl w-fit border border-gray-200/50">
+            <div className="flex bg-slate-100/80 p-1.5 rounded-2xl w-fit border border-slate-200/60">
                 <button
                     onClick={() => {
                         setActiveTab('standard');
@@ -191,9 +194,9 @@ const RateCardsPage = () => {
                     }}
                     className={clsx(
                         "px-6 py-2.5 rounded-xl text-sm font-extrabold transition-all duration-200",
-                        activeTab === 'standard' 
-                            ? "bg-white text-primary-600 shadow-md shadow-gray-200/50 ring-1 ring-gray-100" 
-                            : "text-gray-500 hover:text-gray-900"
+                        activeTab === 'standard'
+                            ? "bg-white text-indigo-900 shadow-sm border border-indigo-200/80 ring-1 ring-indigo-500/10"
+                            : "text-slate-500 hover:text-slate-900"
                     )}
                 >
                     Standard Rate Cards
@@ -206,9 +209,9 @@ const RateCardsPage = () => {
                     }}
                     className={clsx(
                         "px-6 py-2.5 rounded-xl text-sm font-extrabold transition-all duration-200",
-                        activeTab === 'recording' 
-                            ? "bg-white text-primary-600 shadow-md shadow-gray-200/50 ring-1 ring-gray-100" 
-                            : "text-gray-500 hover:text-gray-900"
+                        activeTab === 'recording'
+                            ? "bg-white text-indigo-900 shadow-sm border border-indigo-200/80 ring-1 ring-indigo-500/10"
+                            : "text-slate-500 hover:text-slate-900"
                     )}
                 >
                     Recording Rate Cards
@@ -769,7 +772,8 @@ const AddEditRecRateCardModal = ({ card, onClose, onSave, loading }) => {
                             <label className="text-sm font-black text-gray-700 uppercase tracking-wider">Card Name</label>
                             <input
                                 required
-                                className="w-full rounded-2xl border-gray-200 bg-gray-50/50 focus:ring-2 focus:ring-primary-500 focus:border-transparent py-3 px-4 font-bold text-gray-900"
+                                disabled={!!card}
+                                className="w-full rounded-2xl border-gray-200 bg-gray-50/50 focus:ring-2 focus:ring-primary-500 focus:border-transparent py-3 px-4 font-bold text-gray-900 disabled:opacity-60 disabled:bg-gray-100 disabled:cursor-not-allowed"
                                 value={formData.name}
                                 onChange={e => setFormData({ ...formData, name: e.target.value })}
                                 placeholder="e.g. 7_days_0.001"
@@ -779,7 +783,8 @@ const AddEditRecRateCardModal = ({ card, onClose, onSave, loading }) => {
                             <label className="text-sm font-black text-gray-700 uppercase tracking-wider">Currency</label>
                             <input
                                 required
-                                className="w-full rounded-2xl border-gray-200 bg-gray-50/50 focus:ring-2 focus:ring-primary-500 focus:border-transparent py-3 px-4 font-bold text-gray-900"
+                                disabled={!!card}
+                                className="w-full rounded-2xl border-gray-200 bg-gray-50/50 focus:ring-2 focus:ring-primary-500 focus:border-transparent py-3 px-4 font-bold text-gray-900 disabled:opacity-60 disabled:bg-gray-100 disabled:cursor-not-allowed"
                                 value={formData.currency}
                                 onChange={e => setFormData({ ...formData, currency: e.target.value.toUpperCase() })}
                                 placeholder="USD"
@@ -800,14 +805,17 @@ const AddEditRecRateCardModal = ({ card, onClose, onSave, loading }) => {
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-sm font-black text-gray-700 uppercase tracking-wider">Retention Period (Days)</label>
-                            <input
-                                type="number"
+                            <select
                                 required
-                                className="w-full rounded-2xl border-gray-200 bg-gray-50/50 focus:ring-2 focus:ring-primary-500 focus:border-transparent py-3 px-4 font-bold text-gray-900"
+                                disabled={!!card}
+                                className="w-full rounded-2xl border-gray-200 bg-gray-50/50 focus:ring-2 focus:ring-primary-500 focus:border-transparent py-3 px-4 font-bold text-gray-900 disabled:opacity-60 disabled:bg-gray-100 disabled:cursor-not-allowed"
                                 value={formData.retention_period}
-                                onChange={e => setFormData({ ...formData, retention_period: e.target.value })}
-                                placeholder="7"
-                            />
+                                onChange={e => setFormData({ ...formData, retention_period: parseInt(e.target.value) })}
+                            >
+                                <option value={7}>7 Days</option>
+                                <option value={15}>15 Days</option>
+                                <option value={30}>30 Days</option>
+                            </select>
                         </div>
                     </div>
 

@@ -342,19 +342,23 @@ export class AnalyticsService {
         }
     }
     /**
-     * Global Dashboard — Fetches system-wide analytics for Super Admin
+     * Global Dashboard — Fetches system-wide analytics for Super Admin (with optional tenant filter)
      */
-    async getGlobalDashboard(range: string) {
+    async getGlobalDashboard(range: string, customerId?: string) {
         try {
             const analyticsUrl = this.configService.get('ANALYTICS_ENGINE_URL') || 'http://localhost:8001';
+            const params: any = { range };
+            if (customerId && customerId !== 'all') {
+                params.customer_id = customerId;
+            }
             const response = await firstValueFrom(
                 this.httpService.get(`${analyticsUrl}/analytics/dashboard`, {
-                    params: { range }, // Omitting customer_id for global view
+                    params,
                     timeout: 8000,
                 })
             );
             return response.data;
-        } catch (err) {
+        } catch (err: any) {
             this.logger.error(`Failed to fetch global analytics dashboard: ${err.message}`);
             throw err;
         }

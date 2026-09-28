@@ -40,9 +40,26 @@ export class WalletController {
     }
 
     @Get('subscription')
-    getSubscription(@GetUser() user: User) {
-        if (!user.tenantId) return null;
-        return this.walletService.getSubscription(user.tenantId);
+    getSubscription(
+        @GetUser() user: User,
+        @Query('tenantId') queryTenantId?: string
+    ) {
+        const tenantId = (user.role === Role.SUPER_ADMIN && queryTenantId) ? queryTenantId : user.tenantId;
+        if (!tenantId) return null;
+        return this.walletService.getSubscription(tenantId);
+    }
+
+    @Post('subscription')
+    switchSubscription(
+        @GetUser() user: User,
+        @Body('targetTenantId') targetTenantId: string,
+        @Body('planId') planId: string,
+        @Body('immediate') immediate: boolean
+    ) {
+        const tenantId = targetTenantId || user.tenantId;
+        if (!tenantId) throw new BadRequestException('Tenant ID is required');
+        if (!planId) throw new BadRequestException('Plan ID is required');
+        return this.walletService.switchSubscriptionPlan(tenantId, planId, immediate ?? true);
     }
 
     @Get('cards')
@@ -81,9 +98,10 @@ export class WalletController {
     }
 
     @Get('assets')
-    getAssets(@GetUser() user: User) {
-        if (!user.tenantId) return { tfns: [], dids: [], extensions: [], totals: { tfns: 0, dids: 0, extensions: 0 } };
-        return this.walletService.getAssets(user.tenantId);
+    getAssets(@GetUser() user: User, @Query('tenantId') queryTenantId?: string) {
+        const tenantId = (user.role === Role.SUPER_ADMIN && queryTenantId) ? queryTenantId : user.tenantId;
+        if (!tenantId) return { tfns: [], dids: [], extensions: [], totals: { tfns: 0, dids: 0, extensions: 0 } };
+        return this.walletService.getAssets(tenantId);
     }
 
     // Admin Internal Adjustment

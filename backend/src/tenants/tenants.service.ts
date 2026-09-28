@@ -1,19 +1,25 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { FreeSwitchSyncService } from '../freeswitch/freeswitch-sync.service';
 import { AdminService } from '../admin/admin.service';
 import { LookupRedisService } from '../redis/lookup-redis.module';
 import { WalletService } from '../wallet/wallet.service';
+import { ExtensionsService } from '../telecom/extensions/extensions.service';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class TenantsService {
+    private readonly logger = new Logger(TenantsService.name);
+
     constructor(
         private prisma: PrismaService,
         private freeSwitchSync: FreeSwitchSyncService,
         private adminService: AdminService,
         private lookupRedis: LookupRedisService,
         private walletService: WalletService,
+        private extensionsService: ExtensionsService,
+        private mailService: MailService,
     ) { }
 
     async listTenants(query: {
@@ -252,10 +258,59 @@ export class TenantsService {
             }
         }
 
+        // Fetch real-time active subscription details from sub-billing system
+        let subscription = null;
+        try {
+            subscription = await this.walletService.getSubscription(id);
+        } catch (error) {
+            this.logger.warn(`Could not fetch subscription details for tenant ${id}: ${error.message}`);
+        }
+
+        // Fetch primary admin user for this tenant
+        const adminUser = await this.prisma.user.findFirst({
+            where: { tenantId: id, role: 'ADMIN' },
+            select: { id: true, email: true, name: true, createdAt: true }
+        });
+
+        // Fetch real-time customer onboarding details from sub-billing
+        let customerDetails = null;
+        try {
+            customerDetails = await this.walletService.getCustomerDetails(id);
+        } catch (error) {
+            this.logger.warn(`Could not fetch customer details for tenant ${id}: ${error.message}`);
+        }
+
+        // Derive first and last name if not explicitly in customerDetails
+        let firstName = customerDetails?.first_name || '';
+        let lastName = customerDetails?.last_name || '';
+        if (!firstName && !lastName && adminUser?.name) {
+            const parts = adminUser.name.split(' ');
+            firstName = parts[0] || '';
+            lastName = parts.slice(1).join(' ') || '';
+        }
+
+        const enrichedCustomerDetails = {
+            customerType: customerDetails?.customer_type || 'company',
+            companyName: customerDetails?.company_name || tenant.name,
+            companyTaxId: customerDetails?.company_tax_id || '',
+            firstName: firstName,
+            lastName: lastName,
+            adminEmail: customerDetails?.admin_email || adminUser?.email || '',
+            phone: customerDetails?.phone || '',
+            address: customerDetails?.address_st || '',
+            city: customerDetails?.city || '',
+            state: customerDetails?.state || '',
+            country: customerDetails?.country || 'USA',
+            creditLimit: (realWallet as any)?.creditLimit !== undefined ? Number((realWallet as any).creditLimit) : (customerDetails?.credit_limit !== undefined ? Number(customerDetails.credit_limit) : 0)
+        };
+
         return {
             ...tenant,
             wallet: realWallet,
             tenantFeatures: features,
+            subscription,
+            adminUser,
+            customerDetails: enrichedCustomerDetails,
             stats: {
                 users: tenant._count.users,
                 extensions: tenant._count.extensions,
@@ -266,6 +321,86 @@ export class TenantsService {
             }
         };
     }
+
+    async updateTenantDetails(id: string, dto: {
+        customerType?: 'company' | 'individual';
+        companyName?: string;
+        companyTaxId?: string;
+        firstName?: string;
+        lastName?: string;
+        adminEmail?: string;
+        adminPassword?: string;
+        phone?: string;
+        address?: string;
+        city?: string;
+        state?: string;
+        country?: string;
+        creditLimit?: number;
+    }) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id }
+        });
+        if (!tenant) throw new NotFoundException('Tenant not found');
+
+        // 1. Update Sub-Billing customer details & Credit limit
+        try {
+            await this.walletService.updateCustomerDetails(id, dto);
+        } catch (err) {
+            this.logger.warn(`Sub-billing update failed or skipped: ${err.message}`);
+        }
+
+        // 2. Update PBX Tenant Name if companyName or firstName/lastName changed
+        let newTenantName = tenant.name;
+        if (dto.customerType === 'company' && dto.companyName) {
+            newTenantName = dto.companyName.trim();
+        } else if (dto.customerType === 'individual' && (dto.firstName || dto.lastName)) {
+            newTenantName = `${dto.firstName || ''} ${dto.lastName || ''}`.trim();
+        } else if (dto.companyName) {
+            newTenantName = dto.companyName.trim();
+        }
+
+        if (newTenantName && newTenantName !== tenant.name) {
+            await this.prisma.tenant.update({
+                where: { id },
+                data: { name: newTenantName }
+            });
+        }
+
+        // 3. Update PBX Admin User
+        const adminUser = await this.prisma.user.findFirst({
+            where: { tenantId: id, role: 'ADMIN' }
+        });
+
+        if (adminUser) {
+            const userUpdateData: any = {};
+            if (dto.firstName || dto.lastName) {
+                userUpdateData.name = `${dto.firstName || ''} ${dto.lastName || ''}`.trim();
+            }
+            if (dto.adminEmail && dto.adminEmail.toLowerCase() !== adminUser.email.toLowerCase()) {
+                const emailExists = await this.prisma.user.findUnique({
+                    where: { email: dto.adminEmail.toLowerCase() }
+                });
+                if (emailExists && emailExists.id !== adminUser.id) {
+                    throw new BadRequestException('Email already in use by another user');
+                }
+                userUpdateData.email = dto.adminEmail.toLowerCase();
+            }
+            if (dto.adminPassword && dto.adminPassword.trim().length > 0) {
+                const hashedPassword = await import('bcrypt').then(m => m.hash(dto.adminPassword!, 10));
+                userUpdateData.password = hashedPassword;
+            }
+
+            if (Object.keys(userUpdateData).length > 0) {
+                await this.prisma.user.update({
+                    where: { id: adminUser.id },
+                    data: userUpdateData
+                });
+            }
+        }
+
+        return this.getTenantDetails(id);
+    }
+
 
     async updateTenantFeatures(id: string, dto: {
         ivrEnabled?: boolean;
@@ -471,10 +606,8 @@ export class TenantsService {
 
             const existsInSubBilling = await this.walletService.checkCustomerExists(customerCode);
             if (existsInSubBilling) {
-                nextCode++;
-                customerCode = `U${nextCode}`;
-                retries++;
-                continue;
+                this.logger.warn(`Stale sub-billing record found for ${customerCode}. Cleaning up before re-creation.`);
+                await this.walletService.deleteSubBillingCustomer(customerCode);
             }
 
             isUnique = true;
@@ -501,7 +634,7 @@ export class TenantsService {
         subBillingCustomerId = subCustomer.customer_id;
 
         // Transactional creation
-        return this.prisma.$transaction(async (prisma) => {
+        const result = await this.prisma.$transaction(async (prisma) => {
             // 1. Create Tenant
             const tenant = await prisma.tenant.create({
                 data: {
@@ -582,6 +715,41 @@ export class TenantsService {
                 }
             };
         });
+
+        // 7. Auto-sync and provision extensions in PBX & Kamailio
+        await this.extensionsService.syncMissingExtensionsFromSubBilling(result.tenant.id).catch(err => {
+            this.logger.warn(`Post-tenant creation extension sync warning: ${err.message}`);
+        });
+
+        // 8. Send credentials email (fire-and-forget, non-blocking)
+        try {
+            const tenantWithExts = await this.prisma.tenant.findUnique({
+                where: { id: result.tenant.id },
+                include: { extensions: true, tfns: true },
+            });
+            const tfn = tenantWithExts?.tfns[0]?.number || 'N/A';
+            const extList = tenantWithExts?.extensions
+                .map(e => `&bull; <b>${e.extensionNumber}</b> - ${e.name}<br>`)
+                .join('') || 'None';
+            const extHtml = `<div style="text-align:left;display:inline-block;margin:10px auto;">${extList}</div>`;
+
+            await this.mailService.sendOnboardingCompletionEmail(
+                data.adminEmail,
+                `${data.firstName} ${data.lastName}`,
+                result.tenant.customerCode || '',
+                tfn,
+                extHtml,
+                data.adminEmail,
+                'N/A',
+                'N/A',
+                data.adminPassword,
+            );
+            this.logger.log(`Credentials email sent to ${data.adminEmail} for tenant ${result.tenant.id}`);
+        } catch (emailErr: any) {
+            this.logger.error(`Failed to send credentials email to ${data.adminEmail}: ${emailErr.message}`);
+        }
+
+        return result;
     }
 
     async deleteTenant(id: string) {
@@ -618,6 +786,14 @@ export class TenantsService {
 
         // 0.2 Cleanup Redis lookups
         await this.lookupRedis.deleteTenantLookups(id);
+
+        // 0.3 Delete sub-billing customer (cascades wallet, subscriptions, assets in bala_billing)
+        if (tenant.subBillingCustomerId) {
+            await this.walletService.deleteSubBillingCustomer(tenant.subBillingCustomerId);
+        } else if (tenant.customerCode) {
+            // Fallback: customerCode doubles as customer_id in sub-billing
+            await this.walletService.deleteSubBillingCustomer(tenant.customerCode);
+        }
 
         // Proceed to delete local database records via single transaction
         return this.prisma.$transaction(async (prisma) => {

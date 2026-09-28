@@ -13,6 +13,7 @@ import { Server, Socket } from 'socket.io';
 import { REDIS_SUBSCRIBER, REDIS_CLIENT } from '../redis/redis.module';
 import type { RedisClientType } from 'redis';
 import { JwtService } from '@nestjs/jwt';
+import { PrismaService } from '../prisma/prisma.service';
 
 const ANALYTICS_INTERVAL_MS = 30_000; // 30 seconds
 
@@ -35,6 +36,7 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
         @Inject(REDIS_SUBSCRIBER) private readonly redisSubscriber: RedisClientType,
         @Inject(REDIS_CLIENT) private readonly redisClient: RedisClientType,
         private readonly jwtService: JwtService,
+        private readonly prismaService: PrismaService,
     ) { }
 
     async afterInit() {
@@ -48,27 +50,37 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
                 try {
                     const rawData = JSON.parse(message);
                     if (rawData.customer_id) {
+                        const rawStatus = (rawData.call_status || '').toLowerCase().trim();
+                        const normalizedStatus = rawStatus === 'connected' ? 'answered' : (rawData.call_status || '');
+
                         // Map to camelCase to match MonitorService / Frontend expectations
                         const callData = {
                             uuid: rawData.uuid,
-                            bUuid: rawData.b_uuid,
-                            caller: rawData.caller,
-                            callee: rawData.callee,
-                            status: rawData.call_status,
-                            destType: rawData.dest_type,
-                            destValue: rawData.dest_value,
-                            direction: rawData.direction,
+                            bUuid: rawData.b_uuid || '',
+                            caller: rawData.caller || '',
+                            callee: rawData.callee || '',
+                            status: normalizedStatus,
+                            destType: rawData.dest_type || '',
+                            destValue: rawData.dest_value || '',
+                            direction: rawData.direction || '',
                             // Keep timestamps as numbers/strings for JSON transport
-                            startTime: rawData.start_ts,
-                            answerTime: rawData.answer_ts,
+                            startTime: rawData.start_ts || '',
+                            answerTime: rawData.answer_ts || '',
                             duration: rawData.duration ? parseInt(rawData.duration) : 0,
                             tenantId: rawData.customer_id // Explicitly map to tenantId if handy
                         };
 
-                        const room = `tenant:${rawData.customer_id}`;
-                        this.logger.log(`Emitting call_update to room ${room}`); // DEBUG
-                        // Emit to specific tenant room
-                        this.server.to(room).emit('call_update', callData);
+                        const customerId = rawData.customer_id;
+                        this.logger.log(`Emitting call_update for customer ${customerId} (status: ${normalizedStatus})`);
+
+                        // Emit to specific tenant room and alias rooms
+                        this.server.to(`tenant:${customerId}`).emit('call_update', callData);
+                        if (customerId.startsWith('U')) {
+                            this.server.to(`tenant:${customerId.slice(1)}`).emit('call_update', callData);
+                        } else {
+                            this.server.to(`tenant:U${customerId}`).emit('call_update', callData);
+                        }
+
                         // Emit to global room for Super Admins
                         this.server.to('tenant:all').emit('call_update', callData);
                     }
@@ -109,15 +121,50 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     }
 
     private async buildAnalyticsSnapshot(tenantId: string) {
-        const isAll = tenantId === 'all';
-        const pattern = isAll ? 'customer:*:call:*' : `customer:${tenantId}:call:*`;
-        const keys: string[] = [];
+        const patterns = new Set<string>();
 
-        for await (const chunk of this.redisClient.scanIterator({
-            MATCH: pattern,
-            COUNT: 100
-        })) {
-            keys.push(...chunk);
+        if (!tenantId || tenantId === 'all') {
+            patterns.add('customer:*:call:*');
+        } else {
+            const tenant = await this.prismaService.tenant.findUnique({
+                where: { id: tenantId },
+                select: { customerCode: true, subBillingCustomerId: true }
+            });
+
+            const candidateCodes = new Set<string>();
+            candidateCodes.add(tenantId);
+            if (tenant?.customerCode) {
+                candidateCodes.add(tenant.customerCode);
+                if (tenant.customerCode.startsWith('U')) {
+                    candidateCodes.add(tenant.customerCode.slice(1));
+                } else {
+                    candidateCodes.add(`U${tenant.customerCode}`);
+                }
+            }
+            if (tenant?.subBillingCustomerId) {
+                candidateCodes.add(tenant.subBillingCustomerId);
+                if (tenant.subBillingCustomerId.startsWith('U')) {
+                    candidateCodes.add(tenant.subBillingCustomerId.slice(1));
+                } else {
+                    candidateCodes.add(`U${tenant.subBillingCustomerId}`);
+                }
+            }
+
+            for (const code of candidateCodes) {
+                patterns.add(`customer:${code}:call:*`);
+            }
+        }
+
+        const keys = new Set<string>();
+        for (const pattern of patterns) {
+            for await (const chunk of this.redisClient.scanIterator({
+                MATCH: pattern,
+                COUNT: 100
+            })) {
+                for (const key of chunk) {
+                    keys.add(key);
+                }
+            }
         }
 
         let ringing = 0;
@@ -127,18 +174,18 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
 
         for (const key of keys) {
             const data = await this.redisClient.hGetAll(key);
-            const status = data.call_status || '';
+            const status = (data.call_status || '').toLowerCase().trim();
             const direction = (data.direction || '').toLowerCase();
 
             if (status === 'ringing' || status === 'new') ringing++;
-            if (status === 'answered') answered++;
+            if (status === 'answered' || status === 'connected') answered++;
             if (direction === 'inbound') inbound++;
             else outbound++;
         }
 
         return {
             tenantId,
-            activeCalls: keys.length,
+            activeCalls: keys.size,
             ringing,
             answered,
             inbound,
@@ -191,7 +238,7 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     }
 
     @SubscribeMessage('join_room')
-    handleJoinRoom(@MessageBody() tenantId: string, @ConnectedSocket() client: Socket) {
+    async handleJoinRoom(@MessageBody() tenantId: string, @ConnectedSocket() client: Socket) {
         this.logger.log(`Received join_room request for tenant: ${tenantId}`); // DEBUG
         const user = client.data.user;
         if (!user) {
@@ -209,16 +256,44 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
             return;
         }
 
-        client.join(`tenant:${tenantId}`);
+        const roomsToJoin = new Set<string>();
 
-        // Track this socket in the tenantRooms map
-        if (!this.tenantRooms.has(tenantId)) {
-            this.tenantRooms.set(tenantId, new Set());
+        if (tenantId === 'all') {
+            roomsToJoin.add('tenant:all');
+        } else {
+            roomsToJoin.add(`tenant:${tenantId}`);
+            const tenant = await this.prismaService.tenant.findUnique({
+                where: { id: tenantId },
+                select: { customerCode: true, subBillingCustomerId: true }
+            });
+            if (tenant?.customerCode) {
+                roomsToJoin.add(`tenant:${tenant.customerCode}`);
+                if (tenant.customerCode.startsWith('U')) {
+                    roomsToJoin.add(`tenant:${tenant.customerCode.slice(1)}`);
+                } else {
+                    roomsToJoin.add(`tenant:U${tenant.customerCode}`);
+                }
+            }
+            if (tenant?.subBillingCustomerId) {
+                roomsToJoin.add(`tenant:${tenant.subBillingCustomerId}`);
+                if (tenant.subBillingCustomerId.startsWith('U')) {
+                    roomsToJoin.add(`tenant:${tenant.subBillingCustomerId.slice(1)}`);
+                } else {
+                    roomsToJoin.add(`tenant:U${tenant.subBillingCustomerId}`);
+                }
+            }
         }
-        this.tenantRooms.get(tenantId)!.add(client.id);
 
-        this.logger.log(`Client ${client.id} joined room tenant:${tenantId} for user ${user.sub}`);
-        client.emit('room_joined', { room: `tenant:${tenantId}` });
+        for (const room of roomsToJoin) {
+            client.join(room);
+            if (!this.tenantRooms.has(room)) {
+                this.tenantRooms.set(room, new Set());
+            }
+            this.tenantRooms.get(room)!.add(client.id);
+        }
+
+        this.logger.log(`Client ${client.id} joined rooms: ${Array.from(roomsToJoin).join(', ')} for user ${user.sub}`);
+        client.emit('room_joined', { room: Array.from(roomsToJoin)[0], rooms: Array.from(roomsToJoin) });
 
         // Emit an immediate snapshot so the client doesn't wait 30s
         this.buildAnalyticsSnapshot(tenantId)
@@ -227,16 +302,45 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     }
 
     @SubscribeMessage('leave_room')
-    handleLeaveRoom(@MessageBody() tenantId: string, @ConnectedSocket() client: Socket) {
-        client.leave(`tenant:${tenantId}`);
+    async handleLeaveRoom(@MessageBody() tenantId: string, @ConnectedSocket() client: Socket) {
+        const roomsToLeave = new Set<string>();
 
-        const socketIds = this.tenantRooms.get(tenantId);
-        if (socketIds) {
-            socketIds.delete(client.id);
-            if (socketIds.size === 0) this.tenantRooms.delete(tenantId);
+        if (tenantId === 'all') {
+            roomsToLeave.add('tenant:all');
+        } else {
+            roomsToLeave.add(`tenant:${tenantId}`);
+            const tenant = await this.prismaService.tenant.findUnique({
+                where: { id: tenantId },
+                select: { customerCode: true, subBillingCustomerId: true }
+            });
+            if (tenant?.customerCode) {
+                roomsToLeave.add(`tenant:${tenant.customerCode}`);
+                if (tenant.customerCode.startsWith('U')) {
+                    roomsToLeave.add(`tenant:${tenant.customerCode.slice(1)}`);
+                } else {
+                    roomsToLeave.add(`tenant:U${tenant.customerCode}`);
+                }
+            }
+            if (tenant?.subBillingCustomerId) {
+                roomsToLeave.add(`tenant:${tenant.subBillingCustomerId}`);
+                if (tenant.subBillingCustomerId.startsWith('U')) {
+                    roomsToLeave.add(`tenant:${tenant.subBillingCustomerId.slice(1)}`);
+                } else {
+                    roomsToLeave.add(`tenant:U${tenant.subBillingCustomerId}`);
+                }
+            }
         }
 
-        this.logger.log(`Client ${client.id} left room tenant:${tenantId}`);
+        for (const room of roomsToLeave) {
+            client.leave(room);
+            const socketIds = this.tenantRooms.get(room);
+            if (socketIds) {
+                socketIds.delete(client.id);
+                if (socketIds.size === 0) this.tenantRooms.delete(room);
+            }
+        }
+
+        this.logger.log(`Client ${client.id} left rooms: ${Array.from(roomsToLeave).join(', ')}`);
         client.emit('room_left', { room: `tenant:${tenantId}` });
     }
 

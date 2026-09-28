@@ -2,8 +2,8 @@
 node_modules/
 dist/
 .vite/
-# .env
-# .env.*
+.env
+.env.*
 !.env.example
 *.log
 

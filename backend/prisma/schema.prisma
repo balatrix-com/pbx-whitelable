@@ -113,6 +113,20 @@ model MonitoringAddOn {
   @@map("monitoring_addons")
 }
 
+model AddonCatalog {
+  id           String   @id @default(uuid())
+  addonId      String   @unique @map("addon_id")
+  name         String
+  resourceType String   @map("resource_type")
+  unitsCount   Int      @default(1) @map("units_count")
+  unitPrice    Decimal  @map("unit_price")
+  currency     String   @default("USD")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("subscription_addons_catalog")
+}
+
 model UsageRecord {
   id             String        @id @default(uuid())
   tenantId       String
@@ -671,3 +685,53 @@ model InboundWhitelist {
 
   @@map("inbound_whitelist")
 }
+
+model RateCard {
+  ratecardId            Int                @id @default(autoincrement()) @map("ratecard_id")
+  name                  String
+  currency              String             @default("USD") @db.Char(3)
+  country               String?
+  inRatePerMin          Decimal            @default(0.000000) @map("in_rate_per_min") @db.Decimal(14, 6)
+  inInitialIncrementSec Int                @default(60) @map("in_initial_increment_sec")
+  inIncrementSec        Int                @default(60) @map("in_increment_sec")
+  obRatePerMin          Decimal            @default(0.000000) @map("ob_rate_per_min") @db.Decimal(14, 6)
+  obInitialIncrementSec Int                @default(60) @map("ob_initial_increment_sec")
+  obIncrementSec        Int                @default(60) @map("ob_increment_sec")
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+  customerMappings      CustomerRatecard[]
+
+  @@map("rate_cards")
+}
+
+model CustomerRatecard {
+  customerId String   @id @map("customer_id")
+  ratecardId Int      @map("ratecard_id")
+  updatedAt  DateTime @default(now()) @map("updated_at")
+  rateCard   RateCard @relation(fields: [ratecardId], references: [ratecardId], onDelete: Cascade)
+
+  @@map("customer_ratecard")
+}
+
+model RecRateCard {
+  id               Int             @id @default(autoincrement())
+  name             String
+  currency         String          @default("USD") @db.Char(3)
+  ratePerMin       Decimal         @default(0.000000) @map("rate_per_min") @db.Decimal(14, 6)
+  retentionPeriod  Int             @default(7) @map("retention_period")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  customerMappings CustomerRecRc[]
+
+  @@map("rec_rate_card")
+}
+
+model CustomerRecRc {
+  custId      String      @id @map("cust_id")
+  recRcId     Int         @map("rec_rc_id")
+  updatedAt   DateTime    @default(now()) @map("updated_at")
+  recRateCard RecRateCard @relation(fields: [recRcId], references: [id], onDelete: Cascade)
+
+  @@map("customer_rec_rc")
+}
+

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { PlansService } from './plans.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
@@ -22,5 +22,12 @@ export class PlansController {
     @UseGuards(RolesGuard)
     async createCustom(@Body() data: any, @GetUser() user: User) {
         return this.plansService.createCustom(data, user.id);
+    }
+
+    @Delete(':planId')
+    @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+    @UseGuards(RolesGuard)
+    async deletePlan(@Param('planId') planId: string) {
+        return this.plansService.deletePlan(planId);
     }
 }

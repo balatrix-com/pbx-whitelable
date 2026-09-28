@@ -84,6 +84,24 @@ export class UsersController {
     }
 
     /**
+     * Get active invitation link for a pending user (SuperAdmin / Admin)
+     */
+    @Get(':id/invite-link')
+    @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+    getInviteLink(@GetUser() user: User, @Param('id') targetUserId: string) {
+        return this.usersService.getInviteLink(user.id, targetUserId);
+    }
+
+    /**
+     * Resend / regenerate invitation link for a user (SuperAdmin / Admin)
+     */
+    @Post(':id/invite/resend')
+    @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+    resendInvite(@GetUser() user: User, @Param('id') targetUserId: string) {
+        return this.usersService.resendSupportInvite(user.id, targetUserId);
+    }
+
+    /**
      * Impersonate a user (SUPER_ADMIN only)
      */
     @Post('impersonate/:id')

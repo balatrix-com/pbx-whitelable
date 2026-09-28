@@ -137,6 +137,8 @@ export class UsersService {
                 monitoringExtension: true,
                 monitoringSecret: true,
                 tenantId: true,
+                inviteToken: true,
+                inviteTokenExpiry: true,
                 tenant: user.role === Role.SUPER_ADMIN ? {
                     select: {
                         id: true,
@@ -256,9 +258,15 @@ export class UsersService {
         if (!targetUser) throw new NotFoundException('User not found');
 
         // Update status
+        const updateData: any = { status };
+        if (status === UserStatus.ACTIVE && targetUser.status === UserStatus.INVITED) {
+            updateData.inviteToken = null;
+            updateData.inviteTokenExpiry = null;
+        }
+
         const updated = await this.prisma.user.update({
             where: { id: targetUserId },
-            data: { status }
+            data: updateData
         });
 
         // If suspending, invalidate refresh token
@@ -547,11 +555,125 @@ export class UsersService {
             console.error('Failed to send support invitation email:', err.message);
         });
 
+        const frontendUrl = process.env.FRONTEND_URL || 'https://subdev.balatrix.com';
+        const inviteLink = `${frontendUrl}/invite/accept?token=${supportUser.inviteToken}`;
+
         return {
             id: supportUser.id,
             email: supportUser.email,
             inviteToken: supportUser.inviteToken,
-            inviteTokenExpiry: supportUser.inviteTokenExpiry
+            inviteTokenExpiry: supportUser.inviteTokenExpiry,
+            inviteLink
+        };
+    }
+
+    async getInviteLink(actorId: string, targetUserId: string) {
+        const canManage = await this.canManageUser(actorId, targetUserId);
+        if (!canManage) {
+            throw new ForbiddenException('You do not have permission to view this user’s invite link');
+        }
+
+        const targetUser = await this.prisma.user.findUnique({
+            where: { id: targetUserId },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                status: true,
+                inviteToken: true,
+                inviteTokenExpiry: true,
+                role: true,
+                tenantId: true
+            }
+        });
+
+        if (!targetUser) {
+            throw new NotFoundException('User not found');
+        }
+
+        if (targetUser.status !== UserStatus.INVITED || !targetUser.inviteToken) {
+            throw new BadRequestException('User is already active or does not have a pending invitation link');
+        }
+
+        if (targetUser.inviteTokenExpiry && targetUser.inviteTokenExpiry < new Date()) {
+            throw new BadRequestException('The invitation link has expired. Please generate a new invite.');
+        }
+
+        const frontendUrl = process.env.FRONTEND_URL || 'https://subdev.balatrix.com';
+        const inviteLink = `${frontendUrl}/invite/accept?token=${targetUser.inviteToken}`;
+
+        return {
+            id: targetUser.id,
+            email: targetUser.email,
+            name: targetUser.name,
+            status: targetUser.status,
+            inviteToken: targetUser.inviteToken,
+            inviteTokenExpiry: targetUser.inviteTokenExpiry,
+            inviteLink
+        };
+    }
+
+    async resendSupportInvite(actorId: string, targetUserId: string) {
+        const canManage = await this.canManageUser(actorId, targetUserId);
+        if (!canManage) {
+            throw new ForbiddenException('You do not have permission to resend invite for this user');
+        }
+
+        const admin = await this.prisma.user.findUnique({
+            where: { id: actorId },
+            include: { tenant: true }
+        });
+        if (!admin) throw new NotFoundException('Admin not found');
+
+        const targetUser = await this.prisma.user.findUnique({
+            where: { id: targetUserId }
+        });
+        if (!targetUser) throw new NotFoundException('User not found');
+
+        if (targetUser.status === UserStatus.ACTIVE) {
+            throw new BadRequestException('User is already active and has accepted the invitation');
+        }
+
+        // Generate fresh invite token
+        const inviteToken = crypto.randomBytes(32).toString('hex');
+        const inviteTokenExpiry = new Date();
+        inviteTokenExpiry.setDate(inviteTokenExpiry.getDate() + 7); // 7 days
+
+        const updated = await this.prisma.user.update({
+            where: { id: targetUserId },
+            data: {
+                status: UserStatus.INVITED,
+                inviteToken,
+                inviteTokenExpiry
+            }
+        });
+
+        // Audit log
+        await this.createAuditLog(actorId, targetUserId, UserAuditAction.INVITE_USER, {
+            email: targetUser.email,
+            action: 'RESEND_INVITE'
+        });
+
+        // Send Email
+        await this.mailService.sendSupportInvitationEmail(
+            updated.email,
+            updated.name || '',
+            inviteToken,
+            admin.name || 'Admin',
+            admin.tenant?.name || ''
+        ).catch(err => {
+            console.error('Failed to send support invitation email:', err.message);
+        });
+
+        const frontendUrl = process.env.FRONTEND_URL || 'https://subdev.balatrix.com';
+        const inviteLink = `${frontendUrl}/invite/accept?token=${inviteToken}`;
+
+        return {
+            id: updated.id,
+            email: updated.email,
+            inviteToken: inviteToken,
+            inviteTokenExpiry: inviteTokenExpiry,
+            inviteLink
         };
     }
 
@@ -575,7 +697,7 @@ export class UsersService {
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Update user
+        // Update user: activate and flush invite tokens
         const updated = await this.prisma.user.update({
             where: { id: user.id },
             data: {
