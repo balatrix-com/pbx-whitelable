@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Wallet, Phone, Users, Info, Building2, Plus, Trash2, Loader, CreditCard, RefreshCw, User, LogIn, Sliders, ShieldAlert, Clock, Server, Mic, Zap, Loader2, Radio, HardDrive, Activity, Package, Palette, Edit3, Save, Check, CheckCircle2, Globe, MapPin, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { X, Wallet, Phone, Users, Info, Building2, Plus, Trash2, Loader, CreditCard, RefreshCw, User, LogIn, Sliders, ShieldAlert, Clock, Server, Mic, Zap, Loader2, Radio, HardDrive, Activity, Package, Palette, Edit3, Save, Check, CheckCircle2, Globe, MapPin, Mail, Lock, Eye, EyeOff, Search, Pencil } from 'lucide-react';
 import api from '../../../services/api';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
@@ -66,7 +66,7 @@ const TenantManager = ({ tenantId, onClose }) => {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
-            <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh] ring-1 ring-gray-200">
+            <div className="relative bg-white rounded-2xl shadow-xl w-[1040px] max-w-[95vw] h-[640px] max-h-[90vh] overflow-hidden flex flex-col ring-1 ring-gray-200">
                 {/* Header */}
                 <div className="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-4">
@@ -87,7 +87,7 @@ const TenantManager = ({ tenantId, onClose }) => {
                 </div>
 
                 {/* Main Content */}
-                <div className="flex flex-1 overflow-hidden">
+                <div className="flex flex-1 min-h-0 overflow-hidden">
                     {/* Sidebar Tabs */}
                     <div className="w-56 bg-gray-50/50 border-r border-gray-100 flex flex-col p-4 space-y-1.5 shrink-0 overflow-y-auto">
                         {TABS.map(tab => {
@@ -110,7 +110,7 @@ const TenantManager = ({ tenantId, onClose }) => {
                     </div>
 
                     {/* Tab Content */}
-                    <div className="flex-1 overflow-y-auto p-8 bg-white">
+                    <div className="flex-1 min-h-0 overflow-y-auto p-8 bg-white">
                         {activeTab === 'overview' && (<OverviewTab tenant={tenant} subscription={subscription} />)}
                         {activeTab === 'wallet' && <WalletTab tenant={tenant} onUpdate={handleRefresh} />}
                         {activeTab === 'numbers' && <NumbersTab tenant={tenant} onUpdate={handleRefresh} />}
@@ -130,7 +130,7 @@ const TenantManager = ({ tenantId, onClose }) => {
 // --- Sub-Components ---
 
 const OverviewTab = ({ tenant, subscription }) => (
-    <div className="space-y-3 max-w-4xl">
+    <div className="space-y-6 w-full">
         <div>
             <h3 className="text-xl font-extrabold text-gray-900 tracking-tight">Organization Overview</h3>
             <p className="text-sm font-medium text-gray-500 mt-1">Core platform details and system status for this tenant.</p>
@@ -251,7 +251,7 @@ const WalletTab = ({ tenant, onUpdate }) => {
     };
 
     return (
-        <div className="space-y-8 max-w-4xl">
+        <div className="space-y-8 w-full">
             <div className="flex sm:justify-between sm:items-center flex-col sm:flex-row gap-4">
                 <div>
                     <h3 className="text-xl font-extrabold text-gray-900 tracking-tight">Wallet Management</h3>
@@ -392,7 +392,10 @@ const NumbersTab = ({ tenant, onUpdate }) => {
     const [assets, setAssets] = useState({ tfns: [], dids: [] });
     const [loading, setLoading] = useState(true);
     const [assignModal, setAssignModal] = useState(null); // { type: 'tfn' | 'did', item: assetItem }
+    const [editModal, setEditModal] = useState(null); // { type: 'tfn' | 'did', item: assetItem, phoneNumber: string }
     const [actionLoading, setActionLoading] = useState(false);
+    const [tfnSearch, setTfnSearch] = useState('');
+    const [didSearch, setDidSearch] = useState('');
     const { addToast } = useToast() || {};
 
     useEffect(() => {
@@ -451,104 +454,154 @@ const NumbersTab = ({ tenant, onUpdate }) => {
         }
     };
 
-    const renderAssetTable = (title, items, type, numberField) => (
-        <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
-                    <Phone size={14} className="text-gray-400" /> {title} ({items.length})
-                </h4>
-            </div>
+    const renderAssetTable = (title, items, type, numberField, searchValue, setSearchValue) => {
+        const filteredItems = items.filter(item => {
+            if (!searchValue) return true;
+            const query = searchValue.toLowerCase();
+            const phoneNumber = (item[numberField] || item.number || item.phone_number || '').toLowerCase();
+            const sourceId = (item.source_id || item.sourceId || '').toLowerCase();
+            const sourceType = (item.source_type || item.sourceType || '').toLowerCase();
+            return phoneNumber.includes(query) || sourceId.includes(query) || sourceType.includes(query);
+        });
 
-            <div className="overflow-x-auto">
-                {items.length === 0 ? (
-                    <div className="text-center py-10 px-4">
-                        <Phone className="mx-auto h-10 w-10 text-gray-300 mb-2" />
-                        <p className="text-sm font-medium text-gray-500">No {title.toLowerCase()} configured for this tenant.</p>
+        return (
+            <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                        <Phone size={14} className="text-gray-400" /> {title} ({filteredItems.length}{filteredItems.length !== items.length ? ` of ${items.length}` : ''})
+                    </h4>
+                    {/* Search Engine on Top Right */}
+                    <div className="relative w-full sm:w-64">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                            <Search size={14} />
+                        </div>
+                        <input
+                            type="text"
+                            placeholder={`Search ${type === 'tfn' ? 'TFN' : 'DID'} or Source...`}
+                            value={searchValue}
+                            onChange={(e) => setSearchValue(e.target.value)}
+                            className="block w-full pl-9 pr-3 py-1.5 text-xs font-medium rounded-xl border border-gray-200 bg-white placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all shadow-2xs"
+                        />
+                        {searchValue && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchValue('')}
+                                className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-gray-400 hover:text-gray-600"
+                            >
+                                <X size={12} />
+                            </button>
+                        )}
                     </div>
-                ) : (
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50/75">
-                            <tr>
-                                <th scope="col" className="px-5 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">
-                                    Source ID
-                                </th>
-                                <th scope="col" className="px-5 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">
-                                    Source Type
-                                </th>
-                                <th scope="col" className="px-5 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">
-                                    Phone Number
-                                </th>
-                                <th scope="col" className="px-5 py-3 text-right text-xs font-extrabold text-gray-500 uppercase tracking-wider">
-                                    Action
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 bg-white">
-                            {items.map((item, idx) => {
-                                const phoneNumber = item[numberField] || item.number || item.phone_number || '';
-                                const isAssigned = !!phoneNumber;
-                                const sourceType = (item.source_type || item.sourceType || 'PLAN').toUpperCase();
+                </div>
 
-                                return (
-                                    <tr key={item.id || item.source_id || idx} className="hover:bg-gray-50/80 transition-colors">
-                                        <td className="px-5 py-4 whitespace-nowrap text-xs font-bold text-gray-900 font-mono">
-                                            {item.source_id || item.sourceId || 'N/A'}
-                                        </td>
-                                        <td className="px-5 py-4 whitespace-nowrap text-xs">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-extrabold tracking-wide uppercase ${sourceType === 'PLAN'
-                                                ? 'bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/20'
-                                                : 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20'
-                                                }`}>
-                                                {sourceType}
-                                            </span>
-                                        </td>
-                                        <td className="px-5 py-4 whitespace-nowrap text-sm">
-                                            {isAssigned ? (
-                                                <span className="font-mono font-bold text-gray-900 flex items-center gap-1.5">
-                                                    <Phone size={13} className="text-primary-600" />
-                                                    {phoneNumber}
+                <div className="overflow-x-auto">
+                    {filteredItems.length === 0 ? (
+                        <div className="text-center py-10 px-4">
+                            <Phone className="mx-auto h-10 w-10 text-gray-300 mb-2" />
+                            <p className="text-sm font-medium text-gray-500">
+                                {items.length === 0
+                                    ? `No ${title.toLowerCase()} configured for this tenant.`
+                                    : `No matches found for "${searchValue}".`}
+                            </p>
+                        </div>
+                    ) : (
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50/75">
+                                <tr>
+                                    <th scope="col" className="px-5 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">
+                                        Source ID
+                                    </th>
+                                    <th scope="col" className="px-5 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">
+                                        Source Type
+                                    </th>
+                                    <th scope="col" className="px-5 py-3 text-left text-xs font-extrabold text-gray-500 uppercase tracking-wider">
+                                        Phone Number
+                                    </th>
+                                    <th scope="col" className="px-5 py-3 text-right text-xs font-extrabold text-gray-500 uppercase tracking-wider">
+                                        Action
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200 bg-white">
+                                {filteredItems.map((item, idx) => {
+                                    const phoneNumber = item[numberField] || item.number || item.phone_number || '';
+                                    const isAssigned = !!phoneNumber;
+                                    const sourceType = (item.source_type || item.sourceType || 'PLAN').toUpperCase();
+
+                                    return (
+                                        <tr key={item.id || item.source_id || idx} className="hover:bg-gray-50/80 transition-colors">
+                                            <td className="px-5 py-4 whitespace-nowrap text-xs font-bold text-gray-900 font-mono">
+                                                {item.source_id || item.sourceId || 'N/A'}
+                                            </td>
+                                            <td className="px-5 py-4 whitespace-nowrap text-xs">
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-extrabold tracking-wide uppercase ${sourceType === 'PLAN'
+                                                    ? 'bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/20'
+                                                    : 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20'
+                                                    }`}>
+                                                    {sourceType}
                                                 </span>
-                                            ) : (
-                                                <span className="text-gray-400 italic text-xs font-medium">
-                                                    Unassigned
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-5 py-4 whitespace-nowrap text-right text-xs font-medium">
-                                            {isAssigned ? (
-                                                <button
-                                                    type="button"
-                                                    disabled={actionLoading}
-                                                    onClick={() => handleUnassign(type, phoneNumber)}
-                                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 ring-1 ring-inset ring-rose-600/20 transition-all active:scale-[0.98] disabled:opacity-50"
-                                                >
-                                                    <Trash2 size={12} />
-                                                    Unassign
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    type="button"
-                                                    disabled={actionLoading}
-                                                    onClick={() => setAssignModal({ type, item })}
-                                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-primary-700 bg-primary-50 hover:bg-primary-100 ring-1 ring-inset ring-primary-600/20 transition-all active:scale-[0.98] disabled:opacity-50"
-                                                >
-                                                    <Plus size={13} />
-                                                    Assign Number
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                )}
+                                            </td>
+                                            <td className="px-5 py-4 whitespace-nowrap text-sm">
+                                                {isAssigned ? (
+                                                    <span className="font-mono font-bold text-gray-900 flex items-center gap-1.5">
+                                                        <Phone size={13} className="text-primary-600" />
+                                                        {phoneNumber}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-400 italic text-xs font-medium">
+                                                        Unassigned
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-5 py-4 whitespace-nowrap text-right text-xs font-medium">
+                                                <div className="flex items-center justify-end gap-1.5">
+                                                    {isAssigned ? (
+                                                        <>
+                                                            <button
+                                                                type="button"
+                                                                title="Edit Number Details & Routing"
+                                                                onClick={() => setEditModal({ type, item, phoneNumber })}
+                                                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 ring-1 ring-inset ring-gray-300 transition-all active:scale-[0.98]"
+                                                            >
+                                                                <Pencil size={12} className="text-gray-600" />
+                                                                Edit
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                disabled={actionLoading}
+                                                                onClick={() => handleUnassign(type, phoneNumber)}
+                                                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 ring-1 ring-inset ring-rose-600/20 transition-all active:scale-[0.98] disabled:opacity-50"
+                                                            >
+                                                                <Trash2 size={12} />
+                                                                Unassign
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            disabled={actionLoading}
+                                                            onClick={() => setAssignModal({ type, item })}
+                                                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-primary-700 bg-primary-50 hover:bg-primary-100 ring-1 ring-inset ring-primary-600/20 transition-all active:scale-[0.98] disabled:opacity-50"
+                                                        >
+                                                            <Plus size={13} />
+                                                            Assign Number
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     return (
-        <div className="space-y-8 max-w-5xl">
+        <div className="space-y-8 w-full">
             <div className="flex justify-between items-center pb-4 border-b border-gray-100">
                 <div>
                     <h3 className="text-xl font-extrabold text-gray-900 tracking-tight">Phone Numbers</h3>
@@ -573,10 +626,10 @@ const NumbersTab = ({ tenant, onUpdate }) => {
             ) : (
                 <div className="space-y-6">
                     {/* TFNs Table */}
-                    {renderAssetTable('Toll-Free Numbers (TFNs)', assets.tfns, 'tfn', 'tfn_number')}
+                    {renderAssetTable('Toll-Free Numbers (TFNs)', assets.tfns, 'tfn', 'tfn_number', tfnSearch, setTfnSearch)}
 
                     {/* DIDs Table */}
-                    {renderAssetTable('Local / Mobile Numbers (DIDs)', assets.dids, 'did', 'did_number')}
+                    {renderAssetTable('Local / Mobile Numbers (DIDs)', assets.dids, 'did', 'did_number', didSearch, setDidSearch)}
                 </div>
             )}
 
@@ -594,6 +647,288 @@ const NumbersTab = ({ tenant, onUpdate }) => {
                     }}
                 />
             )}
+
+            {/* Edit Number Routing & Details Modal */}
+            {editModal && (
+                <EditNumberModal
+                    type={editModal.type}
+                    phoneNumber={editModal.phoneNumber}
+                    targetItem={editModal.item}
+                    tenantId={tenant.id}
+                    onClose={() => setEditModal(null)}
+                    onSuccess={() => {
+                        setEditModal(null);
+                        fetchAssets();
+                        if (onUpdate) onUpdate();
+                    }}
+                />
+            )}
+        </div>
+    );
+};
+
+// Modal for editing number details & routing (TFN or DID)
+const EditNumberModal = ({ type, phoneNumber, targetItem, tenantId, onClose, onSuccess }) => {
+    const isTfn = type === 'tfn';
+    const title = isTfn ? 'Toll-Free Number (TFN)' : 'Direct Inward Dialing (DID)';
+
+    const [routeType, setRouteType] = useState('extension');
+    const [routeDestinationId, setRouteDestinationId] = useState('');
+    const [forwardNumber, setForwardNumber] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [destinations, setDestinations] = useState({
+        extensions: [],
+        ringGroups: [],
+        ivrs: [],
+        schedules: []
+    });
+    const { addToast } = useToast() || {};
+
+    useEffect(() => {
+        const fetchInitialData = async () => {
+            setLoading(true);
+            try {
+                // Fetch existing details for this number and available route targets in parallel
+                const [numberRes, extRes, rgRes, ivrRes, schedRes] = await Promise.all([
+                    api.get(`/telecom/${isTfn ? 'tfns' : 'dids'}/${phoneNumber}`, {
+                        params: { tenantId }
+                    }).catch(() => null),
+                    api.get(`/telecom/extensions?tenantId=${tenantId}`).catch(() => ({ data: [] })),
+                    api.get(`/telecom/ring-groups?tenantId=${tenantId}`).catch(() => ({ data: [] })),
+                    api.get(`/telecom/ivrs?tenantId=${tenantId}`).catch(() => ({ data: [] })),
+                    api.get(`/telecom/operational-schedules?tenantId=${tenantId}`).catch(() => ({ data: [] })),
+                ]);
+
+                setDestinations({
+                    extensions: Array.isArray(extRes?.data) ? extRes.data : [],
+                    ringGroups: Array.isArray(rgRes?.data) ? rgRes.data : [],
+                    ivrs: Array.isArray(ivrRes?.data) ? ivrRes.data : [],
+                    schedules: Array.isArray(schedRes?.data) ? schedRes.data : []
+                });
+
+                if (numberRes?.data) {
+                    const data = numberRes.data;
+                    const rType = data.routeType || (data.forwardEnabled ? 'forward' : 'extension');
+                    setRouteType(rType);
+                    setRouteDestinationId(data.routeTargetId || '');
+                    setForwardNumber(data.forwardNumber || '');
+                }
+            } catch (err) {
+                console.error('Failed to fetch number route details:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchInitialData();
+    }, [phoneNumber, tenantId, isTfn]);
+
+    const handleSave = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        try {
+            const endpoint = `/telecom/${isTfn ? 'tfns' : 'dids'}/${phoneNumber}`;
+            const payload = {
+                tenantId,
+                routeType,
+                routeDestinationId: routeType === 'forward' ? undefined : routeDestinationId,
+                forwardNumber: routeType === 'forward' ? forwardNumber : undefined,
+                ...(isTfn ? { tfnNumber: phoneNumber } : { didNumber: phoneNumber })
+            };
+
+            await api.put(endpoint, payload);
+            if (addToast) addToast('success', `${phoneNumber} routing updated successfully`);
+            onSuccess();
+        } catch (err) {
+            console.error('Failed to update number routing:', err);
+            const msg = err.response?.data?.message || 'Failed to update number routing';
+            if (addToast) addToast('error', msg);
+            else alert(msg);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col ring-1 ring-gray-200">
+                <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center shrink-0 bg-gray-50/50">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-primary-50 text-primary-600 ring-1 ring-primary-100">
+                            <Pencil size={18} />
+                        </div>
+                        <div>
+                            <h4 className="text-base font-extrabold text-gray-900 tracking-tight">Edit {title}</h4>
+                            <p className="text-xs font-mono font-bold text-primary-600 mt-0.5">{phoneNumber}</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="rounded-xl p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors focus:outline-none"
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
+
+                <form onSubmit={handleSave} className="p-6 space-y-5">
+                    {loading ? (
+                        <div className="flex justify-center py-10">
+                            <Loader2 className="h-7 w-7 animate-spin text-primary-600" />
+                        </div>
+                    ) : (
+                        <>
+                            <div>
+                                <label className="block text-xs font-extrabold text-gray-500 uppercase tracking-widest mb-1.5">
+                                    Assigned Number
+                                </label>
+                                <input
+                                    type="text"
+                                    disabled
+                                    value={phoneNumber}
+                                    className="block w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-mono font-bold text-gray-700 cursor-not-allowed"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-extrabold text-gray-500 uppercase tracking-widest mb-1.5">
+                                    Call Route Destination
+                                </label>
+                                <select
+                                    value={routeType}
+                                    onChange={(e) => {
+                                        setRouteType(e.target.value);
+                                        setRouteDestinationId('');
+                                    }}
+                                    className="block w-full rounded-xl border border-gray-200 py-2.5 px-3 text-sm font-semibold text-gray-900 shadow-2xs focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 bg-white transition-all"
+                                >
+                                    <option value="extension">Direct Extension</option>
+                                    <option value="ring_group">Ring Group</option>
+                                    <option value="ivr">Interactive Voice Response (IVR)</option>
+                                    <option value="schedule">Operational Schedule</option>
+                                    <option value="forward">External Number (Forward)</option>
+                                </select>
+                            </div>
+
+                            {routeType === 'extension' && (
+                                <div>
+                                    <label className="block text-xs font-extrabold text-gray-500 uppercase tracking-widest mb-1.5">
+                                        Select Extension
+                                    </label>
+                                    <select
+                                        value={routeDestinationId}
+                                        onChange={(e) => setRouteDestinationId(e.target.value)}
+                                        className="block w-full rounded-xl border border-gray-200 py-2.5 px-3 text-sm font-semibold text-gray-900 shadow-2xs focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 bg-white transition-all"
+                                    >
+                                        <option value="">-- Choose Extension --</option>
+                                        {destinations.extensions.map((ext) => (
+                                            <option key={ext.id} value={ext.id}>
+                                                Ext {ext.extensionNumber} {ext.name ? `(${ext.name})` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {routeType === 'ring_group' && (
+                                <div>
+                                    <label className="block text-xs font-extrabold text-gray-500 uppercase tracking-widest mb-1.5">
+                                        Select Ring Group
+                                    </label>
+                                    <select
+                                        value={routeDestinationId}
+                                        onChange={(e) => setRouteDestinationId(e.target.value)}
+                                        className="block w-full rounded-xl border border-gray-200 py-2.5 px-3 text-sm font-semibold text-gray-900 shadow-2xs focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 bg-white transition-all"
+                                    >
+                                        <option value="">-- Choose Ring Group --</option>
+                                        {destinations.ringGroups.map((rg) => (
+                                            <option key={rg.id} value={rg.id}>
+                                                {rg.name} {rg.extensionNumber ? `(Ext ${rg.extensionNumber})` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {routeType === 'ivr' && (
+                                <div>
+                                    <label className="block text-xs font-extrabold text-gray-500 uppercase tracking-widest mb-1.5">
+                                        Select IVR Menu
+                                    </label>
+                                    <select
+                                        value={routeDestinationId}
+                                        onChange={(e) => setRouteDestinationId(e.target.value)}
+                                        className="block w-full rounded-xl border border-gray-200 py-2.5 px-3 text-sm font-semibold text-gray-900 shadow-2xs focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 bg-white transition-all"
+                                    >
+                                        <option value="">-- Choose IVR --</option>
+                                        {destinations.ivrs.map((ivr) => (
+                                            <option key={ivr.id} value={ivr.id}>
+                                                {ivr.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {routeType === 'schedule' && (
+                                <div>
+                                    <label className="block text-xs font-extrabold text-gray-500 uppercase tracking-widest mb-1.5">
+                                        Select Schedule
+                                    </label>
+                                    <select
+                                        value={routeDestinationId}
+                                        onChange={(e) => setRouteDestinationId(e.target.value)}
+                                        className="block w-full rounded-xl border border-gray-200 py-2.5 px-3 text-sm font-semibold text-gray-900 shadow-2xs focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 bg-white transition-all"
+                                    >
+                                        <option value="">-- Choose Operational Schedule --</option>
+                                        {destinations.schedules.map((sch) => (
+                                            <option key={sch.id} value={sch.id}>
+                                                {sch.name} ({sch.startTime} - {sch.endTime})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {routeType === 'forward' && (
+                                <div>
+                                    <label className="block text-xs font-extrabold text-gray-500 uppercase tracking-widest mb-1.5">
+                                        External Forwarding Number (E.164)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="+18005550199"
+                                        value={forwardNumber}
+                                        onChange={(e) => setForwardNumber(e.target.value)}
+                                        required
+                                        className="block w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm font-mono font-medium text-gray-900 shadow-2xs focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 bg-white transition-all"
+                                    />
+                                    <p className="text-[11px] text-gray-400 mt-1">Incoming calls will be immediately bridged to this external number.</p>
+                                </div>
+                            )}
+
+                            <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
+                                <button
+                                    type="button"
+                                    onClick={onClose}
+                                    className="px-4 py-2 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={saving}
+                                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-primary-600 hover:bg-primary-700 rounded-xl shadow-sm transition-all disabled:opacity-50"
+                                >
+                                    {saving && <Loader2 size={13} className="animate-spin" />}
+                                    Save Routing Changes
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </form>
+            </div>
         </div>
     );
 };
@@ -727,7 +1062,7 @@ const ExtensionsTab = ({ tenant, onUpdate }) => {
     };
 
     return (
-        <div className="space-y-8 max-w-4xl">
+        <div className="space-y-8 w-full">
             <div className="flex justify-between items-center pb-4 border-b border-gray-100">
                 <div>
                     <h3 className="text-xl font-extrabold text-gray-900 tracking-tight">Extensions</h3>
@@ -1088,7 +1423,7 @@ const UsersTab = ({ tenant }) => {
     };
 
     return (
-        <div className="space-y-8 max-w-4xl">
+        <div className="space-y-8 w-full">
             <div className="flex justify-between items-center pb-4 border-b border-gray-100">
                 <div>
                     <h3 className="text-xl font-extrabold text-gray-900 tracking-tight">Users</h3>
@@ -1337,7 +1672,7 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
     ];
 
     return (
-        <div className="space-y-8 max-w-4xl">
+        <div className="space-y-8 w-full">
             <div className="flex justify-between items-center pb-4 border-b border-gray-100">
                 <div className="text-left">
                     <h3 className="text-xl font-extrabold text-gray-900 tracking-tight">Feature Controller</h3>
@@ -1472,7 +1807,7 @@ const CarrierTab = ({ tenant, onUpdate }) => {
     if (loading) return <div>Loading carriers...</div>;
 
     return (
-        <div className="space-y-8 max-w-4xl">
+        <div className="space-y-8 w-full">
             <div className="flex justify-between items-center pb-4 border-b border-gray-100">
                 <div className="text-left">
                     <h3 className="text-xl font-extrabold text-gray-900 tracking-tight">Outbound Carrier Routing</h3>
@@ -1590,7 +1925,7 @@ const AddonsTab = ({ tenant, onUpdate }) => {
     };
 
     return (
-        <div className="space-y-8 max-w-5xl">
+        <div className="space-y-8 w-full">
             {/* Catalog Section Header */}
             <div>
                 <div className="flex items-center gap-2 mb-1">
@@ -1786,7 +2121,7 @@ const CustomizeTab = ({ tenant, onUpdate }) => {
     };
 
     return (
-        <div className="space-y-6 max-w-4xl">
+        <div className="space-y-6 w-full">
             {/* Header with Top Right Corner Edit / Action Buttons */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-100 gap-4">
                 <div>

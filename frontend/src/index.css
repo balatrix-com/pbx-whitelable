@@ -697,6 +697,25 @@ html.dark textarea:focus {
   border-color: #6366f1 !important;
 }
 
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.35);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
+}
+
 /* Dark scrollbar */
 html.dark ::-webkit-scrollbar {
   width: 8px;
@@ -704,14 +723,14 @@ html.dark ::-webkit-scrollbar {
 }
 
 html.dark ::-webkit-scrollbar-track {
-  background: #000000;
+  background: #090a0f;
 }
 
 html.dark ::-webkit-scrollbar-thumb {
-  background: #1e202c;
+  background: #1e2235;
   border-radius: 4px;
 }
 
 html.dark ::-webkit-scrollbar-thumb:hover {
-  background: #313548;
+  background: #373d5e;
 }
