@@ -6,6 +6,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '@prisma/client';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import type { User } from '@prisma/client';
+import { Audit } from '../audit/audit.decorator';
 
 class AddonQuoteDto {
     tenantId?: string;
@@ -31,12 +32,14 @@ export class AddonsController {
 
     @Post('catalog')
     @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+    @Audit('ADDON_CATALOG_CREATED', 'PLANS_ADDONS')
     createCatalogItem(@Body() body: any) {
         return this.addonsService.createCatalogItem(body);
     }
 
     @Delete('catalog/:addonId')
     @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+    @Audit('ADDON_CATALOG_DELETED', 'PLANS_ADDONS')
     deleteCatalogItem(@Param('addonId') addonId: string) {
         return this.addonsService.deleteCatalogItem(addonId);
     }
@@ -47,6 +50,7 @@ export class AddonsController {
     }
 
     @Delete('subscription/:subscriptionAddonId')
+    @Audit('ADDON_CANCELLED', 'PLANS_ADDONS')
     cancelSubscriptionAddon(@Param('subscriptionAddonId') subscriptionAddonId: string) {
         return this.addonsService.cancelSubscriptionAddon(subscriptionAddonId);
     }
@@ -64,6 +68,7 @@ export class AddonsController {
     }
 
     @Post('purchase')
+    @Audit('ADDON_PURCHASED', 'PLANS_ADDONS')
     purchaseAddon(@GetUser() user: User, @Body() body: AddonPurchaseDto) {
         const tenantId = body.tenantId || user.tenantId;
         if (!tenantId) {

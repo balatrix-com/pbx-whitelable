@@ -6,6 +6,7 @@ import { Role } from '@prisma/client';
 import type { User } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { Audit } from '../audit/audit.decorator';
 
 @Controller('plans')
 @UseGuards(JwtAuthGuard)
@@ -20,6 +21,7 @@ export class PlansController {
     @Post()
     @Roles(Role.ADMIN, Role.SUPER_ADMIN)
     @UseGuards(RolesGuard)
+    @Audit('PLAN_CREATED', 'PLANS_ADDONS')
     async createCustom(@Body() data: any, @GetUser() user: User) {
         return this.plansService.createCustom(data, user.id);
     }
@@ -27,6 +29,7 @@ export class PlansController {
     @Delete(':planId')
     @Roles(Role.ADMIN, Role.SUPER_ADMIN)
     @UseGuards(RolesGuard)
+    @Audit('PLAN_DELETED', 'PLANS_ADDONS')
     async deletePlan(@Param('planId') planId: string) {
         return this.plansService.deletePlan(planId);
     }

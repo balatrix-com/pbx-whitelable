@@ -6,6 +6,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '@prisma/client';
 import { UpdateTenantDetailsDto } from './dto/update-tenant-details.dto';
+import { Audit } from '../audit/audit.decorator';
 
 @Controller('tenants')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -46,6 +47,7 @@ export class TenantsController {
 
     @Patch(':id/block')
     @Roles(Role.SUPER_ADMIN)
+    @Audit('TENANT_SUSPENDED', 'USER_MANAGEMENT')
     blockTenant(@Param('id') id: string, @Body() body: { blocked: boolean }) {
         return this.tenantsService.toggleTenantBlock(id, body.blocked);
     }
@@ -73,6 +75,7 @@ export class TenantsController {
 
     @Patch(':id/details')
     @Roles(Role.SUPER_ADMIN)
+    @Audit('TENANT_UPDATED', 'USER_MANAGEMENT')
     updateTenantDetails(
         @Param('id') id: string,
         @Body() body: UpdateTenantDetailsDto
@@ -104,6 +107,7 @@ export class TenantsController {
 
     @Delete(':id')
     @Roles(Role.SUPER_ADMIN)
+    @Audit('TENANT_DELETED', 'USER_MANAGEMENT')
     deleteTenant(@Param('id') id: string) {
         return this.tenantsService.deleteTenant(id);
     }
@@ -125,6 +129,7 @@ export class TenantsController {
 
     @Post()
     @Roles(Role.SUPER_ADMIN)
+    @Audit('TENANT_CREATED', 'USER_MANAGEMENT')
     create(@Body() body: any) {
         // Validation could be improved with DTO and Pipes, but for now manual or implicit is fine
         // DTO created earlier: CreateTenantDto
