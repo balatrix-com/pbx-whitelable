@@ -14,6 +14,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { FreeswitchModule } from '../freeswitch/freeswitch.module';
 import { TFNsModule } from './tfns/tfns.module';
 import { DIDForwardsModule } from './did-forwards/did-forwards.module';
+import { PhoneNumbersModule } from './phone-numbers/phone-numbers.module';
 
 import { AdminModule } from '../admin/admin.module';
 import { SubscriptionTelecomController } from './subscription-telecom.controller';
@@ -36,6 +37,7 @@ import { TeardownEnforcerService } from './teardown-enforcer.service';
     TFNsModule,
     DIDForwardsModule,
     AdminModule,
+    PhoneNumbersModule,
   ],
   controllers: [TelecomController, SubscriptionTelecomController],
   providers: [TelecomService, TeardownEnforcerService],
