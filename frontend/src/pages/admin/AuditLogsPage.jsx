@@ -13,7 +13,19 @@ const AuditLogsPage = () => {
     const [category, setCategory] = useState('');
 
     // Valid categories from backend
-    const categories = ['AUTH', 'TENANT', 'BILLING', 'SYSTEM', 'USER'];
+    const categories = [
+        'CARRIER_GATEWAY',
+        'RATE_CARD',
+        'MANAGE_NUMBERS',
+        'PLANS_ADDONS',
+        'USER_MANAGEMENT',
+        'SYSTEM_SETTINGS',
+        'AUTH',
+        'TENANT',
+        'BILLING',
+        'SYSTEM',
+        'USER'
+    ];
 
     useEffect(() => {
         fetchLogs();
@@ -209,8 +221,15 @@ const AuditLogsPage = () => {
     );
 };
 
+
 const CategoryBadge = ({ category }) => {
     const colors = {
+        CARRIER_GATEWAY: 'bg-indigo-100 text-indigo-700 ring-1 ring-inset ring-indigo-600/20',
+        RATE_CARD: 'bg-teal-100 text-teal-700 ring-1 ring-inset ring-teal-600/20',
+        MANAGE_NUMBERS: 'bg-cyan-100 text-cyan-700 ring-1 ring-inset ring-cyan-600/20',
+        PLANS_ADDONS: 'bg-pink-100 text-pink-700 ring-1 ring-inset ring-pink-600/20',
+        USER_MANAGEMENT: 'bg-amber-100 text-amber-700 ring-1 ring-inset ring-amber-600/20',
+        SYSTEM_SETTINGS: 'bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-600/20',
         AUTH: 'bg-purple-100 text-purple-700 ring-1 ring-inset ring-purple-600/20',
         TENANT: 'bg-blue-100 text-blue-700 ring-1 ring-inset ring-blue-600/20',
         BILLING: 'bg-emerald-100 text-emerald-700 ring-1 ring-inset ring-emerald-600/20',
@@ -223,5 +242,6 @@ const CategoryBadge = ({ category }) => {
         </span>
     );
 };
+
 
 export default AuditLogsPage;
