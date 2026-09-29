@@ -1,6 +1,20 @@
 import api from './api';
 
 export const telecomService = {
+    // Unified Phone Numbers
+    getPhoneNumbers: async (params) => {
+        const response = await api.get('/telecom/phone-numbers', { params });
+        return response.data;
+    },
+    getPhoneNumber: async (id) => {
+        const response = await api.get(`/telecom/phone-numbers/${id}`);
+        return response.data;
+    },
+    updatePhoneNumber: async (id, data) => {
+        const response = await api.put(`/telecom/phone-numbers/${id}`, data);
+        return response.data;
+    },
+
     // TFNs
     searchTfns: async (query) => {
         const response = await api.get('/telecom/tfns/search', { params: { prefix: query } });

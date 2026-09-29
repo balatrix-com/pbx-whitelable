@@ -4,36 +4,31 @@ import { telecomService } from '../../services/telecom.service';
 import { X, Save, Loader2 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 
-const RoutingModal = ({ isOpen, onClose, tfn, onSave }) => {
+const RoutingModal = ({ isOpen, onClose, phoneNumber, tfn, onSave }) => {
+    const currentNumber = phoneNumber || tfn;
     const { addToast } = useToast();
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [options, setOptions] = useState({ extensions: [], ringGroups: [], ivrs: [], schedules: [], didForwards: [] });
 
-    const [routeType, setRouteType] = useState(tfn?.routeType || 'extension');
-    const [targetId, setTargetId] = useState(tfn?.routeTargetId || '');
+    const [routeType, setRouteType] = useState(currentNumber?.routeType || 'extension');
+    const [targetId, setTargetId] = useState(currentNumber?.routeTargetId || '');
 
     useEffect(() => {
         if (isOpen) {
             loadOptions();
-            // Reset form if opening for a new TFN
-            if (tfn) {
-                setRouteType(tfn.routeType === 'forward' ? 'extension' : (tfn.routeType || 'extension'));
-                setTargetId(tfn.routeTargetId || '');
+            if (currentNumber) {
+                setRouteType(currentNumber.routeType === 'forward' ? 'extension' : (currentNumber.routeType || 'extension'));
+                setTargetId(currentNumber.routeTargetId || '');
             }
         }
-    }, [isOpen, tfn]);
+    }, [isOpen, currentNumber]);
 
     const loadOptions = async () => {
         setLoading(true);
         try {
             const data = await telecomService.getRoutingOptions();
             setOptions(data);
-
-            // Auto-select first option if targetId is empty
-            if (!targetId && data.extensions.length > 0 && routeType === 'extension') {
-                // Optional: Pre-select logic
-            }
         } catch (e) {
             console.error(e);
             addToast('error', 'Failed to load routing options');
@@ -43,21 +38,23 @@ const RoutingModal = ({ isOpen, onClose, tfn, onSave }) => {
     };
 
     const handleSave = async () => {
+        if (!currentNumber) return;
         setSaving(true);
         try {
             const payload = {
+                type: currentNumber.type || 'DID',
                 routeType,
-                routeTargetId: targetId,
+                routeDestinationId: targetId,
                 forwardEnabled: routeType === 'did_forward',
             };
 
-            await telecomService.updateTFNRouting(tfn.id, payload);
+            await telecomService.updatePhoneNumber(currentNumber.id, payload);
             addToast('success', 'Routing updated');
-            onSave({ ...tfn, ...payload });
+            onSave({ ...currentNumber, routeType, routeTargetId: targetId });
             onClose();
         } catch (e) {
             console.error(e);
-            addToast('error', 'Failed to update routing');
+            addToast('error', e.response?.data?.message || 'Failed to update routing');
         } finally {
             setSaving(false);
         }
@@ -70,7 +67,20 @@ const RoutingModal = ({ isOpen, onClose, tfn, onSave }) => {
             <div className="fixed inset-0 flex items-center justify-center p-4">
                 <Dialog.Panel className="mx-auto max-w-md w-full rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-gray-900/5">
                     <div className="flex justify-between items-center mb-6">
-                        <Dialog.Title className="text-xl font-extrabold text-gray-900 tracking-tight">Configure Routing: <span className="text-primary-600 font-mono">{tfn?.number}</span></Dialog.Title>
+                        <div>
+                            <Dialog.Title className="text-xl font-extrabold text-gray-900 tracking-tight">
+                                Configure Routing: <span className="text-primary-600 font-mono">{currentNumber?.number}</span>
+                            </Dialog.Title>
+                            {currentNumber?.type && (
+                                <span className={`inline-flex items-center mt-1 px-2 py-0.5 rounded text-xs font-semibold ${
+                                    currentNumber.type === 'DID'
+                                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                        : 'bg-purple-50 text-purple-700 border border-purple-200'
+                                }`}>
+                                    {currentNumber.type === 'DID' ? 'Local Number (DID)' : 'Toll-Free Number (TFN)'}
+                                </span>
+                            )}
+                        </div>
                         <button onClick={onClose} className="text-gray-400 hover:text-gray-600 hover:bg-gray-50 p-1.5 rounded-lg transition-colors focus:outline-none">
                             <X className="h-5 w-5" />
                         </button>
@@ -96,8 +106,8 @@ const RoutingModal = ({ isOpen, onClose, tfn, onSave }) => {
                                     <option value="extension">Extension</option>
                                     <option value="ring_group">Ring Group</option>
                                     <option value="ivr">IVR Menu</option>
-                                    <option value="schedule">Schedule</option>
-                                    <option value="did_forward">External Number (Forward)</option>
+                                    {currentNumber?.type !== 'DID' && <option value="schedule">Schedule</option>}
+                                    {currentNumber?.type !== 'TFN' && <option value="did_forward">External Number (Forward)</option>}
                                 </select>
                             </div>
 

@@ -13,7 +13,7 @@ import ImpersonateLoader from './pages/admin/ImpersonateLoader';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import WalletPage from './pages/billing/WalletPage';
 import PaymentMethodsPage from './pages/billing/PaymentMethodsPage';
-import TfnPage from './pages/telecom/TfnPage';
+import PhoneNumbersPage from './pages/telecom/PhoneNumbersPage';
 import ExtensionsPage from './pages/telecom/Extensions/ExtensionsPage';
 import ExtensionsStatusPage from './pages/telecom/Extensions/ExtensionsStatusPage';
 import ExtensionForm from './pages/telecom/Extensions/ExtensionForm';
@@ -21,8 +21,6 @@ import RingGroupsPage from './pages/telecom/RingGroups/RingGroupsPage';
 import RingGroupForm from './pages/telecom/RingGroups/RingGroupForm';
 import IVRsPage from './pages/telecom/IVRs/IVRsPage';
 import IVRForm from './pages/telecom/IVRs/IVRForm';
-import DIDsPage from './pages/telecom/dids/DIDsPage';
-import DIDForm from './pages/telecom/dids/DIDForm';
 import SchedulesPage from './pages/telecom/schedules/SchedulesPage';
 import ScheduleForm from './pages/telecom/schedules/ScheduleForm';
 import AudioLibrary from './pages/telecom/AudioLibrary';
@@ -115,7 +113,12 @@ function App() {
                                             <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPPORT', 'SUPER_ADMIN']} />}>
                                                 <Route path="/wallet" element={<WalletPage />} />
                                                 <Route path="/wallet/cards" element={<PaymentMethodsPage />} />
-                                                <Route path="/tfn" element={<TfnPage />} />
+                                                <Route path="/telecom/phone-numbers" element={<PhoneNumbersPage />} />
+                                                <Route path="/phone-numbers" element={<Navigate to="/telecom/phone-numbers" replace />} />
+                                                <Route path="/tfn" element={<Navigate to="/telecom/phone-numbers" replace />} />
+                                                <Route path="/telecom/dids" element={<Navigate to="/telecom/phone-numbers" replace />} />
+                                                <Route path="/telecom/dids/new" element={<Navigate to="/telecom/phone-numbers" replace />} />
+                                                <Route path="/telecom/dids/:id/edit" element={<Navigate to="/telecom/phone-numbers" replace />} />
                                                 <Route path="/telecom/extensions" element={<ExtensionsPage />} />
                                                 <Route path="/telecom/extensions/status" element={<ExtensionsStatusPage />} />
                                                 <Route path="/telecom/extensions/new" element={<ExtensionForm />} />
@@ -128,9 +131,6 @@ function App() {
                                                 <Route path="/telecom/ivrs" element={<IVRsPage />} />
                                                 <Route path="/telecom/ivrs/new" element={<IVRForm />} />
                                                 <Route path="/telecom/ivrs/:id/edit" element={<IVRForm />} />
-                                                <Route path="/telecom/dids" element={<DIDsPage />} />
-                                                <Route path="/telecom/dids/new" element={<DIDForm />} />
-                                                <Route path="/telecom/dids/:id/edit" element={<DIDForm />} />
                                                 <Route path="/telecom/did-forwards" element={<DIDForwardsPage />} />
                                                 <Route path="/telecom/did-forwards/new" element={<DIDForwardForm />} />
                                                 <Route path="/telecom/did-forwards/:id/edit" element={<DIDForwardForm />} />
