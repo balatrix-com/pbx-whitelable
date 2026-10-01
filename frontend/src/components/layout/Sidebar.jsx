@@ -97,7 +97,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 items = [
                     { name: 'Dashboard', href: '/dashboard', icon: LayoutGrid },
                     { name: 'Wallet', href: '/wallet', icon: Wallet },
-                    { name: 'Phone Numbers', href: '/tfn', icon: Phone },
+                    { name: 'Phone Numbers', href: '/telecom/phone-numbers', icon: Phone },
                     {
                         name: 'Extensions',
                         icon: Users,
@@ -110,7 +110,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { name: 'Ring Groups', href: '/telecom/ring-groups', icon: UserCheck },
                     { name: 'IVR Menus', href: '/telecom/ivrs', icon: ListTree },
                     { name: 'Audio Library', href: '/telecom/audio', icon: Music },
-                    { name: 'DIDs', href: '/telecom/dids', icon: Hash },
                     { name: 'DID Forwards', href: '/telecom/did-forwards', icon: PhoneForwarded },
                     { name: 'Operational Time', href: '/telecom/schedules', icon: Clock },
                     { name: 'Call Monitoring', href: '/monitoring', icon: Activity },
@@ -124,7 +123,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 items = [
                     { name: 'Dashboard', href: '/dashboard', icon: LayoutGrid },
                     { name: 'Wallet', href: '/wallet', icon: Wallet },
-                    { name: 'Phone Numbers', href: '/tfn', icon: Phone },
+                    { name: 'Phone Numbers', href: '/telecom/phone-numbers', icon: Phone },
                     {
                         name: 'Extensions',
                         icon: Users,
@@ -137,7 +136,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { name: 'Ring Groups', href: '/telecom/ring-groups', icon: UserCheck },
                     { name: 'IVR Menus', href: '/telecom/ivrs', icon: ListTree },
                     { name: 'Audio Library', href: '/telecom/audio', icon: Music },
-                    { name: 'DIDs', href: '/telecom/dids', icon: Hash },
                     { name: 'DID Forwards', href: '/telecom/did-forwards', icon: PhoneForwarded },
                     { name: 'Schedules', href: '/telecom/schedules', icon: Clock },
                     { name: 'Call Monitoring', href: '/monitoring', icon: Activity },
