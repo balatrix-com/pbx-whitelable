@@ -28,8 +28,16 @@ export class RecordingStorageService {
             const customerDir = path.join(this.basePath, customerCode);
 
             if (!fs.existsSync(customerDir)) {
-                fs.mkdirSync(customerDir, { recursive: true });
+                fs.mkdirSync(customerDir, { recursive: true, mode: 0o775 });
                 this.logger.log(`Created recordings directory for customer: ${customerDir}`);
+            }
+
+            // Ensure FreeSWITCH has ownership and write permissions
+            try {
+                const { execSync } = require('child_process');
+                execSync(`chown -R freeswitch:freeswitch "${customerDir}" 2>/dev/null && chmod -R 775 "${customerDir}" 2>/dev/null`);
+            } catch {
+                // Ignore if not running on Linux or freeswitch user isn't present
             }
         } catch (error) {
             this.logger.error(`Failed to ensure recordings directory for ${customerCode}: ${error.message}`);
