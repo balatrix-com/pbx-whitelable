@@ -4,8 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { walletService } from '../../services/wallet.service';
 import { useBillingIntelligence } from '../../hooks/useBillingIntelligence';
-import { useWalletQuery, useSubscriptionQuery, useCardsQuery, useWalletActions } from '../../hooks/useBillingQueries';
-import { Wallet, ArrowDown, ArrowUp, CreditCard, RotateCw, TrendingDown, Clock, AlertTriangle, CheckCircle, RefreshCw, DollarSign } from 'lucide-react';
+import { useWalletQuery, useSubscriptionQuery, useWalletActions } from '../../hooks/useBillingQueries';
+import { Wallet, ArrowDown, ArrowUp, CreditCard, RotateCw, TrendingDown, Clock, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
 import ReadOnlyBanner from '../../components/ReadOnlyBanner';
 
 const WalletPage = () => {
@@ -14,34 +14,15 @@ const WalletPage = () => {
     const location = useLocation();
     const [addingFunds, setAddingFunds] = useState(false);
     const [rechargeAmount, setRechargeAmount] = useState('50');
-    const [paymentDetails, setPaymentDetails] = useState([]);
-    const [paymentDetailsLoading, setPaymentDetailsLoading] = useState(true);
 
     // Queries
     const { data: wallet, isLoading: walletLoading, isFetching: walletRefreshing } = useWalletQuery();
     const { data: subscription, isLoading: subLoading } = useSubscriptionQuery();
-    const { data: cards = [], isLoading: cardsLoading } = useCardsQuery();
     const { refreshWallet } = useWalletActions();
 
     const intelligence = useBillingIntelligence(wallet, subscription);
 
     const { addToast } = useToast();
-
-    const fetchPaymentDetails = useCallback(async () => {
-        try {
-            setPaymentDetailsLoading(true);
-            const data = await walletService.getPaymentDetails();
-            setPaymentDetails(data || []);
-        } catch (e) {
-            console.error('Failed to fetch payment details:', e);
-        } finally {
-            setPaymentDetailsLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchPaymentDetails();
-    }, [fetchPaymentDetails]);
 
     useEffect(() => {
         const queryParams = new URLSearchParams(location.search);
@@ -50,12 +31,11 @@ const WalletPage = () => {
             // Clear query parameters using navigate so React Router is aware
             navigate(window.location.pathname, { replace: true });
             refreshWallet();
-            fetchPaymentDetails();
         } else if (queryParams.get('canceled')) {
             addToast('warning', 'Payment was cancelled.');
             navigate(window.location.pathname, { replace: true });
         }
-    }, [location.search, addToast, refreshWallet, navigate, fetchPaymentDetails]);
+    }, [location.search, addToast, refreshWallet, navigate]);
 
     const handleAddFunds = useCallback(async (amount) => {
         const numericAmount = parseFloat(amount);
@@ -80,7 +60,7 @@ const WalletPage = () => {
         }
     }, [addToast]);
 
-    const loading = walletLoading || subLoading || cardsLoading;
+    const loading = walletLoading || subLoading;
     const refreshing = walletRefreshing;
 
     if (loading) return (
@@ -265,144 +245,55 @@ const WalletPage = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Left Column: Cards & Stripe Payments */}
-                <div className="space-y-6">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-800 overflow-hidden">
-                        <div className="px-6 py-5 border-b border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                <CreditCard className="text-gray-400 dark:text-slate-400" size={20} /> Saved Cards
-                            </h3>
-                            {subscription?.next_billing && (
-                                <div className="text-[11px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider bg-white dark:bg-slate-800 px-2 py-1 rounded-lg ring-1 ring-gray-200 dark:ring-slate-700">
-                                    Next Billing: {new Date(subscription.next_billing).toLocaleDateString()}
-                                </div>
-                            )}
-                        </div>
-                        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {cards.length === 0 ? (
-                                <div className="col-span-2 py-8 text-center bg-gray-50 dark:bg-slate-900/40 rounded-xl border border-dashed border-gray-200 dark:border-slate-800">
-                                    <CreditCard className="mx-auto h-8 w-8 text-gray-300 dark:text-slate-600 mb-2" />
-                                    <p className="text-sm font-medium text-gray-500 dark:text-slate-400">No saved payment methods</p>
-                                </div>
-                            ) : (
-                                cards.map(card => (
-                                    <div key={card.id} className="relative flex items-center gap-4 p-4 rounded-xl border border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 ring-1 ring-gray-100 dark:ring-slate-800 hover:ring-primary-500 transition-all group">
-                                        <div className="bg-gray-50 dark:bg-slate-800 p-2 rounded-lg">
-                                            <CreditCard size={20} className="text-gray-600 dark:text-slate-300" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                <p className="text-sm font-bold text-gray-900 dark:text-white capitalize">{card.brand}</p>
-                                                {card.is_default && (
-                                                    <span className="inline-flex items-center rounded-md bg-green-50 dark:bg-emerald-950/60 px-1.5 py-0.5 text-[10px] font-bold text-green-700 dark:text-emerald-400 ring-1 ring-inset ring-green-600/20 dark:ring-emerald-500/30">DEFAULT</span>
-                                                )}
-                                            </div>
-                                            <p className="text-xs font-medium text-gray-500 dark:text-slate-400 mt-1">•••• {card.last4} • Exp {card.exp_month}/{card.exp_year}</p>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Stripe Payment History */}
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-800 overflow-hidden">
-                        <div className="px-6 py-5 border-b border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                <DollarSign className="text-emerald-500 h-5 w-5" /> Stripe Payment History
-                            </h3>
-                            <button
-                                onClick={fetchPaymentDetails}
-                                disabled={paymentDetailsLoading}
-                                className={`p-1 rounded-md hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors text-gray-400 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 ${paymentDetailsLoading ? 'animate-spin' : ''}`}
-                                title="Refresh payment history"
-                            >
-                                <RefreshCw size={14} />
-                            </button>
-                        </div>
-                        <div className="p-0 max-h-[400px] overflow-y-auto">
-                            <ul role="list" className="divide-y divide-gray-100 dark:divide-slate-800">
-                                {paymentDetailsLoading ? (
-                                    <li className="p-8 text-center text-gray-500 dark:text-slate-400 font-medium flex items-center justify-center gap-2">
-                                        <RotateCw size={16} className="animate-spin text-primary-600" />
-                                        Loading payments...
-                                    </li>
-                                ) : (!paymentDetails || paymentDetails.length === 0) ? (
-                                    <li className="p-8 text-center text-gray-500 dark:text-slate-400 font-medium">No payment records found.</li>
-                                ) : (
-                                    paymentDetails.map((payment) => (
-                                        <li key={payment.payment_id} className="p-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
-                                            <div className="flex items-center space-x-4">
-                                                <div className="flex-shrink-0">
-                                                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/60 ring-1 ring-inset ring-emerald-600/20 dark:ring-emerald-500/30">
-                                                        <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                                                    </span>
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="truncate text-sm font-bold text-gray-900 dark:text-white">{payment.description || 'Wallet Top-up'}</p>
-                                                    <p className="truncate text-xs font-mono text-gray-500 dark:text-slate-400 mt-0.5">
-                                                        {payment.payment_id}
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <span className="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-mono font-bold uppercase tracking-wider ring-1 ring-inset bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 ring-emerald-600/20 dark:ring-emerald-500/30">
-                                                        +${Number(payment.amount).toFixed(2)}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </li>
-                                    ))
-                                )}
-                            </ul>
-                        </div>
-                    </div>
+            {/* Transaction History Section */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-800 overflow-hidden">
+                <div className="px-6 py-5 border-b border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 flex justify-between items-center">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <Clock className="text-gray-400 dark:text-slate-400" size={20} /> Transaction History
+                    </h3>
+                    <button
+                        onClick={refreshWallet}
+                        disabled={walletRefreshing}
+                        className={`p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors text-gray-400 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 ${walletRefreshing ? 'animate-spin' : ''}`}
+                        title="Refresh transactions"
+                    >
+                        <RefreshCw size={15} />
+                    </button>
                 </div>
-
-                {/* Right Column: Transaction History */}
-                <div className="space-y-6">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-800 overflow-hidden">
-                        <div className="px-6 py-5 border-b border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50">
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                <Clock className="text-gray-400 dark:text-slate-400" size={20} /> Transaction History
-                            </h3>
-                        </div>
-                        <div className="p-0 max-h-[400px] overflow-y-auto">
-                            <ul role="list" className="divide-y divide-gray-100 dark:divide-slate-800">
-                                {(!wallet?.transactions || wallet.transactions.length === 0) && (
-                                    <li className="p-8 text-center text-gray-500 dark:text-slate-400 font-medium">No transactions found.</li>
-                                )}
-                                {(wallet?.transactions || []).map((tx) => (
-                                    <li key={tx.id} className="p-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
-                                        <div className="flex items-center space-x-4">
-                                            <div className="flex-shrink-0">
-                                                {(tx.type === 'DEPOSIT' || tx.type === 'CREDIT') ? (
-                                                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-green-50 dark:bg-emerald-950/60 ring-1 ring-inset ring-green-600/20 dark:ring-emerald-500/30">
-                                                        <ArrowDown className="h-5 w-5 text-green-600 dark:text-emerald-400" />
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-slate-800 ring-1 ring-inset ring-gray-500/10 dark:ring-slate-700">
-                                                        <ArrowUp className="h-5 w-5 text-gray-500 dark:text-slate-400" />
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="truncate text-sm font-bold text-gray-900 dark:text-white">{tx.description}</p>
-                                                <p className="truncate text-xs font-medium text-gray-500 dark:text-slate-400 mt-0.5">
-                                                    {new Date(tx.date || tx.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-sm font-mono font-bold uppercase tracking-wider ring-1 ring-inset ${(tx.type === 'DEPOSIT' || tx.type === 'CREDIT') ? 'bg-green-50 dark:bg-emerald-950/60 text-green-700 dark:text-emerald-400 ring-green-600/20 dark:ring-emerald-500/30' : 'bg-gray-50 dark:bg-slate-800 text-gray-700 dark:text-slate-300 ring-gray-500/10 dark:ring-slate-700'}`}>
-                                                    {(tx.type === 'DEPOSIT' || tx.type === 'CREDIT') ? '+' : '-'}${Number(tx.amount).toFixed(2)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    </div>
+                <div className="p-0 max-h-[500px] overflow-y-auto">
+                    <ul role="list" className="divide-y divide-gray-100 dark:divide-slate-800">
+                        {(!wallet?.transactions || wallet.transactions.length === 0) && (
+                            <li className="p-12 text-center text-gray-500 dark:text-slate-400 font-medium">No transactions found.</li>
+                        )}
+                        {(wallet?.transactions || []).map((tx) => (
+                            <li key={tx.id} className="p-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+                                <div className="flex items-center space-x-4">
+                                    <div className="flex-shrink-0">
+                                        {(tx.type === 'DEPOSIT' || tx.type === 'CREDIT') ? (
+                                            <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-green-50 dark:bg-emerald-950/60 ring-1 ring-inset ring-green-600/20 dark:ring-emerald-500/30">
+                                                <ArrowDown className="h-5 w-5 text-green-600 dark:text-emerald-400" />
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-slate-800 ring-1 ring-inset ring-gray-500/10 dark:ring-slate-700">
+                                                <ArrowUp className="h-5 w-5 text-gray-500 dark:text-slate-400" />
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-bold text-gray-900 dark:text-white">{tx.description}</p>
+                                        <p className="truncate text-xs font-medium text-gray-500 dark:text-slate-400 mt-0.5">
+                                            {new Date(tx.date || tx.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <span className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-mono font-bold uppercase tracking-wider ring-1 ring-inset ${(tx.type === 'DEPOSIT' || tx.type === 'CREDIT') ? 'bg-green-50 dark:bg-emerald-950/60 text-green-700 dark:text-emerald-400 ring-green-600/20 dark:ring-emerald-500/30' : 'bg-gray-50 dark:bg-slate-800 text-gray-700 dark:text-slate-300 ring-gray-500/10 dark:ring-slate-700'}`}>
+                                            {(tx.type === 'DEPOSIT' || tx.type === 'CREDIT') ? '+' : '-'}${Number(tx.amount).toFixed(2)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
                 </div>
             </div>
         </div>
