@@ -18,6 +18,7 @@ class AutoRechargeDto {
 
 @Controller('wallet')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.SUPPORT)
 export class WalletController {
     constructor(private readonly walletService: WalletService) { }
 
@@ -56,7 +57,7 @@ export class WalletController {
         @Body('planId') planId: string,
         @Body('immediate') immediate: boolean
     ) {
-        const tenantId = targetTenantId || user.tenantId;
+        const tenantId = (user.role === Role.SUPER_ADMIN && targetTenantId) ? targetTenantId : user.tenantId;
         if (!tenantId) throw new BadRequestException('Tenant ID is required');
         if (!planId) throw new BadRequestException('Plan ID is required');
         return this.walletService.switchSubscriptionPlan(tenantId, planId, immediate ?? true);

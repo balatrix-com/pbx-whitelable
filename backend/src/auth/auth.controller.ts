@@ -8,6 +8,7 @@ import {
     Req,
     Query,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -21,12 +22,14 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 export class AuthController {
     constructor(private authService: AuthService) { }
 
+    @Throttle({ default: { limit: 5, ttl: 60000 } })
     @Post('signup')
     async signup(@Body() createUserDto: CreateUserDto) {
         console.log('Signup DTO:', createUserDto);
         return this.authService.signup(createUserDto);
     }
 
+    @Throttle({ default: { limit: 5, ttl: 60000 } })
     @UseGuards(LocalAuthGuard)
     @Post('login')
     async login(@GetUser() user: User) {
@@ -65,6 +68,7 @@ export class AuthController {
         return this.authService.updateProfile(userId, updateProfileDto);
     }
 
+    @Throttle({ default: { limit: 3, ttl: 60000 } })
     @Post('forgot-password')
     async forgotPassword(@Body() { email }: { email: string }) {
         return this.authService.forgotPassword(email);
@@ -74,6 +78,7 @@ export class AuthController {
         return this.authService.verifyResetToken(token);
     }
 
+    @Throttle({ default: { limit: 5, ttl: 60000 } })
     @Post('reset-password')
     async resetPassword(@Body() { token, newPassword }: { token: string; newPassword: string }) {
         return this.authService.resetPassword(token, newPassword);

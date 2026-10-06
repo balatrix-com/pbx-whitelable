@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -45,7 +46,21 @@ async function bootstrap() {
   }));
   app.use(express.urlencoded({ extended: true }));
 
-  app.enableCors();
+  const configService = app.get(ConfigService);
+  const rawOrigins = configService.get<string>('ALLOWED_ORIGINS') || 'http://localhost:5173,http://localhost:3000';
+  const allowedOrigins = rawOrigins.split(',').map(url => url.trim());
+
+  app.enableCors({
+    origin: (origin: string, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true,
+  });
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
   app.useGlobalFilters(new HttpExceptionFilter());
 
