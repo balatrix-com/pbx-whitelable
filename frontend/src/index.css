@@ -734,3 +734,50 @@ html.dark ::-webkit-scrollbar-thumb {
 html.dark ::-webkit-scrollbar-thumb:hover {
   background: #373d5e;
 }
+
+/* React Flow Themes (Interactive IVR Builder) */
+:root {
+  --color-edge-bg: #ffffff;
+  --color-edge-border: #cbd5e1;
+  --color-edge-text: #1e293b;
+  --color-edge-line: #64748b;
+}
+
+html.dark {
+  --color-edge-bg: #121520;
+  --color-edge-border: rgba(255, 255, 255, 0.15);
+  --color-edge-text: #f8fafc;
+  --color-edge-line: #6366f1;
+}
+
+html.dark .react-flow__edge-textbg {
+  fill: #121520 !important;
+  stroke: rgba(255, 255, 255, 0.15) !important;
+}
+
+html.dark .react-flow__edge-text {
+  fill: #f8fafc !important;
+}
+
+html.dark .react-flow__edge-path {
+  stroke: #818cf8 !important;
+}
+
+html.dark .react-flow__controls button {
+  background-color: #121520 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  fill: #cbd5e1 !important;
+}
+
+html.dark .react-flow__controls button:hover {
+  background-color: #1e2235 !important;
+}
+
+html.dark .react-flow__controls button svg {
+  fill: #cbd5e1 !important;
+}
+
+html.dark .react-flow__attribution {
+  background: rgba(0, 0, 0, 0.6) !important;
+  color: #64748b !important;
+}

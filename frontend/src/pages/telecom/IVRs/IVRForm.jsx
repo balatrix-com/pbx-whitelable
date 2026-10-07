@@ -286,7 +286,7 @@ function IVRForm() {
     // --- Recursive Render Function ---
     const renderMenuOptionRow = (option, depth = 0) => {
         const isSubmenu = option.type === 'submenu';
-        
+
         // Depth-based styles
         const bgColors = [
             'bg-white',
@@ -295,7 +295,7 @@ function IVRForm() {
             'bg-primary-50/40'
         ];
         const bgColor = bgColors[Math.min(depth, bgColors.length - 1)];
-        
+
         const borderColors = [
             'border-gray-200',
             'border-gray-200',
@@ -646,19 +646,19 @@ function IVRForm() {
                 </div>
 
                 {/* Menu Builder Panel */}
-                <div className="bg-white shadow-sm ring-1 ring-gray-100 sm:rounded-2xl overflow-hidden">
-                    <div className="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="bg-white dark:bg-[#0c0d12] shadow-sm ring-1 ring-gray-100 dark:ring-white/10 sm:rounded-2xl overflow-hidden">
+                    <div className="px-6 py-5 border-b border-gray-100 dark:border-white/10 bg-gray-50/50 dark:bg-white/[0.02] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="flex items-center space-x-2">
-                            <GitMerge className="h-4 w-4 text-gray-400" />
-                            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest">Routing Schema</h3>
+                            <GitMerge className="h-4 w-4 text-gray-400 dark:text-slate-400" />
+                            <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-widest">Routing Schema</h3>
                         </div>
 
                         <div className="flex items-center space-x-3">
-                            <div className="flex bg-gray-200/50 p-1 rounded-xl">
+                            <div className="flex bg-gray-200/50 dark:bg-slate-800/80 p-1 rounded-xl">
                                 <button
                                     type="button"
                                     onClick={() => setViewMode('interactive')}
-                                    className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'interactive' ? 'bg-white text-primary-600 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
+                                    className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'interactive' ? 'bg-white dark:bg-[#121520] text-primary-600 dark:text-primary-400 shadow-sm ring-1 ring-gray-200 dark:ring-slate-700' : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-white'}`}
                                 >
                                     <Plus className="w-3.5 h-3.5 mr-1.5" />
                                     Interactive Builder
@@ -666,7 +666,7 @@ function IVRForm() {
                                 <button
                                     type="button"
                                     onClick={() => setViewMode('builder')}
-                                    className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'builder' ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
+                                    className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'builder' ? 'bg-white dark:bg-[#121520] text-gray-900 dark:text-white shadow-sm ring-1 ring-gray-200 dark:ring-slate-700' : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-white'}`}
                                 >
                                     <Edit3 className="w-3.5 h-3.5 mr-1.5" />
                                     Classic Form
@@ -674,7 +674,7 @@ function IVRForm() {
                                 <button
                                     type="button"
                                     onClick={() => setViewMode('visual')}
-                                    className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'visual' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
+                                    className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'visual' ? 'bg-white dark:bg-[#121520] text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-gray-200 dark:ring-slate-700' : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-white'}`}
                                 >
                                     <Eye className="w-3.5 h-3.5 mr-1.5" />
                                     Read-Only Flow
@@ -684,7 +684,7 @@ function IVRForm() {
                             {viewMode === 'builder' && (
                                 <button
                                     type="button"
-                                    className="inline-flex items-center justify-center rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-gray-800 transition-colors focus:outline-none"
+                                    className="inline-flex items-center justify-center rounded-lg bg-gray-900 dark:bg-primary-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-gray-800 dark:hover:bg-primary-500 transition-colors focus:outline-none"
                                     onClick={handleAddRootOption}
                                 >
                                     <Plus className="w-3.5 h-3.5 mr-1" /> Add Root Option
@@ -693,7 +693,7 @@ function IVRForm() {
                         </div>
                     </div>
 
-                    <div className={`p-6 bg-gray-50/30 ${['visual', 'interactive'].includes(viewMode) ? 'h-[750px] p-2' : ''}`}>
+                    <div className={`p-6 bg-gray-50/30 dark:bg-transparent ${['visual', 'interactive'].includes(viewMode) ? 'h-[750px] p-2' : ''}`}>
                         {viewMode === 'interactive' ? (
                             <InteractiveIVRBuilder
                                 ivrName={formData.name}
@@ -702,9 +702,9 @@ function IVRForm() {
                                 onChange={setInteractiveMenuJSON}
                             />
                         ) : viewMode === 'visual' ? (
-                            <VisualIVRFlow 
-                                ivrName={formData.name} 
-                                menu={transformFrontendToBackend(menuOptions)} 
+                            <VisualIVRFlow
+                                ivrName={formData.name}
+                                menu={transformFrontendToBackend(menuOptions)}
                             />
                         ) : (
                             <>
