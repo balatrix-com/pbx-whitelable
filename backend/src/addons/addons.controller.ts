@@ -26,6 +26,7 @@ export class AddonsController {
     constructor(private readonly addonsService: AddonsService) {}
 
     @Get('catalog')
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.SUPPORT)
     getCatalog() {
         return this.addonsService.getCatalog();
     }
@@ -45,17 +46,20 @@ export class AddonsController {
     }
 
     @Get('subscription/:subscriptionId')
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.SUPPORT)
     getSubscriptionAddons(@Param('subscriptionId') subscriptionId: string) {
         return this.addonsService.getSubscriptionAddons(subscriptionId);
     }
 
     @Delete('subscription/:subscriptionAddonId')
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
     @Audit('ADDON_CANCELLED', 'PLANS_ADDONS')
     cancelSubscriptionAddon(@Param('subscriptionAddonId') subscriptionAddonId: string) {
         return this.addonsService.cancelSubscriptionAddon(subscriptionAddonId);
     }
 
     @Post('quote')
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
     getQuote(@GetUser() user: User, @Body() body: AddonQuoteDto) {
         const tenantId = body.tenantId || user.tenantId;
         if (!tenantId) {
@@ -68,6 +72,7 @@ export class AddonsController {
     }
 
     @Post('purchase')
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
     @Audit('ADDON_PURCHASED', 'PLANS_ADDONS')
     purchaseAddon(@GetUser() user: User, @Body() body: AddonPurchaseDto) {
         const tenantId = body.tenantId || user.tenantId;

@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, ForbiddenException, Logger } from '@nestjs/common';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TraceMiddleware } from './common/trace.middleware';
 import compression from 'compression';
@@ -47,15 +47,24 @@ async function bootstrap() {
   app.use(express.urlencoded({ extended: true }));
 
   const configService = app.get(ConfigService);
-  const rawOrigins = configService.get<string>('ALLOWED_ORIGINS') || 'http://localhost:5173,http://localhost:3000';
-  const allowedOrigins = rawOrigins.split(',').map(url => url.trim());
+  const rawOrigins = configService.get<string>('ALLOWED_ORIGINS') || '';
+  const allowedOrigins = rawOrigins.split(',').map(url => url.trim()).filter(url => url.length > 0);
+
+  if (allowedOrigins.length === 0) {
+    Logger.warn('ALLOWED_ORIGINS is empty or not set in .env! All cross-origin browser requests will be blocked.', 'Bootstrap');
+  }
 
   app.enableCors({
     origin: (origin: string, callback: (err: Error | null, allow?: boolean) => void) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) {
+        return callback(null, true);
+      }
+      
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
       } else {
-        callback(new Error('Not allowed by CORS'));
+        return callback(new ForbiddenException(`CORS Error: Origin ${origin} is not allowed`));
       }
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
