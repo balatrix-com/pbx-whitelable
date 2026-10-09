@@ -168,6 +168,18 @@ export class AddonsService {
         }
     }
 
+    async toggleAutoRenew(subscriptionAddonId: string, autoRenew: boolean) {
+        try {
+            const response = await firstValueFrom(
+                this.httpService.patch(`${this.subBillingUrl}/addons/subscriptions/${subscriptionAddonId}/auto-renew`, { auto_renew: autoRenew })
+            );
+            return response.data;
+        } catch (error) {
+            const message = error.response?.data?.message || error.message;
+            throw new BadRequestException(`Failed to toggle auto-renew: ${message}`);
+        }
+    }
+
     async getQuote(tenantId: string, addonId: string, quantity: number = 1) {
         if (!tenantId) throw new BadRequestException('Tenant ID is required');
         const qty = Math.max(1, Number(quantity) || 1);

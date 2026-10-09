@@ -206,6 +206,28 @@ export class WalletService {
         }
     }
 
+    async toggleSubscriptionAutoRenew(tenantId: string, autoRenew: boolean) {
+        const customerId = await this.getSubBillingCustomerId(tenantId);
+        try {
+            // First get the subscription to find its ID
+            const subRes = await firstValueFrom(
+                this.httpService.get(`${this.subBillingUrl}/subscriptions/customer/${customerId}`)
+            );
+            const activeSub = subRes.data?.data?.find((s: any) => s.status === 'active');
+            if (!activeSub) {
+                throw new BadRequestException('No active subscription found to toggle');
+            }
+
+            const response = await firstValueFrom(
+                this.httpService.patch(`${this.subBillingUrl}/subscriptions/${activeSub.id}/auto-renew`, { auto_renew: autoRenew })
+            );
+            return response.data;
+        } catch (error) {
+            const message = error.response?.data?.message || error.message;
+            throw new BadRequestException(`Failed to toggle auto-renew: ${message}`);
+        }
+    }
+
     async switchSubscriptionPlan(tenantId: string, planId: string, immediate: boolean = true) {
         const customerId = await this.getSubBillingCustomerId(tenantId);
         try {

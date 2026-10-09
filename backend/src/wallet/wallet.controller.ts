@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Query, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Query, ForbiddenException, BadRequestException, Patch } from '@nestjs/common';
 import { WalletService } from './wallet.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -61,6 +61,18 @@ export class WalletController {
         if (!tenantId) throw new BadRequestException('Tenant ID is required');
         if (!planId) throw new BadRequestException('Plan ID is required');
         return this.walletService.switchSubscriptionPlan(tenantId, planId, immediate ?? true);
+    }
+
+    @Patch('subscription/auto-renew')
+    toggleAutoRenew(
+        @GetUser() user: User,
+        @Body('targetTenantId') targetTenantId: string,
+        @Body('auto_renew') autoRenew: boolean
+    ) {
+        const tenantId = (user.role === Role.SUPER_ADMIN && targetTenantId) ? targetTenantId : user.tenantId;
+        if (!tenantId) throw new BadRequestException('Tenant ID is required');
+        if (typeof autoRenew !== 'boolean') throw new BadRequestException('auto_renew boolean is required');
+        return this.walletService.toggleSubscriptionAutoRenew(tenantId, autoRenew);
     }
 
     @Get('cards')
