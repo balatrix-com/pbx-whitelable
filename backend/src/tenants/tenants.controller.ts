@@ -1,9 +1,9 @@
-
-import { Controller, Get, Post, Delete, Body, Patch, Param, UseGuards, Query, Put, Req, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Patch, Param, UseGuards, Query, Put, Req, ForbiddenException, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { TenantsService } from './tenants.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { Role } from '@prisma/client';
 import { UpdateTenantDetailsDto } from './dto/update-tenant-details.dto';
 import { Audit } from '../audit/audit.decorator';
@@ -110,6 +110,20 @@ export class TenantsController {
     @Audit('TENANT_DELETED', 'USER_MANAGEMENT')
     deleteTenant(@Param('id') id: string) {
         return this.tenantsService.deleteTenant(id);
+    }
+
+    @Public()
+    @Post(':id/sync-archive')
+    async syncArchive(@Param('id') id: string, @Req() req: any) {
+        const authHeader = req.headers['x-sync-token'];
+        const expectedToken = process.env.PBX_SYNC_TOKEN || 'your-super-secret-jwt-key-change-this-in-production';
+        
+        if (authHeader !== expectedToken) {
+            throw new UnauthorizedException('Invalid sync token for tenant archival sync');
+        }
+
+        // Call the service to archive the tenant locally in PBX
+        return this.tenantsService.deleteTenant(id, { skipSubBillingSync: true });
     }
 
     @Put(':id/outbound-endpoint')

@@ -752,7 +752,7 @@ export class TenantsService {
         return result;
     }
 
-    async deleteTenant(id: string) {
+    async deleteTenant(id: string, options?: { skipSubBillingSync?: boolean }) {
         // 0. Cleanup external telecom dependencies (FreeSWITCH / Kamailio)
         // We fetch the entities first before deleting them from Prisma
 
@@ -788,11 +788,13 @@ export class TenantsService {
         await this.lookupRedis.deleteTenantLookups(id);
 
         // 0.3 Delete sub-billing customer (cascades wallet, subscriptions, assets in bala_billing)
-        if (tenant.subBillingCustomerId) {
-            await this.walletService.deleteSubBillingCustomer(tenant.subBillingCustomerId);
-        } else if (tenant.customerCode) {
-            // Fallback: customerCode doubles as customer_id in sub-billing
-            await this.walletService.deleteSubBillingCustomer(tenant.customerCode);
+        if (!options?.skipSubBillingSync) {
+            if (tenant.subBillingCustomerId) {
+                await this.walletService.deleteSubBillingCustomer(tenant.subBillingCustomerId);
+            } else if (tenant.customerCode) {
+                // Fallback: customerCode doubles as customer_id in sub-billing
+                await this.walletService.deleteSubBillingCustomer(tenant.customerCode);
+            }
         }
 
         // Proceed to delete local database records via single transaction
