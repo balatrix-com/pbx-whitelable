@@ -92,8 +92,13 @@ export class ExtensionsService {
                     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
                     const sipPasswordPlaintext = '123456';
 
-                    const newExt = await this.prisma.extension.create({
-                        data: {
+                    const newExt = await this.prisma.extension.upsert({
+                        where: { sipUsername: extNum },
+                        update: {
+                            extensionNumber: extNum,
+                            name: extAsset.extension_name || `Extension ${extNum}`,
+                        },
+                        create: {
                             tenantId: targetTenantId,
                             extensionNumber: extNum,
                             name: extAsset.extension_name || `Extension ${extNum}`,
@@ -105,14 +110,14 @@ export class ExtensionsService {
                     });
 
                     existingMap.set(extNum, newExt);
-                    this.logger.log(`[Auto-Sync] Created extension ${extNum} in PBX DB for tenant ${targetTenantId}`);
+                    this.logger.log(`[Auto-Sync] Synced/Upserted extension ${extNum} in PBX DB for tenant ${targetTenantId}`);
 
                     // Sync to FreeSWITCH & Kamailio
                     await this.freeSwitchSync.syncExtension(newExt.id).catch(err => {
                         this.logger.warn(`Failed to sync FreeSWITCH/Kamailio for ${extNum}: ${err.message}`);
                     });
                 } catch (createErr: any) {
-                    this.logger.error(`Error auto-creating extension ${extNum} for ${targetTenantId}: ${createErr.message}`);
+                    this.logger.error(`Error auto-syncing extension ${extNum} for ${targetTenantId}: ${createErr.message}`);
                 }
             } else {
                 // Ensure existing extension is registered in Kamailio subscriber table

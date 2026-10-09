@@ -23,6 +23,7 @@ model Tenant {
   serviceBlocked       Boolean               @default(false)
   customerCode         String?               @unique
   subBillingCustomerId String?               @unique
+  status               String                @default("ACTIVE")
   audioFiles           AudioFile[]
   didForwards          DIDForward[]
   dids                 DID[]

@@ -283,67 +283,8 @@ export class WalletService {
                 });
             }
 
-            // Auto-provision extensions matching target plan limit
-            const tenant = await this.prisma.tenant.findUnique({
-                where: { id: tenantId },
-                select: { customerCode: true }
-            });
-
-            if (tenant && tenant.customerCode && allowedExtensions > 0) {
-                const currentExtCount = await this.prisma.extension.count({
-                    where: { tenantId }
-                });
-
-                if (currentExtCount < allowedExtensions) {
-                    const toCreate = allowedExtensions - currentExtCount;
-                    this.logger.log(`Auto-provisioning ${toCreate} extension(s) for tenant ${tenantId} (plan allowance: ${allowedExtensions})`);
-
-                    for (let i = currentExtCount; i < allowedExtensions; i++) {
-                        const suffix = (i + 1).toString().padStart(2, '0');
-                        const extNum = `${tenant.customerCode}${suffix}`;
-
-                        const existingExt = await this.prisma.extension.findUnique({
-                            where: {
-                                tenantId_extensionNumber: {
-                                    tenantId,
-                                    extensionNumber: extNum
-                                }
-                            }
-                        });
-
-                        if (!existingExt) {
-                            const newExt = await this.prisma.extension.create({
-                                data: {
-                                    tenantId,
-                                    extensionNumber: extNum,
-                                    name: `Extension ${suffix}`,
-                                    sipUsername: extNum,
-                                    sipPassword: '123456',
-                                    sipAuthRealm: process.env.SIP_SERVER || 'localhost',
-                                    sequenceId: i + 1
-                                }
-                            });
-
-                            // Sync to FreeSWITCH dialplan & Kamailio subscriber table
-                            try {
-                                await this.freeSwitchSync.syncExtension(newExt.id);
-                            } catch (syncErr: any) {
-                                this.logger.warn(`FreeSWITCH/Kamailio sync failed for new extension ${extNum}: ${syncErr.message}`);
-                            }
-                        } else {
-                            // Ensure existing extension is registered in Kamailio
-                            try {
-                                await this.freeSwitchSync.syncExtension(existingExt.id);
-                            } catch (syncErr: any) {
-                                this.logger.debug(`Kamailio sync check failed for ${extNum}: ${syncErr.message}`);
-                            }
-                        }
-                    }
-
-                    // Sync with Redis Lookup DB
-                    await this.lookupRedis.updateExtensionLookup(tenantId).catch(() => { });
-                }
-            }
+            // Extension provisioning is now strictly handled by Sub-Billing Webhooks (ExtensionsService)
+            // to prevent Dual-Provisioning Race Conditions.
 
             return response.data;
         } catch (error) {

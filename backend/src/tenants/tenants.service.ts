@@ -816,22 +816,10 @@ export class TenantsService {
             await prisma.operationalSchedule.deleteMany({ where: { tenantId: id } });
             await prisma.audioFile.deleteMany({ where: { tenantId: id } });
 
-            // 3. Delete Billing Data
-            await prisma.usageRecord.deleteMany({ where: { tenantId: id } });
+            // 3. Soft Delete / Clean up Billing Data
+            // We KEEP UsageRecord (CDRs), Wallet, and WalletTransactions for audit!
             await prisma.subscription.deleteMany({ where: { tenantId: id } });
             await prisma.paymentMethod.deleteMany({ where: { tenantId: id } });
-
-            // 4. Delete Wallet
-
-            // Delete Transactions before Wallet? 
-            // Wallet relation is 1:1. 
-            // WalletTransaction has `walletId`.
-            // We need to find wallet first to delete transactions?
-            const wallet = await prisma.wallet.findUnique({ where: { tenantId: id } });
-            if (wallet) {
-                await prisma.walletTransaction.deleteMany({ where: { walletId: wallet.id } });
-                await prisma.wallet.delete({ where: { id: wallet.id } });
-            }
 
             await prisma.monitoringAddOn.deleteMany({ where: { tenantId: id } });
 
@@ -862,8 +850,11 @@ export class TenantsService {
                 await prisma.user.deleteMany({ where: { tenantId: id } });
             }
 
-            // 7. Finally Delete Tenant
-            return prisma.tenant.deleteMany({ where: { id } });
+            // 7. Archive Tenant (Soft Delete)
+            return prisma.tenant.update({
+                where: { id },
+                data: { status: 'ARCHIVED' }
+            });
         }, { timeout: 30000 });
     }
 }
