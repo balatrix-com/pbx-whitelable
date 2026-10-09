@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../../services/api';
-import { Building2, Plus, Search, Trash2, Ban, CheckCircle2, LayoutGrid, List, RefreshCw, BarChart3, Users, Wallet } from 'lucide-react';
+import { Building2, Plus, Search, Ban, CheckCircle2, LayoutGrid, List, RefreshCw, BarChart3, Users, Wallet } from 'lucide-react';
 import TenantWizard from './TenantWizard';
 import TenantManager from './TenantManager';
 import Pagination from '../../../components/common/Pagination';
@@ -61,14 +61,14 @@ const TenantsPage = () => {
         setPagination(prev => ({ ...prev, page: newPage }));
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this tenant? This action cannot be undone.')) return;
+    const handleDeactivate = async (id) => {
+        if (!window.confirm('Are you sure you want to deactivate this tenant? This action will archive the tenant.')) return;
         try {
             await api.delete(`/tenants/${id}`);
             fetchTenants();
         } catch (error) {
-            console.error('Failed to delete tenant', error);
-            alert('Failed to delete tenant');
+            console.error('Failed to deactivate tenant', error);
+            alert('Failed to deactivate tenant');
         }
     };
 
@@ -207,11 +207,13 @@ const TenantsPage = () => {
                                         <td className="px-6 py-5 whitespace-nowrap">
                                             <span className={clsx(
                                                 "inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-tight shadow-sm ring-1",
-                                                tenant.serviceBlocked 
-                                                    ? 'bg-red-50 text-red-700 ring-red-600/10' 
-                                                    : 'bg-emerald-50 text-emerald-700 ring-emerald-600/10'
+                                                tenant.status === 'ARCHIVED'
+                                                    ? 'bg-gray-100 text-gray-500 ring-gray-400/20'
+                                                    : tenant.serviceBlocked
+                                                        ? 'bg-red-50 text-red-700 ring-red-600/10'
+                                                        : 'bg-emerald-50 text-emerald-700 ring-emerald-600/10'
                                             )}>
-                                                {tenant.serviceBlocked ? 'Service Blocked' : 'Active'}
+                                                {tenant.status === 'ARCHIVED' ? 'Archived' : tenant.serviceBlocked ? 'Service Blocked' : 'Active'}
                                             </span>
                                         </td>
                                         <td className="hidden sm:table-cell px-6 py-5 whitespace-nowrap text-center">
@@ -233,8 +235,9 @@ const TenantsPage = () => {
                                         <td className="px-6 py-5 whitespace-nowrap text-right">
                                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
+                                                    disabled={tenant.status === 'ARCHIVED'}
                                                     onClick={() => setSelectedTenantId(tenant.id)}
-                                                    className="inline-flex items-center justify-center rounded-xl bg-white px-4 py-2 text-xs font-black text-primary-600 shadow-sm ring-1 ring-inset ring-primary-200 hover:bg-primary-50 transition-all active:scale-95"
+                                                    className="inline-flex items-center justify-center rounded-xl bg-white px-4 py-2 text-xs font-black text-primary-600 shadow-sm ring-1 ring-inset ring-primary-200 hover:bg-primary-50 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
                                                     Configure
                                                 </button>
@@ -242,17 +245,26 @@ const TenantsPage = () => {
                                                     onClick={() => handleToggleBlock(tenant.id, tenant.serviceBlocked)}
                                                     className={clsx(
                                                         "p-2 rounded-xl transition-all",
-                                                        tenant.serviceBlocked ? "text-emerald-600 hover:bg-emerald-50" : "text-amber-600 hover:bg-amber-50"
+                                                        tenant.serviceBlocked 
+                                                            ? "text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40" 
+                                                            : "text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40"
                                                     )}
                                                     title={tenant.serviceBlocked ? "Unblock" : "Block"}
                                                 >
                                                     {tenant.serviceBlocked ? <CheckCircle2 size={18} /> : <Ban size={18} />}
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(tenant.id)}
-                                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                                    disabled={tenant.status === 'ARCHIVED'}
+                                                    onClick={() => handleDeactivate(tenant.id)}
+                                                    className={clsx(
+                                                        "inline-flex items-center justify-center rounded-xl px-4 py-2 text-xs font-black shadow-sm transition-all active:scale-95",
+                                                        tenant.status === 'ARCHIVED'
+                                                            ? "bg-gray-100 text-gray-400 ring-1 ring-inset ring-gray-200 cursor-not-allowed dark:bg-white/[0.03] dark:text-slate-600 dark:ring-white/[0.05]"
+                                                            : "bg-red-50 text-red-600 ring-1 ring-inset ring-red-200/80 hover:bg-red-100 hover:text-red-700 dark:bg-red-950/40 dark:text-red-400 dark:ring-1 dark:ring-inset dark:ring-red-900/60 dark:hover:bg-red-900/50 dark:hover:text-red-300 dark:hover:ring-red-700/60"
+                                                    )}
+                                                    title={tenant.status === 'ARCHIVED' ? "Already Deactivated" : "Deactivate"}
                                                 >
-                                                    <Trash2 size={18} />
+                                                    <span>Deactivate</span>
                                                 </button>
                                             </div>
                                         </td>

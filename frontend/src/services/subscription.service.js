@@ -81,6 +81,14 @@ export const subscriptionService = {
         }
     },
 
+    toggleAutoRenew: async (targetTenantId, auto_renew) => {
+        const res = await api.patch('/wallet/subscription/auto-renew', {
+            ...(targetTenantId && { targetTenantId }),
+            auto_renew
+        });
+        return res.data;
+    },
+
     // ------------------------------------------------------------------------
     // 3. ADD-ONS CATALOG (Connected to Backend API)
     // ------------------------------------------------------------------------

@@ -18,6 +18,24 @@ export const addonsService = {
     deleteAddonCatalogItem: async (addonId) => {
         const response = await api.delete(`/addons/catalog/${addonId}`);
         return response.data;
+    },
+
+    // Get active addons for a subscription: GET /addons/subscription/:subscriptionId
+    getSubscriptionAddons: async (subscriptionId) => {
+        const response = await api.get(`/addons/subscription/${subscriptionId}`);
+        return response.data?.data || response.data || [];
+    },
+
+    // Toggle auto-renew for an addon subscription: PATCH /addons/subscriptions/:subscriptionAddonId/auto-renew
+    toggleAutoRenew: async (subscriptionAddonId, auto_renew) => {
+        const response = await api.patch(`/addons/subscriptions/${subscriptionAddonId}/auto-renew`, { auto_renew });
+        return response.data;
+    },
+
+    // Cancel an addon subscription: DELETE /addons/subscription/:subscriptionAddonId
+    cancelSubscriptionAddon: async (subscriptionAddonId) => {
+        const response = await api.delete(`/addons/subscription/${subscriptionAddonId}`);
+        return response.data;
     }
 };
 

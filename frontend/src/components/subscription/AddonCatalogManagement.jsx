@@ -200,6 +200,7 @@ const AddonCatalogManagement = () => {
                                     <th className="py-3.5 px-6">Name & ID</th>
                                     <th className="py-3.5 px-6">Resource Type</th>
                                     <th className="py-3.5 px-6">Bundle Units</th>
+                                    <th className="py-3.5 px-6">Validity</th>
                                     <th className="py-3.5 px-6">Unit Price</th>
                                     <th className="py-3.5 px-6">Currency</th>
                                     <th className="py-3.5 px-6 text-right">Actions</th>
@@ -252,6 +253,13 @@ const AddonCatalogManagement = () => {
                                                         : 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 border border-gray-200 dark:border-slate-700'
                                                 }`}>
                                                     {item.units_count > 1 ? `${item.units_count} Units / Pack` : 'Single Unit'}
+                                                </span>
+                                            </td>
+
+                                            {/* Validity */}
+                                            <td className="py-4 px-6">
+                                                <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold font-mono bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-900/40">
+                                                    {item.validity_days || 30} Days
                                                 </span>
                                             </td>
 

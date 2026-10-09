@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Dialog } from '@headlessui/react';
-import { X, Package, Loader2, DollarSign, Layers, Hash, Sparkles } from 'lucide-react';
+import { X, Package, Loader2, DollarSign, Layers, Hash, Sparkles, Calendar } from 'lucide-react';
 import { addonsService } from '../../services/addons.service';
 import { useToast } from '../../context/ToastContext';
 
@@ -15,7 +15,8 @@ const AddonFormModal = ({ isOpen, onClose, onSuccess }) => {
         units_count: 1, // Default: 1 unit in bundle
         unit_price: '',
         currency: 'USD',
-        is_active: true
+        is_active: true,
+        validity_days: 30 // Default: 30 days
     });
 
     const [errors, setErrors] = useState({});
@@ -30,7 +31,8 @@ const AddonFormModal = ({ isOpen, onClose, onSuccess }) => {
             units_count: 1,
             unit_price: '',
             currency: 'USD',
-            is_active: true
+            is_active: true,
+            validity_days: 30
         });
         setErrors({});
     };
@@ -102,6 +104,10 @@ const AddonFormModal = ({ isOpen, onClose, onSuccess }) => {
             newErrors.units_count = 'Bundle units must be at least 1';
         }
 
+        if (formData.validity_days === '' || formData.validity_days === null || isNaN(formData.validity_days) || Number(formData.validity_days) < 1) {
+            newErrors.validity_days = 'Validity days must be at least 1 (default 30)';
+        }
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -119,7 +125,8 @@ const AddonFormModal = ({ isOpen, onClose, onSuccess }) => {
                 units_count: parseInt(formData.units_count, 10) || 1,
                 unit_price: parseFloat(formData.unit_price),
                 currency: formData.currency || 'USD',
-                is_active: formData.is_active !== undefined ? formData.is_active : true
+                is_active: formData.is_active !== undefined ? formData.is_active : true,
+                validity_days: parseInt(formData.validity_days, 10) || 30
             };
 
             const res = await addonsService.createAddonCatalogItem(payload);
@@ -143,7 +150,7 @@ const AddonFormModal = ({ isOpen, onClose, onSuccess }) => {
 
             <div className="fixed inset-0 flex items-center justify-center p-4">
                 <Dialog.Panel className="mx-auto max-w-lg w-full rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl ring-1 ring-gray-900/10 dark:ring-slate-800 transition-all">
-                    
+
                     {/* Header */}
                     <div className="flex justify-between items-center pb-4 border-b border-gray-100 dark:border-slate-800">
                         <div className="flex items-center gap-3">
@@ -171,7 +178,7 @@ const AddonFormModal = ({ isOpen, onClose, onSuccess }) => {
 
                     {/* Form */}
                     <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-                        
+
                         {/* Name */}
                         <div>
                             <label className="block text-xs font-bold text-gray-700 dark:text-slate-200 uppercase tracking-wider mb-1.5">
@@ -183,9 +190,8 @@ const AddonFormModal = ({ isOpen, onClose, onSuccess }) => {
                                 value={formData.name}
                                 onChange={handleNameChange}
                                 placeholder="e.g. 5 Extra Extensions"
-                                className={`w-full px-3.5 py-2.5 rounded-xl border bg-gray-50/50 dark:bg-slate-800/60 text-gray-900 dark:text-white text-sm font-medium focus:ring-2 focus:ring-primary-500 focus:bg-white dark:focus:bg-slate-800 transition-all outline-none ${
-                                    errors.name ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-gray-200 dark:border-slate-700'
-                                }`}
+                                className={`w-full px-3.5 py-2.5 rounded-xl border bg-gray-50/50 dark:bg-slate-800/60 text-gray-900 dark:text-white text-sm font-medium focus:ring-2 focus:ring-primary-500 focus:bg-white dark:focus:bg-slate-800 transition-all outline-none ${errors.name ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-gray-200 dark:border-slate-700'
+                                    }`}
                             />
                             {errors.name && <p className="text-xs text-rose-500 font-medium mt-1">{errors.name}</p>}
                         </div>
@@ -208,12 +214,35 @@ const AddonFormModal = ({ isOpen, onClose, onSuccess }) => {
                                     value={formData.addon_id}
                                     onChange={handleChange}
                                     placeholder="e.g. addon_ext_5"
-                                    className={`w-full pl-9 pr-3.5 py-2.5 rounded-xl border bg-gray-50/50 dark:bg-slate-800/60 text-gray-900 dark:text-white text-sm font-mono focus:ring-2 focus:ring-primary-500 focus:bg-white dark:focus:bg-slate-800 transition-all outline-none ${
-                                        errors.addon_id ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-gray-200 dark:border-slate-700'
-                                    }`}
+                                    className={`w-full pl-9 pr-3.5 py-2.5 rounded-xl border bg-gray-50/50 dark:bg-slate-800/60 text-gray-900 dark:text-white text-sm font-mono focus:ring-2 focus:ring-primary-500 focus:bg-white dark:focus:bg-slate-800 transition-all outline-none ${errors.addon_id ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-gray-200 dark:border-slate-700'
+                                        }`}
                                 />
                             </div>
                             {errors.addon_id && <p className="text-xs text-rose-500 font-medium mt-1">{errors.addon_id}</p>}
+                        </div>
+
+                        {/* Validity Days */}
+                        <div>
+                            <label className="block text-xs font-bold text-gray-700 dark:text-slate-200 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                                <Calendar className="h-3.5 w-3.5 text-primary-500" />
+                                Validity Days <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                                type="number"
+                                name="validity_days"
+                                value={formData.validity_days ?? ''}
+                                onChange={handleChange}
+                                min="1"
+                                placeholder="30"
+                                className={`w-full px-3.5 py-2.5 rounded-xl border bg-gray-50/50 dark:bg-slate-800/60 text-gray-900 dark:text-white text-sm font-medium focus:ring-2 focus:ring-primary-500 focus:bg-white dark:focus:bg-slate-800 transition-all outline-none ${errors.validity_days ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-gray-200 dark:border-slate-700'
+                                    }`}
+                            />
+                            <p className="text-[11px] text-gray-400 dark:text-slate-500 mt-1">
+                                Duration in days this add-on remains active (default 30).
+                            </p>
+                            {errors.validity_days && (
+                                <p className="text-xs text-rose-500 font-medium mt-1">{errors.validity_days}</p>
+                            )}
                         </div>
 
                         {/* Resource Type & Units Included Grid */}
@@ -247,9 +276,8 @@ const AddonFormModal = ({ isOpen, onClose, onSuccess }) => {
                                     value={formData.units_count}
                                     onChange={handleChange}
                                     placeholder="e.g. 3"
-                                    className={`w-full px-3.5 py-2.5 rounded-xl border bg-gray-50/50 dark:bg-slate-800/60 text-gray-900 dark:text-white text-sm font-medium focus:ring-2 focus:ring-primary-500 outline-none ${
-                                        errors.units_count ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-gray-200 dark:border-slate-700'
-                                    }`}
+                                    className={`w-full px-3.5 py-2.5 rounded-xl border bg-gray-50/50 dark:bg-slate-800/60 text-gray-900 dark:text-white text-sm font-medium focus:ring-2 focus:ring-primary-500 outline-none ${errors.units_count ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-gray-200 dark:border-slate-700'
+                                        }`}
                                 />
                                 {errors.units_count ? (
                                     <p className="text-xs text-rose-500 font-medium mt-1">{errors.units_count}</p>
@@ -279,9 +307,8 @@ const AddonFormModal = ({ isOpen, onClose, onSuccess }) => {
                                         value={formData.unit_price}
                                         onChange={handleChange}
                                         placeholder="25.00"
-                                        className={`w-full pl-8 pr-3.5 py-2.5 rounded-xl border bg-gray-50/50 dark:bg-slate-800/60 text-gray-900 dark:text-white text-sm font-mono font-bold focus:ring-2 focus:ring-primary-500 focus:bg-white dark:focus:bg-slate-800 transition-all outline-none ${
-                                            errors.unit_price ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-gray-200 dark:border-slate-700'
-                                        }`}
+                                        className={`w-full pl-8 pr-3.5 py-2.5 rounded-xl border bg-gray-50/50 dark:bg-slate-800/60 text-gray-900 dark:text-white text-sm font-mono font-bold focus:ring-2 focus:ring-primary-500 focus:bg-white dark:focus:bg-slate-800 transition-all outline-none ${errors.unit_price ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-gray-200 dark:border-slate-700'
+                                            }`}
                                     />
                                 </div>
                                 {errors.unit_price && <p className="text-xs text-rose-500 font-medium mt-1">{errors.unit_price}</p>}

@@ -24,10 +24,11 @@ import PlanSwitchModal from '../../components/subscription/PlanSwitchModal';
 import PlanFormModal from '../../components/subscription/PlanFormModal';
 import ConfirmActionModal from '../../components/subscription/ConfirmActionModal';
 import AddonCatalogManagement from '../../components/subscription/AddonCatalogManagement';
+import TenantSubscriptionsView from '../../components/subscription/TenantSubscriptionsView';
 
 const PlansPage = () => {
     const [searchParams, setSearchParams] = useSearchParams();
-    const activeTab = searchParams.get('tab') || 'plans';
+    const activeTab = searchParams.get('tab') || 'subscription';
 
     const { user, isSuperAdmin, isAdmin } = useAuth();
     const canManagePlans = isSuperAdmin || isAdmin;
@@ -131,7 +132,7 @@ const PlansPage = () => {
                 <div>
                     <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white flex items-center gap-2.5">
                         <CreditCard className="h-8 w-8 text-primary-600" />
-                        Plans & Add-ons Engine
+                        Subscription, Plans & Add-ons Engine
                     </h1>
                     <p className="text-gray-500 dark:text-slate-400 mt-1 font-medium text-sm md:text-base">
                         Manage subscription tiers, catalog add-on bundles, and purchasing power
@@ -150,6 +151,16 @@ const PlansPage = () => {
 
             {/* Tabs Navigation */}
             <div className="flex border-b border-gray-200 dark:border-slate-800 gap-6">
+                <button
+                    onClick={() => handleTabChange('subscription')}
+                    className={`pb-3 text-sm font-extrabold flex items-center gap-2 border-b-2 transition-colors relative ${activeTab === 'subscription'
+                        ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+                        : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white'
+                        }`}
+                >
+                    <Package className="h-4 w-4" />
+                    Subscription
+                </button>
                 <button
                     onClick={() => handleTabChange('plans')}
                     className={`pb-3 text-sm font-extrabold flex items-center gap-2 border-b-2 transition-colors relative ${activeTab === 'plans'
@@ -172,7 +183,15 @@ const PlansPage = () => {
                 </button>
             </div>
 
-            {/* Tab 1: Plans & Active Subscription */}
+            {/* Tab 1: Subscription & Add-on Subscriptions Dual-Table View */}
+            {activeTab === 'subscription' && (
+                <TenantSubscriptionsView 
+                    onBrowseCatalog={() => handleTabChange('addons')}
+                    onBrowsePlans={() => handleTabChange('plans')}
+                />
+            )}
+
+            {/* Tab 2: Plans & Active Subscription */}
             {activeTab === 'plans' && (
                 <div className="space-y-8">
                     {/* Active Subscription & Purchasing Power Banner */}
