@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSubscriptionQuery, useWalletQuery } from '../../hooks/useBillingQueries';
 import { subscriptionService } from '../../services/subscription.service';
@@ -10,35 +9,51 @@ import {
     Plus,
     RefreshCw,
     CheckCircle2,
-    CreditCard,
     Loader2,
     ArrowUpRight,
     Wallet as WalletIcon,
     ShieldCheck,
     Trash2,
-    Package,
-    Layers,
-    Sparkles
+    Building2,
+    ChevronDown
 } from 'lucide-react';
+import api from '../../services/api';
 import PlanSwitchModal from '../../components/subscription/PlanSwitchModal';
 import PlanFormModal from '../../components/subscription/PlanFormModal';
 import ConfirmActionModal from '../../components/subscription/ConfirmActionModal';
-import AddonCatalogManagement from '../../components/subscription/AddonCatalogManagement';
-import TenantSubscriptionsView from '../../components/subscription/TenantSubscriptionsView';
 
 const PlansPage = () => {
-    const [searchParams, setSearchParams] = useSearchParams();
-    const activeTab = searchParams.get('tab') || 'subscription';
-
     const { user, isSuperAdmin, isAdmin } = useAuth();
     const canManagePlans = isSuperAdmin || isAdmin;
 
     const { addToast } = useToast();
     const queryClient = useQueryClient();
 
+    // Tenants State for Super Admin
+    const [tenants, setTenants] = useState([]);
+    const [selectedTenantId, setSelectedTenantId] = useState('');
+
+    useEffect(() => {
+        if (isSuperAdmin) {
+            api.get('/tenants?limit=100')
+                .then(res => {
+                    const list = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+                    setTenants(list);
+                    if (list.length > 0 && !selectedTenantId) {
+                        setSelectedTenantId(list[0].id);
+                    }
+                })
+                .catch(err => {
+                    console.error('Failed to load tenants for selector:', err);
+                });
+        }
+    }, [isSuperAdmin]);
+
+    const effectiveTenantId = isSuperAdmin ? selectedTenantId : user?.tenantId;
+
     // Active Subscription & Wallet Data
-    const { data: subscription, isLoading: subLoading, refetch: refetchSubscription } = useSubscriptionQuery();
-    const { data: wallet, refetch: refetchWallet } = useWalletQuery();
+    const { data: subscription, isLoading: subLoading, refetch: refetchSubscription } = useSubscriptionQuery(effectiveTenantId);
+    const { data: wallet, refetch: refetchWallet } = useWalletQuery(effectiveTenantId);
 
     // Plans List State
     const [plans, setPlans] = useState([]);
@@ -120,10 +135,6 @@ const PlansPage = () => {
         }
     };
 
-    const handleTabChange = (tabName) => {
-        setSearchParams({ tab: tabName });
-    };
-
     return (
         <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-300">
 
@@ -131,14 +142,35 @@ const PlansPage = () => {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white flex items-center gap-2.5">
-                        <CreditCard className="h-8 w-8 text-primary-600" />
-                        Subscription, Plans & Add-ons Engine
+                        <ShieldCheck className="h-8 w-8 text-primary-600" />
+                        Plans Management
                     </h1>
                     <p className="text-gray-500 dark:text-slate-400 mt-1 font-medium text-sm md:text-base">
-                        Manage subscription tiers, catalog add-on bundles, and purchasing power
+                        Manage subscription tiers, plan features, pricing, and purchasing power
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
+                    {isSuperAdmin && (
+                        <div className="relative bg-white dark:bg-slate-800 border border-gray-200/90 dark:border-slate-700 shadow-xs rounded-xl flex items-center px-3 py-1.5 gap-2 hover:border-slate-300 transition-all">
+                            <Building2 className="h-4 w-4 text-primary-600 dark:text-primary-400 shrink-0" />
+                            <select
+                                value={selectedTenantId}
+                                onChange={(e) => setSelectedTenantId(e.target.value)}
+                                className="bg-transparent text-xs font-bold text-gray-800 dark:text-slate-200 pr-5 py-0.5 focus:outline-none cursor-pointer border-none ring-0 appearance-none font-sans"
+                                style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
+                            >
+                                {tenants.length === 0 && (
+                                    <option value="">No Tenants</option>
+                                )}
+                                {tenants.map((t) => (
+                                    <option key={t.id} value={t.id} className="dark:bg-slate-800">
+                                        🏢 {t.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <ChevronDown className="h-3.5 w-3.5 text-gray-400 pointer-events-none -ml-4" />
+                        </div>
+                    )}
                     <button
                         onClick={handleRefreshAll}
                         className="inline-flex items-center gap-2 rounded-xl bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-bold text-gray-700 dark:text-slate-200 shadow-xs ring-1 ring-inset ring-gray-300 dark:ring-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 transition-all"
@@ -149,51 +181,8 @@ const PlansPage = () => {
                 </div>
             </div>
 
-            {/* Tabs Navigation */}
-            <div className="flex border-b border-gray-200 dark:border-slate-800 gap-6">
-                <button
-                    onClick={() => handleTabChange('subscription')}
-                    className={`pb-3 text-sm font-extrabold flex items-center gap-2 border-b-2 transition-colors relative ${activeTab === 'subscription'
-                        ? 'border-primary-600 text-primary-600 dark:text-primary-400'
-                        : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white'
-                        }`}
-                >
-                    <Package className="h-4 w-4" />
-                    Subscription
-                </button>
-                <button
-                    onClick={() => handleTabChange('plans')}
-                    className={`pb-3 text-sm font-extrabold flex items-center gap-2 border-b-2 transition-colors relative ${activeTab === 'plans'
-                        ? 'border-primary-600 text-primary-600 dark:text-primary-400'
-                        : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white'
-                        }`}
-                >
-                    <ShieldCheck className="h-4 w-4" />
-                    Plans
-                </button>
-                <button
-                    onClick={() => handleTabChange('addons')}
-                    className={`pb-3 text-sm font-extrabold flex items-center gap-2 border-b-2 transition-colors relative ${activeTab === 'addons'
-                        ? 'border-primary-600 text-primary-600 dark:text-primary-400'
-                        : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white'
-                        }`}
-                >
-                    <Package className="h-4 w-4" />
-                    Add-on Catalog
-                </button>
-            </div>
-
-            {/* Tab 1: Subscription & Add-on Subscriptions Dual-Table View */}
-            {activeTab === 'subscription' && (
-                <TenantSubscriptionsView 
-                    onBrowseCatalog={() => handleTabChange('addons')}
-                    onBrowsePlans={() => handleTabChange('plans')}
-                />
-            )}
-
-            {/* Tab 2: Plans & Active Subscription */}
-            {activeTab === 'plans' && (
-                <div className="space-y-8">
+            {/* Plans & Active Subscription */}
+            <div className="space-y-8">
                     {/* Active Subscription & Purchasing Power Banner */}
                     <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-gray-200/80 dark:border-slate-800">
                         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -362,13 +351,7 @@ const PlansPage = () => {
                             </div>
                         )}
                     </div>
-                </div>
-            )}
-
-            {/* Tab 2: Add-on Catalog Management */}
-            {activeTab === 'addons' && (
-                <AddonCatalogManagement />
-            )}
+            </div>
 
             {/* Plan Switch Modal Flow */}
             <PlanSwitchModal
@@ -376,7 +359,7 @@ const PlansPage = () => {
                 onClose={() => setPlanSwitchModalOpen(false)}
                 currentPlan={subscription}
                 newPlan={selectedPlanForSwitch}
-                customerId={user?.tenantId}
+                customerId={effectiveTenantId}
                 onSuccess={handleRefreshAll}
             />
 

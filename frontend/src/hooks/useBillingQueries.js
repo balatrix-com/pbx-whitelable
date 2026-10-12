@@ -4,22 +4,24 @@ import { walletService } from '../services/wallet.service';
 import { usageService } from '../services/usage.service';
 import { useAuth } from '../context/AuthContext';
 
-export const useWalletQuery = () => {
+export const useWalletQuery = (targetTenantId) => {
     const { user } = useAuth();
+    const effectiveTenantId = targetTenantId || user?.tenantId;
     return useQuery({
-        queryKey: ['wallet', user?.tenantId],
-        queryFn: () => walletService.getWallet(user?.tenantId),
-        enabled: !!user?.tenantId,
+        queryKey: ['wallet', effectiveTenantId],
+        queryFn: () => walletService.getWallet(effectiveTenantId),
+        enabled: !!effectiveTenantId,
         refetchInterval: 30000, // Background refresh every 30s
     });
 };
 
-export const useSubscriptionQuery = () => {
+export const useSubscriptionQuery = (targetTenantId) => {
     const { user } = useAuth();
+    const effectiveTenantId = targetTenantId || user?.tenantId;
     return useQuery({
-        queryKey: ['subscription', user?.tenantId],
-        queryFn: () => walletService.getSubscription(),
-        enabled: !!user?.tenantId,
+        queryKey: ['subscription', effectiveTenantId],
+        queryFn: () => walletService.getSubscription(effectiveTenantId),
+        enabled: !!effectiveTenantId,
     });
 };
 

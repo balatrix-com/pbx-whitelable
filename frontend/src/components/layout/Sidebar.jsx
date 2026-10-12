@@ -34,7 +34,9 @@ import {
     ListTree,
     Hash,
     History,
-    Radio
+    Radio,
+    Package,
+    ShieldCheck
 } from 'lucide-react';
 import { Menu, Transition } from '@headlessui/react';
 import { Fragment, useState, useEffect } from 'react';
@@ -87,7 +89,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { name: 'Call Monitoring', href: '/monitoring', icon: Activity },
                     { name: 'Call Records', href: '/cdrs', icon: History },
                     { name: 'Manage Numbers', href: '/super-admin/numbers', icon: Phone },
-                    { name: 'Subscriptions/Plans/Add-ons', href: '/super-admin/subscriptions', icon: CreditCard },
+                    { name: 'Plans', href: '/super-admin/plans', icon: ShieldCheck },
+                    { name: 'Add-ons', href: '/super-admin/addons', icon: Package },
+                    { name: 'Subscriptions', href: '/super-admin/subscriptions', icon: CreditCard },
                     { name: 'Carriers & Gateways', href: '/super-admin/carriers', icon: Server },
                     { name: 'User Management', href: '/super-admin/users', icon: Users },
                     { name: 'System Settings', href: '/settings', icon: Settings },

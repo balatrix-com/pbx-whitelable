@@ -9,8 +9,10 @@ export const walletService = {
         return { ...wallet.data, transactions: transactions.data };
     },
 
-    getSubscription: async () => {
-        const response = await api.get('/wallet/subscription');
+    getSubscription: async (tenantId) => {
+        const response = await api.get('/wallet/subscription', {
+            params: tenantId ? { tenantId } : {}
+        });
         return response.data;
     },
 

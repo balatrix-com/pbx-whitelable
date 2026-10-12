@@ -12,8 +12,11 @@ import {
     Layers, 
     Trash2,
     Clock,
-    Zap
+    Zap,
+    Building2,
+    ChevronDown
 } from 'lucide-react';
+import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useSubscriptionQuery } from '../../hooks/useBillingQueries';
@@ -23,9 +26,30 @@ import PlanSwitchModal from './PlanSwitchModal';
 import ConfirmActionModal from './ConfirmActionModal';
 
 const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
-    const { user } = useAuth();
+    const { user, isSuperAdmin } = useAuth();
     const { addToast } = useToast();
-    const tenantId = user?.tenantId;
+
+    // Tenants state for Super Admin
+    const [tenants, setTenants] = useState([]);
+    const [selectedTenantId, setSelectedTenantId] = useState('');
+
+    useEffect(() => {
+        if (isSuperAdmin) {
+            api.get('/tenants?limit=100')
+                .then(res => {
+                    const list = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+                    setTenants(list);
+                    if (list.length > 0 && !selectedTenantId) {
+                        setSelectedTenantId(list[0].id);
+                    }
+                })
+                .catch(err => {
+                    console.error('Failed to load tenants for selector:', err);
+                });
+        }
+    }, [isSuperAdmin]);
+
+    const effectiveTenantId = isSuperAdmin ? selectedTenantId : user?.tenantId;
 
     // Primary Subscription
     const { 
@@ -33,7 +57,7 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
         isLoading: subLoading, 
         isFetching: subFetching, 
         refetch: refetchSubscription 
-    } = useSubscriptionQuery();
+    } = useSubscriptionQuery(effectiveTenantId);
 
     // Add-on Subscriptions State
     const [addons, setAddons] = useState([]);
@@ -88,7 +112,7 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
 
         setTogglingPlanAutoRenew(true);
         try {
-            await subscriptionService.toggleAutoRenew(tenantId, nextVal);
+            await subscriptionService.toggleAutoRenew(effectiveTenantId, nextVal);
             addToast('success', `Plan auto-renew turned ${nextVal ? 'ON' : 'OFF'}`);
             refetchSubscription();
         } catch (err) {
@@ -164,25 +188,48 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
         <div className="space-y-10 animate-in fade-in duration-300">
 
             {/* Top Toolbar / Refresh Status */}
-            <div className="flex items-center justify-between pb-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
                 <div>
                     <h2 className="text-xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2">
                         <CreditCard className="h-6 w-6 text-primary-600 dark:text-primary-400" />
                         Subscription & Recurring Services
                     </h2>
                     <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
-                        Manage your active plan, recurring add-ons, and automated renewals
+                        Manage active plan, recurring add-ons, and automated renewals
                     </p>
                 </div>
-                <button
-                    onClick={handleRefreshAll}
-                    disabled={subFetching || addonsLoading}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition shadow-xs disabled:opacity-50"
-                    title="Refresh Subscriptions"
-                >
-                    <RefreshCw className={`h-3.5 w-3.5 ${(subFetching || addonsLoading) ? 'animate-spin' : ''}`} />
-                    <span>Sync Status</span>
-                </button>
+                <div className="flex items-center gap-3">
+                    {isSuperAdmin && (
+                        <div className="relative bg-white dark:bg-slate-800 border border-gray-200/90 dark:border-slate-700 shadow-xs rounded-xl flex items-center px-3 py-1.5 gap-2 hover:border-slate-300 transition-all">
+                            <Building2 className="h-4 w-4 text-primary-600 dark:text-primary-400 shrink-0" />
+                            <select
+                                value={selectedTenantId}
+                                onChange={(e) => setSelectedTenantId(e.target.value)}
+                                className="bg-transparent text-xs font-bold text-gray-800 dark:text-slate-200 pr-5 py-0.5 focus:outline-none cursor-pointer border-none ring-0 appearance-none font-sans"
+                                style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
+                            >
+                                {tenants.length === 0 && (
+                                    <option value="">No Tenants</option>
+                                )}
+                                {tenants.map((t) => (
+                                    <option key={t.id} value={t.id} className="dark:bg-slate-800">
+                                        🏢 {t.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <ChevronDown className="h-3.5 w-3.5 text-gray-400 pointer-events-none -ml-4" />
+                        </div>
+                    )}
+                    <button
+                        onClick={handleRefreshAll}
+                        disabled={subFetching || addonsLoading}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition shadow-xs disabled:opacity-50"
+                        title="Refresh Subscriptions"
+                    >
+                        <RefreshCw className={`h-3.5 w-3.5 ${(subFetching || addonsLoading) ? 'animate-spin' : ''}`} />
+                        <span>Sync Status</span>
+                    </button>
+                </div>
             </div>
 
             {/* ========================================================================= */}
@@ -553,7 +600,7 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                 isOpen={planSwitchModalOpen}
                 onClose={() => setPlanSwitchModalOpen(false)}
                 currentPlan={subscription}
-                customerId={tenantId}
+                customerId={effectiveTenantId}
                 onSuccess={handleRefreshAll}
             />
 
