@@ -259,6 +259,7 @@ export class UsersService {
 
         // Update status
         const updateData: any = { status };
+        if (status !== UserStatus.ACTIVE) updateData.refreshToken = null;
         if (status === UserStatus.ACTIVE && targetUser.status === UserStatus.INVITED) {
             updateData.inviteToken = null;
             updateData.inviteTokenExpiry = null;
@@ -268,14 +269,6 @@ export class UsersService {
             where: { id: targetUserId },
             data: updateData
         });
-
-        // If suspending, invalidate refresh token
-        if (status === UserStatus.SUSPENDED) {
-            await this.prisma.user.update({
-                where: { id: targetUserId },
-                data: { refreshToken: null }
-            });
-        }
 
         // Audit log
         const action = status === UserStatus.SUSPENDED ? UserAuditAction.SUSPEND_USER :
@@ -698,8 +691,9 @@ export class UsersService {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Update user: activate and flush invite tokens
-        const updated = await this.prisma.user.update({
-            where: { id: user.id },
+        const accepted = await this.prisma.user.updateMany({
+            // Atomic consumption: concurrent requests cannot accept the same invite twice.
+            where: { id: user.id, inviteToken: token, status: UserStatus.INVITED, inviteTokenExpiry: { gt: new Date() } },
             data: {
                 password: hashedPassword,
                 status: UserStatus.ACTIVE,
@@ -708,15 +702,19 @@ export class UsersService {
             }
         });
 
+        if (accepted.count !== 1) {
+            throw new BadRequestException('Invalid or expired invitation');
+        }
+
         // Audit log (actor is the user themselves)
         await this.createAuditLog(user.id, user.id, UserAuditAction.ACCEPT_INVITE, {
             email: user.email
         });
 
         return {
-            id: updated.id,
-            email: updated.email,
-            status: updated.status
+            id: user.id,
+            email: user.email,
+            status: UserStatus.ACTIVE
         };
     }
 

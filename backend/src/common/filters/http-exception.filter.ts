@@ -27,14 +27,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
                 ? exception.getResponse()
                 : { message: 'Internal server error' };
 
-        // Log the error
+        // Exception details can contain credentials or tokens.
+        const summary = `${request.method} ${request.url.split('?')[0]} Http Status: ${status}`;
         if (status >= 500) {
-            this.logger.error(
-                `Http Status: ${status} Error Message: ${JSON.stringify(exceptionResponse)}`,
-                exception instanceof Error ? exception.stack : undefined
-            );
+            this.logger.error(summary);
         } else {
-            this.logger.warn(`Http Status: ${status} Error Message: ${JSON.stringify(exceptionResponse)}`);
+            this.logger.warn(summary);
         }
 
         const responseBody = typeof exceptionResponse === 'object'

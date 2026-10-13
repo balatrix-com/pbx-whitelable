@@ -249,7 +249,7 @@ const AudioLibrary = () => {
                                                         <span>Upload a file</span>
                                                         <span className="pl-1">or drag and drop</span>
                                                     </div>
-                                                    <p className="text-xs leading-5 text-gray-500">WAV or MP3 up to 10MB</p>
+                                                    <p className="text-xs leading-5 text-gray-500">WAV or MP3 up to 10MB, maximum 5 minutes</p>
                                                 </>
                                             )}
                                         </div>

@@ -7,6 +7,7 @@ import {
     UseGuards,
     Req,
     Query,
+    NotFoundException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
@@ -15,7 +16,6 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { GetUser } from './decorators/get-user.decorator';
 import type { User } from '@prisma/client';
-import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Controller('auth')
@@ -24,9 +24,8 @@ export class AuthController {
 
     @Throttle({ default: { limit: 5, ttl: 60000 } })
     @Post('signup')
-    async signup(@Body() createUserDto: CreateUserDto) {
-        console.log('Signup DTO:', createUserDto);
-        return this.authService.signup(createUserDto);
+    signup() {
+        throw new NotFoundException();
     }
 
     @Throttle({ default: { limit: 5, ttl: 60000 } })

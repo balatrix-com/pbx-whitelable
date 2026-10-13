@@ -39,9 +39,11 @@ export class AuditInterceptor implements NestInterceptor {
                     ipAddress: req.ip,
                     userAgent: req.headers['user-agent'],
                     metadata: { 
-                        body: req.body, 
-                        params: req.params,
-                        query: req.query 
+                        // Record what changed without retaining passwords, tokens,
+                        // SMTP credentials or other arbitrary request values.
+                        bodyFields: Object.keys(req.body || {}),
+                        parameterNames: Object.keys(req.params || {}),
+                        queryFields: Object.keys(req.query || {})
                     }
                 });
             })

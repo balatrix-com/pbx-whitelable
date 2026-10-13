@@ -199,7 +199,8 @@ export class AudioUploadService {
         if (isLocalhost) {
             try {
                 await fs.access(remotePath);
-                res.setHeader('Content-Type', 'audio/mpeg');
+                res.setHeader('Content-Type', remotePath.toLowerCase().endsWith('.wav') ? 'audio/wav' : 'audio/mpeg');
+                res.setHeader('X-Content-Type-Options', 'nosniff');
                 const parts = remotePath.split('/');
                 const filename = parts[parts.length - 1];
                 res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
@@ -221,7 +222,8 @@ export class AudioUploadService {
                 return;
             }
 
-            res.setHeader('Content-Type', 'audio/mpeg');
+            res.setHeader('Content-Type', remotePath.toLowerCase().endsWith('.wav') ? 'audio/wav' : 'audio/mpeg');
+            res.setHeader('X-Content-Type-Options', 'nosniff');
             const parts = remotePath.split('/');
             const filename = parts[parts.length - 1];
             res.setHeader('Content-Disposition', `inline; filename="${filename}"`);

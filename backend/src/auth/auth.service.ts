@@ -3,13 +3,12 @@ import {
     UnauthorizedException,
     BadRequestException,
     NotFoundException,
-    ConflictException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { EnforcementService } from '../enforcement/enforcement.service';
-import { Role, User } from '@prisma/client';
+import { User, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 import { MailService } from '../mail/mail.service';
@@ -27,19 +26,15 @@ export class AuthService {
     ) { }
 
     async validateUser(email: string, pass: string): Promise<any> {
-        console.log(`Attempting login for: ${email}`);
         const normalizedEmail = email.toLowerCase();
         const user = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
-        if (!user) {
-            console.log('User not found');
+        if (!user || user.status !== UserStatus.ACTIVE) {
             return null;
         }
         if (!user.password) {
-            console.log('User has no password set');
             return null;
         }
         const isMatch = await bcrypt.compare(pass, user.password);
-        console.log(`Password match: ${isMatch}`);
 
         if (isMatch) {
             const { password, ...result } = user;
@@ -54,67 +49,13 @@ export class AuthService {
         companyName: string;
         name?: string;
     }) {
-        const existingUser = await this.prisma.user.findUnique({
-            where: { email: data.email },
-        });
-        if (existingUser) {
-            throw new ConflictException('User already exists');
-        }
-
-        const hashedPassword = await bcrypt.hash(data.password, 10);
-
-        // Create Tenant and Admin User in transaction
-        const result = await this.prisma.$transaction(async (prisma) => {
-            const tenant = await prisma.tenant.create({
-                data: {
-                    name: data.companyName,
-                },
-            });
-
-            const user = await prisma.user.create({
-                data: {
-                    email: data.email.toLowerCase(),
-                    password: hashedPassword,
-                    name: data.name,
-                    role: Role.ADMIN,
-                    tenantId: tenant.id,
-                },
-            });
-
-            // Create Welcome Notification
-            await this.notificationsService.createNotification({
-                tenantId: tenant.id,
-                userId: user.id,
-                type: 'system',
-                title: 'Welcome to Cloud PBX!',
-                message: 'Your telecom infrastructure dashboard is ready. Explore the features and start commanding your network.',
-            });
-
-            return { user, tenant };
-        });
-
-        const userVar = result.user as any;
-        const tokens = await this.getTokens(userVar.id, userVar.email, userVar.role, userVar.tenantId, userVar.forcePasswordChange, userVar.monitoringEnabled);
-        await this.updateRefreshToken(userVar.id, tokens.refreshToken);
-
-        return {
-            user: {
-                id: result.user.id,
-                email: result.user.email,
-                name: userVar.name,
-                role: userVar.role,
-                status: userVar.status,
-                monitoringEnabled: userVar.monitoringEnabled,
-                tenantId: userVar.tenantId,
-                forcePasswordChange: userVar.forcePasswordChange,
-            },
-            ...tokens,
-        };
+        // Fail closed even if another caller invokes this service directly.
+        throw new NotFoundException();
     }
 
     async login(user: User) {
         const userVar = user as any;
-        const tokens = await this.getTokens(userVar.id, userVar.email, userVar.role, userVar.tenantId, userVar.monitoringEnabled);
+        const tokens = await this.getTokens(userVar.id, userVar.email, userVar.role, userVar.tenantId, userVar.forcePasswordChange, userVar.monitoringEnabled);
         await this.updateRefreshToken(userVar.id, tokens.refreshToken);
 
         const fullUser = await this.prisma.user.findUnique({
@@ -164,7 +105,7 @@ export class AuthService {
 
     async refreshTokens(userId: string, refreshToken: string | null) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
-        if (!user || !user.refreshToken || !refreshToken)
+        if (!user || user.status !== UserStatus.ACTIVE || !user.refreshToken || !refreshToken)
             throw new UnauthorizedException('Access Denied');
 
         const refreshTokenMatches = await bcrypt.compare(

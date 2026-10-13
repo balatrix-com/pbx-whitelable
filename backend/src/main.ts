@@ -21,6 +21,8 @@ async function bootstrap() {
   });
 
   app.setGlobalPrefix('api');
+  // Only our loopback reverse proxy may supply the client IP used by throttling.
+  app.getHttpAdapter().getInstance().set('trust proxy', 'loopback');
 
   // Hardening
   app.use(helmet({
@@ -74,6 +76,11 @@ async function bootstrap() {
 
   app.enableShutdownHooks();
 
-  await app.listen(3000);
+  // Nginx connects over loopback. Do not expose this service on public interfaces.
+  const port = Number(configService.get<string>('PORT') || '3000');
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('PORT must be an integer between 1 and 65535');
+  }
+  await app.listen(port, '127.0.0.1');
 }
 bootstrap();

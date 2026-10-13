@@ -18,6 +18,8 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { GetUser } from '../../auth/decorators/get-user.decorator';
 import { Role } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
+import { MAX_AUDIO_BYTES, normalizeAudio } from './normalize-audio';
 
 @Controller('telecom/audio')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -35,7 +37,7 @@ export class AudioController {
     @Post('upload')
     @Roles(Role.ADMIN, Role.SUPPORT, Role.SUPER_ADMIN)
     @UseInterceptors(FileInterceptor('file', {
-        limits: { fileSize: 50 * 1024 * 1024 } // 50MB
+        limits: { fileSize: MAX_AUDIO_BYTES, files: 1 }
     }))
     async uploadAudio(
         @GetUser() user: any,
@@ -46,26 +48,14 @@ export class AudioController {
             throw new BadRequestException('No file uploaded');
         }
 
-        // Validate file type
-        const allowedMimeTypes = ['audio/wav', 'audio/x-wav', 'audio/mpeg', 'audio/mp3'];
-        if (!allowedMimeTypes.includes(file.mimetype)) {
-            throw new BadRequestException('Only WAV and MP3 files are allowed');
-        }
-
-        // Generate filename with timestamp
-        const timestamp = Date.now();
-        // Use friendly name for file naming if provided, else original name
-        const baseName = friendlyName || file.originalname.split('.')[0];
-        // Sanitize filename
-        const sanitizedName = baseName.replace(/[^a-zA-Z0-9.-]/g, '_');
-        // Determine extension
-        const ext = file.originalname.split('.').pop();
-        const filename = `${timestamp}_${sanitizedName}.${ext}`;
+        if (!user.tenantId) throw new BadRequestException('Select a tenant before uploading audio');
+        const audio = await normalizeAudio(file);
+        const filename = `${randomUUID()}.wav`;
 
         // Upload to SFTP
         const remotePath = await this.audioUploadService.uploadAudio(
             user.tenantId,
-            file.buffer,
+            audio,
             filename,
         );
 
@@ -76,8 +66,8 @@ export class AudioController {
                 name: friendlyName || file.originalname,
                 filename: filename,
                 originalName: file.originalname,
-                mimeType: file.mimetype,
-                size: file.size,
+                mimeType: 'audio/wav',
+                size: audio.length,
                 storageUrl: remotePath,
             },
         });
