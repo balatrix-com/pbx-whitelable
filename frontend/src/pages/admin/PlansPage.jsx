@@ -10,7 +10,6 @@ import {
     RefreshCw,
     CheckCircle2,
     Loader2,
-    ArrowUpRight,
     Wallet as WalletIcon,
     ShieldCheck,
     Trash2,
@@ -18,7 +17,6 @@ import {
     ChevronDown
 } from 'lucide-react';
 import api from '../../services/api';
-import PlanSwitchModal from '../../components/subscription/PlanSwitchModal';
 import PlanFormModal from '../../components/subscription/PlanFormModal';
 import ConfirmActionModal from '../../components/subscription/ConfirmActionModal';
 
@@ -58,8 +56,6 @@ const PlansPage = () => {
     // Plans List State
     const [plans, setPlans] = useState([]);
     const [plansLoading, setPlansLoading] = useState(true);
-    const [selectedPlanForSwitch, setSelectedPlanForSwitch] = useState(null);
-    const [planSwitchModalOpen, setPlanSwitchModalOpen] = useState(false);
     const [showModal, setShowModal] = useState(false);
 
     // Delete Plan State
@@ -89,11 +85,6 @@ const PlansPage = () => {
     const creditUsed = Number(wallet?.creditUsed || 0);
     const availablePurchasingPower = fiatBalance + creditLimit - creditUsed;
 
-    // Plan Switch Handler
-    const handleInitiatePlanSwitch = (plan) => {
-        setSelectedPlanForSwitch(plan);
-        setPlanSwitchModalOpen(true);
-    };
 
     // Refresh active subscription & wallet after plan changes
     const handleRefreshAll = () => {
@@ -330,21 +321,6 @@ const PlansPage = () => {
                                                     </li>
                                                 </ul>
                                             </div>
-
-                                            <div className="mt-6 pt-4 border-t border-gray-100 dark:border-slate-800">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleInitiatePlanSwitch(p)}
-                                                    disabled={isCurrent}
-                                                    className="w-full inline-flex justify-center items-center gap-1.5 rounded-xl bg-gray-900 dark:bg-slate-800 text-white px-4 py-2.5 text-xs font-bold shadow-sm hover:bg-gray-800 dark:hover:bg-slate-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                                                >
-                                                    {isCurrent ? 'Current Plan' : (
-                                                        <>
-                                                            Switch to Plan <ArrowUpRight className="h-4 w-4" />
-                                                        </>
-                                                    )}
-                                                </button>
-                                            </div>
                                         </div>
                                     );
                                 })}
@@ -353,15 +329,6 @@ const PlansPage = () => {
                     </div>
             </div>
 
-            {/* Plan Switch Modal Flow */}
-            <PlanSwitchModal
-                isOpen={planSwitchModalOpen}
-                onClose={() => setPlanSwitchModalOpen(false)}
-                currentPlan={subscription}
-                newPlan={selectedPlanForSwitch}
-                customerId={effectiveTenantId}
-                onSuccess={handleRefreshAll}
-            />
 
             {/* Create New Plan Form Modal */}
             <PlanFormModal
