@@ -7,6 +7,7 @@ import { LookupRedisService } from '../redis/lookup-redis.module';
 import { WalletService } from '../wallet/wallet.service';
 import { ExtensionsService } from '../telecom/extensions/extensions.service';
 import { MailService } from '../mail/mail.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class TenantsService {
@@ -414,11 +415,54 @@ export class TenantsService {
         monitorEnabled?: boolean;
         monitorLimit?: number;
         recordingAllowed?: boolean;
+        /** Required when enabling recordingAllowed (turning it from false → true).
+         *  Must match a valid rec_rate_card.id. */
+        recRateCardId?: number;
     }) {
         const tenant = await this.prisma.tenant.findUnique({
             where: { id }
         });
         if (!tenant) throw new NotFoundException('Tenant not found');
+
+        // ── Recording guard: rate card is mandatory before enabling recording ──
+        if (dto.recordingAllowed === true) {
+            if (!dto.recRateCardId) {
+                throw new BadRequestException(
+                    'A recording rate card (recRateCardId) must be selected before enabling call recording.',
+                );
+            }
+
+            // Validate that the rate card exists in the local DB before calling billing
+            const rcExists = await this.prisma.recRateCard.findUnique({
+                where: { id: dto.recRateCardId },
+            });
+            if (!rcExists) {
+                throw new BadRequestException(
+                    `Recording rate card id ${dto.recRateCardId} does not exist.`,
+                );
+            }
+
+            // Upsert the customer → rec rate card mapping via admin service
+            const customerId = tenant.subBillingCustomerId || tenant.customerCode;
+            if (!customerId) {
+                throw new BadRequestException('Tenant is not linked to a billing customer; cannot assign rate card.');
+            }
+            try {
+                await this.adminService.updateCustomerRecRateCardMapping(customerId, {
+                    rec_rc_id: dto.recRateCardId,
+                });
+                this.logger.log(
+                    `Recording rate card ${dto.recRateCardId} assigned to customer ${customerId} before enabling recording.`,
+                );
+            } catch (rcErr: any) {
+                this.logger.error(
+                    `Failed to assign recording rate card ${dto.recRateCardId} to ${customerId}: ${rcErr.message}`,
+                );
+                throw new BadRequestException(
+                    `Could not assign recording rate card: ${rcErr.message}`,
+                );
+            }
+        }
 
         const isDisablingRecording = dto.recordingAllowed === false;
 
@@ -615,6 +659,41 @@ export class TenantsService {
 
         if (!isUnique) throw new Error('Failed to generate unique customer code');
 
+        // Plan & Rate Card resolution
+        let targetRateCardId: number | null = null;
+        let subPlan: any = null;
+        if (data.planId) {
+            try {
+                // 1. Check sub-billing plan first
+                subPlan = await this.walletService.getSubBillingPlan(data.planId);
+                if (subPlan && subPlan.rate_card_id) {
+                    targetRateCardId = Number(subPlan.rate_card_id);
+                }
+            } catch (err: any) {
+                this.logger.warn(`Could not resolve sub-billing plan for "${data.planId}": ${err.message}`);
+            }
+
+            // 2. Also resolve local plan if available
+            try {
+                const localPlan = await this.prisma.plan.findFirst({
+                    where: {
+                        OR: [
+                            { id: data.planId },
+                            { name: data.planId }
+                        ]
+                    }
+                });
+                if (localPlan) {
+                    localPlanId = localPlan.id;
+                    freeMinutes = localPlan.freeMinutes || 0;
+                } else if (subPlan) {
+                    freeMinutes = Number(subPlan.free_mins || 0);
+                }
+            } catch (err: any) {
+                this.logger.warn(`Could not resolve local plan for "${data.planId}": ${err.message}`);
+            }
+        }
+
         // Create customer in sub-billing (Always run this for new tenants!)
         const subCustomer = await this.walletService.createSubBillingCustomerExtended({
             customerId: customerCode,
@@ -629,9 +708,33 @@ export class TenantsService {
             city: data.city,
             state: data.state,
             country: data.country,
-            creditLimit: data.creditLimit !== undefined && data.creditLimit !== null && (data.creditLimit as any) !== '' ? Number(data.creditLimit) : undefined
+            creditLimit: data.creditLimit !== undefined && data.creditLimit !== null && (data.creditLimit as any) !== '' ? Number(data.creditLimit) : undefined,
+            ratecardId: targetRateCardId || undefined
         });
         subBillingCustomerId = subCustomer.customer_id;
+
+        // Ensure ratecard mapping and subscription in sub-billing
+        if (data.planId) {
+            if (targetRateCardId) {
+                try {
+                    await this.adminService.updateCustomerRateCardMapping({
+                        customer_id: customerCode,
+                        ratecard_id: targetRateCardId
+                    });
+                    this.logger.log(`Customer ${customerCode} explicitly mapped to rate card ${targetRateCardId} from plan ${data.planId}`);
+                } catch (rcErr: any) {
+                    this.logger.warn(`Failed to explicitly update customer rate card mapping: ${rcErr.message}`);
+                }
+            }
+
+            try {
+                const subResponse = await this.walletService.createSubBillingSubscription(customerCode, data.planId, true);
+                subBillingSubscriptionId = subResponse?.subscription_id || subResponse?.id || null;
+                this.logger.log(`Subscription ${subBillingSubscriptionId} created in sub-billing for customer ${customerCode} to plan ${data.planId}`);
+            } catch (subErr: any) {
+                this.logger.warn(`Could not create sub-billing subscription for ${customerCode}: ${subErr.message}`);
+            }
+        }
 
         // Transactional creation
         const result = await this.prisma.$transaction(async (prisma) => {
@@ -664,13 +767,7 @@ export class TenantsService {
             });
 
             // 4. Create Admin User
-            // We need bcrypt here. Service typically imports bcrypt.
-            // Wait, we don't have bcrypt imported in this file. 
-            // We should import it at the top. 
-            // BUT, `AuthService` handles signup usually. 
-            // Replicating logic here is fine for Super Admin action.
-            // We need to import * as bcrypt from 'bcrypt';
-            const hashedPassword = await import('bcrypt').then(m => m.hash(data.adminPassword, 10));
+            const hashedPassword = await bcrypt.hash(data.adminPassword, 10);
 
             const user = await prisma.user.create({
                 data: {

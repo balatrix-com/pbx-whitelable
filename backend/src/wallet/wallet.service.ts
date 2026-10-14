@@ -402,6 +402,7 @@ export class WalletService {
         state: string;
         country: string;
         creditLimit?: number;
+        ratecardId?: number;
     }) {
         try {
             // Strict Validation - Throw error immediately instead of using placeholders
@@ -453,7 +454,8 @@ export class WalletService {
                     city: data.city,
                     state: data.state,
                     country: mappedCountry,
-                    credit_limit: data.creditLimit !== undefined ? data.creditLimit : 0
+                    credit_limit: data.creditLimit !== undefined ? data.creditLimit : 0,
+                    ratecard_id: data.ratecardId || undefined
                 })
             );
             if (response.data && response.data.success) {
@@ -487,7 +489,7 @@ export class WalletService {
         }
     }
 
-    async createSubBillingSubscription(customerId: string, planId: string) {
+    async createSubBillingSubscription(customerId: string, planId: string, overrideBalanceCheck: boolean = false) {
         try {
             this.logger.log(`Creating subscription in sub-billing for customer ${customerId} to plan ${planId}`);
             const response = await firstValueFrom(
@@ -495,7 +497,7 @@ export class WalletService {
                     customer_id: customerId,
                     plan_id: planId,
                     status: 'active',
-                    override_balance_check: false
+                    override_balance_check: overrideBalanceCheck
                 })
             );
             if (response.data && response.data.success) {
