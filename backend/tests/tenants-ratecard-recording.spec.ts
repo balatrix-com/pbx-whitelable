@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { TenantsService } from './tenants.service';
+import { TenantsService } from '../src/tenants/tenants.service';
 
 describe('TenantsService - Rate Card & Recording Features', () => {
     let service: TenantsService;
