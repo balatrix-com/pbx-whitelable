@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { FreeSwitchDBService } from './freeswitch-db.service';
 import { KamailioDBService } from './kamailio-db.service';
@@ -98,6 +98,11 @@ export class FreeSwitchSyncService {
         if (!rg) return;
 
         const key = `rg${rg.sequenceId}_${rg.tenant.customerCode}`;
+        if (rg.members.some(member => member.extension.tenantId !== rg.tenantId)) {
+            this.logger.warn(`Ring group ${rg.id} contains an extension outside its tenant`);
+            await this.freeswitchDB.deleteDialplanPattern(key);
+            return;
+        }
         const customerCode = rg.tenant?.customerCode || '';
         const enableRecording = (rg.members[0]?.extension as any)?.recordingEnabled ?? false;
 
@@ -228,7 +233,8 @@ export class FreeSwitchSyncService {
                     did.routeType,
                     did.routeTargetId,
                     did.tenant?.customerCode || '',
-                    did.forwardNumber
+                    did.forwardNumber,
+                    did.tenantId,
                 );
             }
 
@@ -294,7 +300,7 @@ export class FreeSwitchSyncService {
                 this.logger.warn(`TFN ${tfnId} not found for sync`);
                 return;
             }
-            if (!tfn.tenant) {
+            if (!tfn.tenant || !tfn.tenantId) {
                 this.logger.warn(`TFN ${tfn.number} has no tenant. Skipping sync.`);
                 return;
             }
@@ -304,6 +310,11 @@ export class FreeSwitchSyncService {
             let targetKey = '';
 
             // 1. Resolve Target
+            if (tfn.routeType && tfn.routeType !== 'forward' && tfn.routeTargetId &&
+                !await this.resolveDialplanKey(tfn.routeType, tfn.routeTargetId, tfn.tenantId)) {
+                this.logger.warn(`TFN ${tfn.number} has a target outside its tenant`);
+                return;
+            }
             if (tfn.routeType === 'schedule') {
                 if (tfn.routeTargetId) {
                     await this.syncSchedule(tfn.routeTargetId);
@@ -348,7 +359,7 @@ export class FreeSwitchSyncService {
                 await this.freeswitchDB.upsertDialplan(targetKey, fwdXml);
             } else {
                 if (tfn.routeType && tfn.routeTargetId) {
-                    targetKey = await this.resolveDialplanKey(tfn.routeType, tfn.routeTargetId);
+                    targetKey = await this.resolveDialplanKey(tfn.routeType, tfn.routeTargetId, tfn.tenantId);
                 }
             }
 
@@ -452,9 +463,12 @@ export class FreeSwitchSyncService {
         routeType: string | null,
         routeTargetId: string | null,
         customerCode: string | null,
-        forwardNumber?: string | null
+        forwardNumber?: string | null,
+        tenantId?: string | null,
     ): Promise<string> {
         if (!routeType) return '';
+        if (!tenantId || !routeTargetId ||
+            !await this.resolveDialplanKey(routeType, routeTargetId, tenantId)) return '';
 
         const code = customerCode;
 
@@ -503,7 +517,7 @@ export class FreeSwitchSyncService {
         }
 
         // Fallback
-        return this.resolveDialplanKey(routeType, routeTargetId || '');
+        return this.resolveDialplanKey(routeType, routeTargetId || '', tenantId);
     }
 
 
@@ -574,9 +588,9 @@ export class FreeSwitchSyncService {
 
         const key = `sched${schedule.sequenceId}_${schedule.tenant.customerCode}`;
 
-        const primaryKey = await this.resolveDialplanKey(schedule.primaryRouteType, schedule.primaryRouteTarget);
-        const ahKey = await this.resolveDialplanKey(schedule.afterHoursRouteType, schedule.afterHoursRouteTarget);
-        const weekendKey = await this.resolveDialplanKey(schedule.weekendRouteType, schedule.weekendRouteTarget);
+        const primaryKey = await this.resolveDialplanKey(schedule.primaryRouteType, schedule.primaryRouteTarget, schedule.tenantId);
+        const ahKey = await this.resolveDialplanKey(schedule.afterHoursRouteType, schedule.afterHoursRouteTarget, schedule.tenantId);
+        const weekendKey = await this.resolveDialplanKey(schedule.weekendRouteType, schedule.weekendRouteTarget, schedule.tenantId);
 
         // Note: generateDIDScheduleXML needs to be adaptable or we pass the key as extension name
         // Use key as the extension name so it can be transferred to
@@ -649,41 +663,41 @@ export class FreeSwitchSyncService {
         return `ext${seq}_${customerCode}`;
     }
 
-    private async resolveDialplanKey(type: string, targetId: string, tx?: any): Promise<string> {
+    private async resolveDialplanKey(type: string, targetId: string, tenantId: string, tx?: any): Promise<string> {
         if (!targetId) return '';
         const client = tx || this.prisma;
 
         if (type === 'extension') {
-            const ext = await client.extension.findUnique({
-                where: { id: targetId },
+            const ext = await client.extension.findFirst({
+                where: { id: targetId, tenantId },
                 include: { tenant: true }
             });
             return ext ? this.getExtensionDialplanKey(ext) : '';
         }
-        if (type === 'ring_group') {
-            const rg = await client.ringGroup.findUnique({
-                where: { id: targetId },
+        if (type === 'ring_group' || type === 'queue') {
+            const rg = await client.ringGroup.findFirst({
+                where: { id: targetId, tenantId },
                 include: { tenant: true }
             });
             return rg ? `rg${rg.sequenceId}_${rg.tenant.customerCode}` : '';
         }
         if (type === 'ivr') {
-            const ivr = await client.iVR.findUnique({
-                where: { id: targetId },
+            const ivr = await client.iVR.findFirst({
+                where: { id: targetId, tenantId },
                 include: { tenant: true }
             });
             return ivr ? `ivr${ivr.sequenceId}_${ivr.tenant.customerCode}` : '';
         }
         if (type === 'schedule') {
-            const sched = await client.operationalSchedule.findUnique({
-                where: { id: targetId },
+            const sched = await client.operationalSchedule.findFirst({
+                where: { id: targetId, tenantId },
                 include: { tenant: true }
             });
             return sched ? `sched${sched.sequenceId}_${sched.tenant.customerCode}` : '';
         }
         if (type === 'did_forward' || type === 'forward') {
-            const forward = await client.dIDForward.findUnique({
-                where: { id: targetId },
+            const forward = await client.dIDForward.findFirst({
+                where: { id: targetId, tenantId },
                 include: { tenant: true }
             });
             return forward ? `fwd${forward.sequenceId}_${forward.tenant.customerCode}` : '';
@@ -773,13 +787,12 @@ export class FreeSwitchSyncService {
                         }
                     } else {
                         // Other types (RingGroup, IVR) uses UUID
-                        dialplanKey = await this.resolveDialplanKey(item.type, item.target);
+                        dialplanKey = await this.resolveDialplanKey(item.type, item.target, tenantId);
                     }
 
                     // Use the resolved key as the new target
-                    if (dialplanKey) {
-                        item.target = dialplanKey;
-                    }
+                    if (!dialplanKey) throw new BadRequestException('IVR menu target does not belong to this tenant');
+                    item.target = dialplanKey;
                 }
             }
         }

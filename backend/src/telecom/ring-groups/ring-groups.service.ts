@@ -100,6 +100,19 @@ export class RingGroupsService {
                 }
             }
 
+            const memberIds = dto.members?.map(member => member.extensionId) || [];
+            if (memberIds.length > 0) {
+                if (new Set(memberIds).size !== memberIds.length) {
+                    throw new BadRequestException('Duplicate ring group member');
+                }
+                const ownedExtensions = await prisma.extension.count({
+                    where: { id: { in: memberIds }, tenantId },
+                });
+                if (ownedExtensions !== memberIds.length) {
+                    throw new BadRequestException('Ring group members must belong to this tenant');
+                }
+            }
+
             // Find next sequence ID
             const last = await prisma.ringGroup.findFirst({
                 where: { tenantId },
@@ -131,7 +144,7 @@ export class RingGroupsService {
                 include: {
                     members: {
                         include: {
-                            extension: true,
+                            extension: { select: { id: true, extensionNumber: true, name: true } },
                         },
                     },
                 },
@@ -161,7 +174,7 @@ export class RingGroupsService {
 
         // Update
         const updated = await this.prisma.ringGroup.update({
-            where: { id },
+            where: { id, tenantId },
             data: {
                 name: dto.name,
                 strategy: dto.strategy,
@@ -172,7 +185,7 @@ export class RingGroupsService {
             include: {
                 members: {
                     include: {
-                        extension: true,
+                        extension: { select: { id: true, extensionNumber: true, name: true } },
                     },
                 },
             },
@@ -353,15 +366,21 @@ export class RingGroupsService {
             throw new NotFoundException('Ring group not found');
         }
 
-        // Update member
+        const ownedMember = await this.prisma.ringGroupMember.findFirst({
+            where: { id: memberId, ringGroupId, extension: { is: { tenantId } } },
+            select: { id: true },
+        });
+        if (!ownedMember) throw new NotFoundException('Member not found in this ring group');
+
+        // Keep the parent ID in the write predicate as well as the read.
         const member = await this.prisma.ringGroupMember.update({
-            where: { id: memberId },
+            where: { id: memberId, ringGroupId },
             data: {
                 priority: data.priority,
                 position: data.position,
             },
             include: {
-                extension: true,
+                extension: { select: { id: true, extensionNumber: true, name: true } },
             },
         });
 
@@ -384,6 +403,17 @@ export class RingGroupsService {
 
         if (!ringGroup) {
             throw new NotFoundException('Ring group not found');
+        }
+
+        const orderIds = orders.map(order => order.id);
+        if (new Set(orderIds).size !== orderIds.length) {
+            throw new BadRequestException('Duplicate ring group member');
+        }
+        const ownedMembers = await this.prisma.ringGroupMember.count({
+            where: { id: { in: orderIds }, ringGroupId, extension: { is: { tenantId } } },
+        });
+        if (ownedMembers !== orderIds.length) {
+            throw new NotFoundException('Member not found in this ring group');
         }
 
         // Perform updates in transaction

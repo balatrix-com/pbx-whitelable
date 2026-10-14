@@ -21,8 +21,8 @@ export class InvoiceController {
 
     @Get(':id')
     @Roles(Role.SUPER_ADMIN, Role.ADMIN)
-    findOne(@Param('id') id: string) {
-        return this.invoiceService.getInvoice(id);
+    findOne(@Param('id') id: string, @Request() req: any) {
+        return this.invoiceService.getInvoice(id, req.user);
     }
 
     @Post(':id/adjustments')

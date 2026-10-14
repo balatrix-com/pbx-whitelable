@@ -7,16 +7,34 @@ export class RecordingStorageService {
     private readonly logger = new Logger(RecordingStorageService.name);
     private readonly basePath = process.env.FS_RECORDING_PATH || '/mnt/freeswitch-recordings/recordings';
 
-    /**
-     * Resolve the local path from the given remote/relative path.
-     * Maps `/recordings/...` to the configured `basePath`.
-     */
-    private getLocalPath(remotePath: string): string {
-        if (remotePath.startsWith('/recordings')) {
-            // Replace /recordings with basePath
-            return path.join(this.basePath, remotePath.substring('/recordings'.length));
+    private isWithin(parent: string, candidate: string): boolean {
+        const relative = path.relative(parent, candidate);
+        return relative !== '' && relative !== '..' &&
+            !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+    }
+
+    private getLocalPath(customerCode: string, callUuid: string): string {
+        if (!/^[A-Za-z0-9_-]+$/.test(customerCode) ||
+            !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(callUuid)) {
+            throw new Error('Invalid recording identifier');
         }
-        return path.isAbsolute(remotePath) ? remotePath : path.join(this.basePath, remotePath);
+
+        const base = path.resolve(this.basePath);
+        const customerDir = path.resolve(base, customerCode);
+        const file = path.resolve(customerDir, `${callUuid}.mp3`);
+        if (!this.isWithin(base, customerDir) || !this.isWithin(customerDir, file)) {
+            throw new Error('Recording path escapes tenant directory');
+        }
+
+        // Reject symlinks that point into another tenant's directory.
+        const realBase = fs.realpathSync.native(base);
+        const realCustomerDir = fs.realpathSync.native(customerDir);
+        const realFile = fs.realpathSync.native(file);
+        if (!this.isWithin(realBase, realCustomerDir) ||
+            !this.isWithin(realCustomerDir, realFile) || !fs.statSync(realFile).isFile()) {
+            throw new Error('Recording is outside the tenant directory');
+        }
+        return realFile;
     }
 
     /**
@@ -47,11 +65,12 @@ export class RecordingStorageService {
 
     /**
      * Check if a recording file exists on the NAS mount
-     * @param remotePath - Full remote path or path under /recordings
+     * @param customerCode - Authenticated tenant's customer code
+     * @param callUuid - Recording call UUID
      */
-    async checkFileExists(remotePath: string): Promise<boolean> {
+    async checkFileExists(customerCode: string, callUuid: string): Promise<boolean> {
         try {
-            const localPath = this.getLocalPath(remotePath);
+            const localPath = this.getLocalPath(customerCode, callUuid);
             return fs.existsSync(localPath);
         } catch (error) {
             this.logger.error(`Failed to check recording file existence: ${error.message}`);
@@ -61,15 +80,17 @@ export class RecordingStorageService {
 
     /**
      * Stream a recording file from the NAS mount
-     * @param remotePath - Full remote path or path under /recordings
+     * @param customerCode - Authenticated tenant's customer code
+     * @param callUuid - Recording call UUID
      * @param res - Response object
      */
-    async streamAudio(remotePath: string, res: any): Promise<void> {
+    async streamAudio(customerCode: string, callUuid: string, res: any): Promise<void> {
         try {
-            const localPath = this.getLocalPath(remotePath);
-            if (!fs.existsSync(localPath)) {
-                res.status(404).send('Recording file not found');
-                return;
+            const localPath = this.getLocalPath(customerCode, callUuid);
+            const descriptor = fs.openSync(localPath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+            if (!fs.fstatSync(descriptor).isFile()) {
+                fs.closeSync(descriptor);
+                throw new Error('Recording is not a regular file');
             }
 
             res.setHeader('Content-Type', 'audio/mpeg'); // Or audio/wav based on file extension
@@ -77,7 +98,7 @@ export class RecordingStorageService {
             res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
 
             // Stream directly to response
-            const readStream = fs.createReadStream(localPath);
+            const readStream = fs.createReadStream(localPath, { fd: descriptor, autoClose: true });
             readStream.pipe(res);
             
             readStream.on('error', (err) => {
@@ -86,7 +107,7 @@ export class RecordingStorageService {
             });
         } catch (error) {
             this.logger.error(`Failed to stream recording: ${error.message}`);
-            if (!res.headersSent) res.status(500).send('Internal server error');
+            if (!res.headersSent) res.status(404).send('Recording file not found');
         }
     }
 }

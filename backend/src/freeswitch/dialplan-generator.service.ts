@@ -8,6 +8,30 @@ const AUDIO_INVALID = '/opt/ivr_audio/system/invalid_input.wav';
 const AUDIO_UNAVAILABLE = '/opt/ivr_audio/system/ext_unavailable.wav';
 const AUDIO_NOINPUT = '/opt/ivr_audio/system/ivr_no_input.wav';
 
+function escapeXmlAttribute(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function ivrAudioPath(value: string): string {
+  // play_and_get_digits takes whitespace-delimited arguments; XML escaping by
+  // itself cannot prevent a path from becoming another application argument.
+  if (!/^\/[A-Za-z0-9_./-]+$/.test(value) || value.split('/').includes('..')) {
+    throw new Error('Invalid IVR greeting audio path');
+  }
+  return escapeXmlAttribute(value);
+}
+
+function dialplanKeyOperand(value: string): string {
+  if (!/^[A-Za-z0-9_]+$/.test(value)) throw new Error('Invalid dialplan key');
+  return escapeXmlAttribute(value);
+}
+
+function bridgeOperand(value: string): string {
+  if (!/^[A-Za-z0-9_+@./:#*-]+$/.test(value)) throw new Error('Invalid bridge operand');
+  return escapeXmlAttribute(value);
+}
+
 /**
  * Dialplan Generator Service
  * 
@@ -46,7 +70,9 @@ export class DialplanGeneratorService {
     enableRecording: boolean = false,
     customerCode: string = ''
   ): string {
-    const server = sipServer || this.sipServer;
+    dialplanKey = dialplanKeyOperand(dialplanKey);
+    extensionNumber = bridgeOperand(extensionNumber);
+    const server = bridgeOperand(sipServer || this.sipServer);
     const recordingVariables = enableRecording && customerCode ? this.getRecordingVariablesBlock() : '';
     const executeOnAnswer = enableRecording && customerCode
       ? `,execute_on_answer='record_session ${this.fsRecordingPath}/${customerCode}/\${uuid}.mp3'`
@@ -88,7 +114,11 @@ export class DialplanGeneratorService {
     customerCode: string = '',
     gateway?: string
   ): string {
-    const server = sipServer || this.sipServer;
+    dialplanKey = dialplanKeyOperand(dialplanKey);
+    extensionNumber = bridgeOperand(extensionNumber);
+    forwardDestination = bridgeOperand(forwardDestination);
+    gateway = gateway ? bridgeOperand(gateway) : undefined;
+    const server = bridgeOperand(sipServer || this.sipServer);
     const recordingVariables = enableRecording && customerCode ? this.getRecordingVariablesBlock() : '';
     const executeOnAnswerString = enableRecording && customerCode
       ? `,execute_on_answer='record_session ${this.fsRecordingPath}/${customerCode}/\${uuid}.mp3'`
@@ -141,6 +171,9 @@ export class DialplanGeneratorService {
     customerCode: string = '',
     gateway?: string
   ): string {
+    dialplanKey = dialplanKeyOperand(dialplanKey);
+    forwardDestination = bridgeOperand(forwardDestination);
+    gateway = gateway ? bridgeOperand(gateway) : undefined;
     const recordingVariables = enableRecording && customerCode ? this.getRecordingVariablesBlock() : '';
     const executeOnAnswer = enableRecording && customerCode
       ? `,execute_on_answer='record_session ${this.fsRecordingPath}/${customerCode}/\${uuid}.mp3'`
@@ -191,7 +224,9 @@ export class DialplanGeneratorService {
     enableRecording: boolean = false,
     customerCode: string = ''
   ): string {
-    const server = sipServer || this.sipServer;
+    dialplanKey = dialplanKeyOperand(dialplanKey);
+    members = members.map(member => ({ ...member, extensionNumber: bridgeOperand(member.extensionNumber) }));
+    const server = bridgeOperand(sipServer || this.sipServer);
     const recordingVariables = enableRecording && customerCode ? this.getRecordingVariablesBlock() : '';
     const executeOnAnswerString = enableRecording && customerCode
       ? `,execute_on_answer='record_session ${this.fsRecordingPath}/${customerCode}/\${uuid}.mp3'`
@@ -283,7 +318,10 @@ ${actions}
    * @param gateway Required - resolved from DB by the caller (FreeSwitchSyncService)
    */
   generateDIDForwardXML(dialplanKey: string, destination: string, gateway: string): string {
-    const gw = gateway;
+    dialplanKey = dialplanKeyOperand(dialplanKey);
+    if (!/^\+?[0-9]{3,20}$/.test(destination)) throw new Error('Invalid forwarded phone number');
+    destination = escapeXmlAttribute(destination);
+    const gw = bridgeOperand(gateway);
     return `<?xml version="1.0" encoding="UTF-8"?>
 <document type="freeswitch/xml">
   <section name="dialplan">
@@ -323,6 +361,20 @@ ${actions}
       weekdays: string; // e.g. "2-6"
     }
   ): string {
+    dialplanKey = dialplanKeyOperand(dialplanKey);
+    if (!/^[A-Za-z0-9_+\/-]+$/.test(timezone) || timezone.split('/').includes('..')) {
+      throw new Error('Invalid schedule timezone');
+    }
+    timezone = escapeXmlAttribute(timezone);
+    if (!/^[0-9,-]+$/.test(rules.weekdays)
+      || !/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(rules.startTime)
+      || !/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(rules.endTime)) {
+      throw new Error('Invalid schedule time window');
+    }
+    rules = { ...rules,
+      afterHoursRoute: rules.afterHoursRoute ? dialplanKeyOperand(rules.afterHoursRoute) : '',
+      primaryRoute: rules.primaryRoute ? dialplanKeyOperand(rules.primaryRoute) : '',
+      weekendRoute: rules.weekendRoute ? dialplanKeyOperand(rules.weekendRoute) : '' };
     // Convert HH:mm to minutes-of-day
     const toMinutes = (timeStr: string) => {
       const [h, m] = timeStr.split(':').map(Number);
@@ -403,6 +455,7 @@ ${actions}
     greetingPath: string,
     menu: any // Complex nested JSON
   ): Map<string, string> {
+    baseKey = dialplanKeyOperand(baseKey);
     const result = new Map<string, string>();
 
     // --- 1. Main Menu (Level 0) ---
@@ -411,19 +464,19 @@ ${actions}
 
     // data="1 1 {maxTries} {timeout} # {greeting} {invalid} main_choice {pattern} 2000"
     // Using defaults from user example: 3 tries, 5000ms timeout
-    const playDigitsData = `1 1 3 5000 # ${greetingPath} ${AUDIO_INVALID} main_choice ^[0-9]$ 2000`;
+    const playDigitsData = `1 1 3 5000 # ${ivrAudioPath(greetingPath)} ${AUDIO_INVALID} main_choice ^[0-9]$ 2000`;
 
     const mainXML = `<?xml version="1.0" encoding="UTF-8"?>
 <document type="freeswitch/xml">
   <section name="dialplan">
     <context name="public">
-      <extension name="${baseKey}_main">
-        <condition field="destination_number" expression="^${baseKey}$">
+      <extension name="${escapeXmlAttribute(baseKey)}_main">
+        <condition field="destination_number" expression="^${escapeXmlAttribute(baseKey)}$">
           <action application="set" data="continue_on_fail=true"/>
           <action application="set" data="call_timeout=25"/>
           <action application="answer"/>
           <action application="sleep" data="200"/>
-          <action application="export" data="route_key=${baseKey}"/>
+          <action application="export" data="route_key=${escapeXmlAttribute(baseKey)}"/>
           <action application="play_and_get_digits" data="${playDigitsData}"/>
           <action application="transfer" data="910\${main_choice} XML public"/>
         </condition>
@@ -438,6 +491,7 @@ ${actions}
     // Generated ID: ivr{n}_{customer}__910{digit}
 
     for (const [digit, action] of Object.entries(menu)) {
+      if (!/^[0-9]$/.test(digit)) throw new Error('Invalid IVR menu digit');
       const entry = action as any;
       const level1Code = `910${digit}`;
       const dialplanId = `${baseKey}__${level1Code}`;
@@ -447,7 +501,7 @@ ${actions}
         // XML Name: {baseKey}_sub_{level1Code} (e.g. ivr1_1001_sub_9101)
         // Transfer logic: 920{digit}{sub_choice} -> e.g. 92011, 92012
         const subProps = entry.props || {};
-        const subGreeting = subProps.greeting || greetingPath;
+        const subGreeting = ivrAudioPath(subProps.greeting || greetingPath);
 
         const subTransferData = `920${digit}\${sub_choice} XML public`;
 
@@ -455,7 +509,7 @@ ${actions}
 <document type="freeswitch/xml">
   <section name="dialplan">
     <context name="public">
-      <extension name="${baseKey}_sub_${level1Code}">
+      <extension name="${escapeXmlAttribute(baseKey)}_sub_${level1Code}">
         <condition field="destination_number" expression="^${level1Code}$">
           <action application="set" data="continue_on_fail=true"/>
           <action application="set" data="call_timeout=25"/>
@@ -472,6 +526,7 @@ ${actions}
         // Routing Code: 920{parent}{child}
         const subChildren = entry.children || {};
         for (const [childDigit, childAction] of Object.entries(subChildren)) {
+          if (!/^[0-9]$/.test(childDigit)) throw new Error('Invalid IVR submenu digit');
           const level2Code = `920${digit}${childDigit}`;
           this.generateActionXML(result, baseKey, level2Code, childAction);
         }
@@ -554,10 +609,10 @@ ${actions}
 <document type="freeswitch/xml">
   <section name="dialplan">
     <context name="public">
-      <extension name="${extName}">
+      <extension name="${escapeXmlAttribute(extName)}">
         <condition field="destination_number" expression="^${code}$">
           <action application="set" data="continue_on_fail=true"/>
-          <action application="transfer" data="${baseKey} XML public"/>
+          <action application="transfer" data="${escapeXmlAttribute(baseKey)} XML public"/>
         </condition>
       </extension>
     </context>
@@ -568,15 +623,18 @@ ${actions}
     }
 
     if (dest) {
+      if (!/^[A-Za-z0-9_+*#-]+$/.test(dest)) {
+        throw new Error('Invalid IVR transfer target');
+      }
       const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <document type="freeswitch/xml">
   <section name="dialplan">
     <context name="public">
-      <extension name="${extName}">
+      <extension name="${escapeXmlAttribute(extName)}">
         <condition field="destination_number" expression="^${code}$">
           <action application="set" data="continue_on_fail=true"/>
           <action application="set" data="hangup_after_bridge=true"/>
-          <action application="transfer" data="${dest} XML public"/>
+          <action application="transfer" data="${escapeXmlAttribute(dest)} XML public"/>
         </condition>
       </extension>
     </context>

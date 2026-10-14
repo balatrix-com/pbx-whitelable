@@ -142,13 +142,18 @@ export class TFNsService {
             throw new NotFoundException('TFN not found');
         }
 
-        // Validate route destination if changing
-        if (dto.routeType && dto.routeType !== 'forward') {
-            await this.validateRouteDestination(tenantId, dto.routeType, dto.routeDestinationId);
-        }
-
-        if (dto.routeType === 'forward' && !dto.forwardNumber && !existing.forwardNumber) {
-            throw new BadRequestException('Forward number is required for forward route type');
+        const effectiveType = dto.routeType ?? existing.routeType;
+        const effectiveTarget = dto.routeDestinationId ?? existing.routeTargetId ?? undefined;
+        const effectiveForward = dto.forwardNumber ?? existing.forwardNumber;
+        if (dto.routeType !== undefined || dto.routeDestinationId !== undefined || dto.forwardNumber !== undefined) {
+            if (effectiveType === 'forward') {
+                if (dto.routeDestinationId) throw new BadRequestException('Forward routes do not use a destination ID');
+                if (!effectiveForward) throw new BadRequestException('Forward number is required for forward route type');
+            } else if (effectiveType) {
+                await this.validateRouteDestination(tenantId, effectiveType, effectiveTarget);
+            } else if (dto.routeDestinationId) {
+                throw new BadRequestException('Route type is required for a destination');
+            }
         }
 
         // If the number is being changed, handle Redis lookup cleanup
@@ -158,13 +163,15 @@ export class TFNsService {
 
         // Update
         const updated = await this.prisma.tFN.update({
-            where: { id },
+            where: { id, tenantId },
             data: {
                 ...(dto.tfnNumber && { number: dto.tfnNumber }),
                 ...(dto.routeType && { routeType: dto.routeType }),
-                ...(dto.routeDestinationId !== undefined && { routeTargetId: dto.routeDestinationId }),
+                ...(dto.routeType === 'forward'
+                    ? { routeTargetId: null }
+                    : dto.routeDestinationId !== undefined ? { routeTargetId: dto.routeDestinationId } : {}),
                 ...(dto.forwardNumber !== undefined && { forwardNumber: dto.forwardNumber }),
-                ...(dto.routeType === 'forward' ? { forwardEnabled: true } : { forwardEnabled: false }),
+                ...(dto.routeType !== undefined && { forwardEnabled: dto.routeType === 'forward' }),
             },
         });
 

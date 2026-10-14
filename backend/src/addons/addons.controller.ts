@@ -7,6 +7,7 @@ import { Role } from '@prisma/client';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import type { User } from '@prisma/client';
 import { Audit } from '../audit/audit.decorator';
+import { resolveTenantScope } from '../auth/tenant-scope';
 
 class AddonQuoteDto {
     tenantId?: string;
@@ -32,14 +33,14 @@ export class AddonsController {
     }
 
     @Post('catalog')
-    @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+    @Roles(Role.SUPER_ADMIN)
     @Audit('ADDON_CATALOG_CREATED', 'PLANS_ADDONS')
     createCatalogItem(@Body() body: any) {
         return this.addonsService.createCatalogItem(body);
     }
 
     @Delete('catalog/:addonId')
-    @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+    @Roles(Role.SUPER_ADMIN)
     @Audit('ADDON_CATALOG_DELETED', 'PLANS_ADDONS')
     deleteCatalogItem(@Param('addonId') addonId: string) {
         return this.addonsService.deleteCatalogItem(addonId);
@@ -47,24 +48,21 @@ export class AddonsController {
 
     @Get('subscription/:subscriptionId')
     @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.SUPPORT)
-    getSubscriptionAddons(@Param('subscriptionId') subscriptionId: string) {
-        return this.addonsService.getSubscriptionAddons(subscriptionId);
+    getSubscriptionAddons(@GetUser() user: User, @Param('subscriptionId') subscriptionId: string) {
+        return this.addonsService.getSubscriptionAddons(user, subscriptionId);
     }
 
     @Delete('subscription/:subscriptionAddonId')
     @Roles(Role.SUPER_ADMIN, Role.ADMIN)
     @Audit('ADDON_CANCELLED', 'PLANS_ADDONS')
-    cancelSubscriptionAddon(@Param('subscriptionAddonId') subscriptionAddonId: string) {
-        return this.addonsService.cancelSubscriptionAddon(subscriptionAddonId);
+    cancelSubscriptionAddon(@GetUser() user: User, @Param('subscriptionAddonId') subscriptionAddonId: string) {
+        return this.addonsService.cancelSubscriptionAddon(user, subscriptionAddonId);
     }
 
     @Post('quote')
     @Roles(Role.SUPER_ADMIN, Role.ADMIN)
     getQuote(@GetUser() user: User, @Body() body: AddonQuoteDto) {
-        const tenantId = body.tenantId || user.tenantId;
-        if (!tenantId) {
-            throw new BadRequestException('Tenant ID is required');
-        }
+        const tenantId = resolveTenantScope(user, body.tenantId);
         if (!body.addonId) {
             throw new BadRequestException('addonId is required');
         }
@@ -75,10 +73,7 @@ export class AddonsController {
     @Roles(Role.SUPER_ADMIN, Role.ADMIN)
     @Audit('ADDON_PURCHASED', 'PLANS_ADDONS')
     purchaseAddon(@GetUser() user: User, @Body() body: AddonPurchaseDto) {
-        const tenantId = body.tenantId || user.tenantId;
-        if (!tenantId) {
-            throw new BadRequestException('Tenant ID is required');
-        }
+        const tenantId = resolveTenantScope(user, body.tenantId);
         if (!body.addonId) {
             throw new BadRequestException('addonId is required');
         }
@@ -89,12 +84,13 @@ export class AddonsController {
     @Roles(Role.SUPER_ADMIN, Role.ADMIN)
     @Audit('ADDON_AUTO_RENEW_TOGGLED', 'PLANS_ADDONS')
     toggleAutoRenew(
+        @GetUser() user: User,
         @Param('subscriptionAddonId') subscriptionAddonId: string,
         @Body('auto_renew') autoRenew: boolean
     ) {
         if (typeof autoRenew !== 'boolean') {
             throw new BadRequestException('auto_renew boolean is required');
         }
-        return this.addonsService.toggleAutoRenew(subscriptionAddonId, autoRenew);
+        return this.addonsService.toggleAutoRenew(user, subscriptionAddonId, autoRenew);
     }
 }

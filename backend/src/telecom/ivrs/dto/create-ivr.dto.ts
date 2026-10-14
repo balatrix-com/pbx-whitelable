@@ -27,7 +27,7 @@ export class CreateIVRDto {
 }
 
 export interface MenuAction {
-    type: 'extension' | 'ring_group' | 'ivr' | 'repeat' | 'hangup' | 'external' | 'submenu' | 'back';
+    type: 'extension' | 'ring_group' | 'ivr' | 'schedule' | 'did_forward' | 'forward' | 'repeat' | 'hangup' | 'external' | 'submenu' | 'back';
     target?: string; // Extension ID, Ring Group ID, IVR ID, or phone number
     props?: Record<string, any>; // Additional properties like greeting override
     children?: Record<string, MenuAction>; // Nested menu for submenus

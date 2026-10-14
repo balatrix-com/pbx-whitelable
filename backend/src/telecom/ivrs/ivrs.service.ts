@@ -190,7 +190,7 @@ export class IVRsService {
                 }
 
                 // Validate target exists for types that require one
-                if (['extension', 'ring_group', 'ivr', 'external'].includes(action.type)) {
+                if (['extension', 'ring_group', 'ivr', 'external', 'schedule', 'did_forward', 'forward'].includes(action.type)) {
                     // External just needs a number string, no DB check
                     if (action.type === 'external') {
                         if (!action.target) throw new BadRequestException(`External number missing for digit "${digit}"`);
@@ -229,7 +229,19 @@ export class IVRsService {
                                 `Target IVR not found`,
                             );
                         }
+                    } else if (action.type === 'schedule') {
+                        const schedule = await this.prisma.operationalSchedule.findFirst({
+                            where: { id: action.target, tenantId },
+                        });
+                        if (!schedule) throw new BadRequestException('Schedule not found');
+                    } else if (action.type === 'did_forward' || action.type === 'forward') {
+                        const forward = await this.prisma.dIDForward.findFirst({
+                            where: { id: action.target, tenantId },
+                        });
+                        if (!forward) throw new BadRequestException('DID forward not found');
                     }
+                } else {
+                    throw new BadRequestException(`Unknown menu action type: ${action.type}`);
                 }
             }
         };

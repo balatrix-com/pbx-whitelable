@@ -45,26 +45,17 @@ export class UsersService {
         if (admin.role === Role.SUPER_ADMIN) return true;
 
         if (admin.role === Role.ADMIN) {
+            if (!admin.tenantId) return false;
             // ADMIN can manage any user in their tenant
             const target = await this.prisma.user.findUnique({
                 where: { id: targetUserId },
                 select: { tenantId: true }
             });
 
-            if (target && target.tenantId === admin.tenantId) {
-                return true;
-            }
+            return !!target && target.tenantId === admin.tenantId;
         }
 
-        // Fallback to SupportProfile check (legacy or specific cross-tenant cases?)
-        const supportProfile = await this.prisma.supportProfile.findFirst({
-            where: {
-                adminUserId: adminId,
-                supportUserId: targetUserId
-            }
-        });
-
-        return !!supportProfile;
+        return false;
     }
 
     async listUsers(userId: string, query?: PaginationQueryDto) {
@@ -170,8 +161,11 @@ export class UsersService {
         });
 
         if (!admin) throw new NotFoundException('Admin user not found');
-        if (admin.role === Role.SUPPORT) {
-            throw new ForbiddenException('Support users cannot create other users');
+        if (admin.role !== Role.ADMIN && admin.role !== Role.SUPER_ADMIN) {
+            throw new ForbiddenException('Only administrators can create support users');
+        }
+        if (admin.role === Role.ADMIN && !admin.tenantId) {
+            throw new ForbiddenException('Admin must belong to a tenant');
         }
 
         // Check if email already exists
@@ -187,11 +181,7 @@ export class UsersService {
         const hashedPassword = await bcrypt.hash(dto.password, 10);
 
         // Determine tenantId
-        const tenantId = admin.role === Role.SUPER_ADMIN ? admin.tenantId : admin.tenantId;
-
-        if (!tenantId && admin.role === Role.ADMIN) {
-            throw new BadRequestException('Admin must belong to a tenant');
-        }
+        const tenantId = admin.tenantId;
 
         // Restriction: Only 1 support user per tenant
         const existingSupport = await this.prisma.user.findFirst({
@@ -484,6 +474,13 @@ export class UsersService {
         });
 
         if (!admin) throw new NotFoundException('Admin not found');
+
+        if (admin.role !== Role.ADMIN && admin.role !== Role.SUPER_ADMIN) {
+            throw new ForbiddenException('Only administrators can invite support users');
+        }
+        if (admin.role === Role.ADMIN && !admin.tenantId) {
+            throw new ForbiddenException('Admin must belong to a tenant');
+        }
 
         // Check if user exists
         const existingUser = await this.prisma.user.findUnique({

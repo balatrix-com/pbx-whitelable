@@ -1,10 +1,23 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, BadGatewayException, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
-import { TransactionType } from '@prisma/client';
+import { Role, TransactionType } from '@prisma/client';
+import { resolveTenantScope, TenantPrincipal } from '../auth/tenant-scope';
+
+interface BillingSubscription {
+    id: string;
+    subscription_id: string;
+    customer_id: string;
+}
+
+interface BillingAddon {
+    id: string;
+    subscription_id: string;
+    [key: string]: unknown;
+}
 
 export interface AddonCatalogItem {
     addon_id: string;
@@ -142,23 +155,81 @@ export class AddonsService {
         }
     }
 
-    async getSubscriptionAddons(subscriptionId: string) {
-        try {
-            const response = await firstValueFrom(
-                this.httpService.get(`${this.subBillingUrl}/addons/subscription/${subscriptionId}`)
-            );
-            return response.data;
-        } catch (error) {
-            const status = error.response?.status || 500;
-            const message = error.response?.data?.message || error.message;
-            throw new BadRequestException(`Failed to fetch subscription addons: ${message}`);
+    private assertResourceId(id: string): void {
+        if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(id)) {
+            throw new BadRequestException('Invalid resource ID');
         }
     }
 
-    async cancelSubscriptionAddon(subscriptionAddonId: string) {
+    private async getOwnedSubscriptions(user: TenantPrincipal): Promise<BillingSubscription[]> {
+        const tenantId = resolveTenantScope(user);
+        const customerId = await this.walletService.getSubBillingCustomerId(tenantId);
+        let data: any;
         try {
             const response = await firstValueFrom(
-                this.httpService.delete(`${this.subBillingUrl}/addons/subscription/${subscriptionAddonId}`)
+                this.httpService.get(`${this.subBillingUrl}/subscriptions/customer/${encodeURIComponent(customerId)}`)
+            );
+            data = response.data;
+        } catch (error) {
+            throw new BadGatewayException('Unable to verify subscription ownership');
+        }
+        if (data?.success !== true || !Array.isArray(data.data) ||
+            data.data.some((sub: any) => !sub || typeof sub.id !== 'string' ||
+                !/^[a-zA-Z0-9_-]+$/.test(sub.id) || sub.customer_id !== customerId)) {
+            throw new BadGatewayException('Unable to verify subscription ownership');
+        }
+        return data.data;
+    }
+
+    private async fetchSubscriptionAddons(subscriptionId: string): Promise<BillingAddon[]> {
+        this.assertResourceId(subscriptionId);
+        let data: any;
+        try {
+            const response = await firstValueFrom(
+                this.httpService.get(`${this.subBillingUrl}/addons/subscription/${encodeURIComponent(subscriptionId)}`)
+            );
+            data = response.data;
+        } catch (error) {
+            throw new BadGatewayException('Unable to fetch subscription addons');
+        }
+        if (data?.success !== true || !Array.isArray(data.data) ||
+            data.data.some((addon: any) => !addon || typeof addon.id !== 'string' ||
+                addon.subscription_id !== subscriptionId)) {
+            throw new BadGatewayException('Invalid subscription addon response');
+        }
+        return data.data;
+    }
+
+    async getSubscriptionAddons(user: TenantPrincipal, subscriptionId: string) {
+        this.assertResourceId(subscriptionId);
+        let authorizedId = subscriptionId;
+        if (user.role !== Role.SUPER_ADMIN) {
+            const subscriptions = await this.getOwnedSubscriptions(user);
+            const owned = subscriptions.find(sub => sub.id === subscriptionId || sub.subscription_id === subscriptionId);
+            if (!owned) throw new NotFoundException('Subscription not found');
+            authorizedId = owned.id;
+        }
+        return { success: true, data: await this.fetchSubscriptionAddons(authorizedId) };
+    }
+
+    private async assertAddonOwner(user: TenantPrincipal, subscriptionAddonId: string): Promise<void> {
+        this.assertResourceId(subscriptionAddonId);
+        if (user.role === Role.SUPER_ADMIN) return;
+        // The private API has no addon-by-ID ownership endpoint. Discover the row
+        // only through this customer's subscriptions; never trust a client parent ID.
+        const subscriptions = await this.getOwnedSubscriptions(user);
+        for (const subscription of subscriptions) {
+            const addons = await this.fetchSubscriptionAddons(subscription.id);
+            if (addons.some(addon => addon.id === subscriptionAddonId)) return;
+        }
+        throw new NotFoundException('Subscription addon not found');
+    }
+
+    async cancelSubscriptionAddon(user: TenantPrincipal, subscriptionAddonId: string) {
+        await this.assertAddonOwner(user, subscriptionAddonId);
+        try {
+            const response = await firstValueFrom(
+                this.httpService.delete(`${this.subBillingUrl}/addons/subscription/${encodeURIComponent(subscriptionAddonId)}`)
             );
             return response.data;
         } catch (error) {
@@ -168,10 +239,11 @@ export class AddonsService {
         }
     }
 
-    async toggleAutoRenew(subscriptionAddonId: string, autoRenew: boolean) {
+    async toggleAutoRenew(user: TenantPrincipal, subscriptionAddonId: string, autoRenew: boolean) {
+        await this.assertAddonOwner(user, subscriptionAddonId);
         try {
             const response = await firstValueFrom(
-                this.httpService.patch(`${this.subBillingUrl}/addons/subscriptions/${subscriptionAddonId}/auto-renew`, { auto_renew: autoRenew })
+                this.httpService.patch(`${this.subBillingUrl}/addons/subscriptions/${encodeURIComponent(subscriptionAddonId)}/auto-renew`, { auto_renew: autoRenew })
             );
             return response.data;
         } catch (error) {
@@ -184,7 +256,7 @@ export class AddonsService {
         if (!tenantId) throw new BadRequestException('Tenant ID is required');
         const qty = Math.max(1, Number(quantity) || 1);
 
-        const customerId = await this.walletService.getSubBillingCustomerId(tenantId).catch(() => tenantId);
+        const customerId = await this.walletService.getSubBillingCustomerId(tenantId);
 
         // 1. Try fetching official quote from Sub-Billing
         try {
@@ -265,7 +337,7 @@ export class AddonsService {
             );
         }
 
-        const customerId = await this.walletService.getSubBillingCustomerId(tenantId).catch(() => tenantId);
+        const customerId = await this.walletService.getSubBillingCustomerId(tenantId);
 
         // Execute purchase in Sub-Billing
         try {

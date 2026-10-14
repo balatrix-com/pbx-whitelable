@@ -181,15 +181,18 @@ export class DIDsService {
             throw new NotFoundException('DID not found');
         }
 
-        // If changing route type or destination, validate
-        if (dto.routeType && dto.routeType !== 'forward') {
-            const destinationId = dto.routeDestinationId || existing.routeTargetId || undefined;
-            await this.validateRouteDestination(tenantId, dto.routeType, destinationId);
-        }
-
-        // Validate forward number for forward type
-        if (dto.routeType === 'forward' && !dto.forwardNumber && !existing.forwardNumber) {
-            throw new BadRequestException('Forward number is required for forward route type');
+        const effectiveType = dto.routeType ?? existing.routeType;
+        const effectiveTarget = dto.routeDestinationId ?? existing.routeTargetId ?? undefined;
+        const effectiveForward = dto.forwardNumber ?? existing.forwardNumber;
+        if (dto.routeType !== undefined || dto.routeDestinationId !== undefined || dto.forwardNumber !== undefined) {
+            if (effectiveType === 'forward') {
+                if (dto.routeDestinationId) throw new BadRequestException('Forward routes do not use a destination ID');
+                if (!effectiveForward) throw new BadRequestException('Forward number is required for forward route type');
+            } else if (effectiveType) {
+                await this.validateRouteDestination(tenantId, effectiveType, effectiveTarget);
+            } else if (dto.routeDestinationId) {
+                throw new BadRequestException('Route type is required for a destination');
+            }
         }
 
         // If the number is being changed, handle Redis lookup cleanup
@@ -199,11 +202,11 @@ export class DIDsService {
 
         // Update
         const updated = await this.prisma.dID.update({
-            where: { id },
+            where: { id, tenantId },
             data: {
                 number: dto.didNumber,
                 routeType: dto.routeType,
-                routeTargetId: dto.routeDestinationId,
+                routeTargetId: dto.routeType === 'forward' ? null : dto.routeDestinationId,
                 forwardNumber: dto.forwardNumber,
             },
         });
@@ -295,6 +298,8 @@ export class DIDsService {
             if (!forward) {
                 throw new BadRequestException('DID Forward not found');
             }
+        } else {
+            throw new BadRequestException(`Unknown route type: ${routeType}`);
         }
     }
 }

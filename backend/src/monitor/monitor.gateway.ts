@@ -16,6 +16,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 
 const ANALYTICS_INTERVAL_MS = 30_000; // 30 seconds
+const AUTHORIZATION_INTERVAL_MS = 15_000;
 
 @WebSocketGateway({
     path: '/api/socket.io',
@@ -30,7 +31,10 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
 
     /** tenantId → set of socket IDs currently in that room */
     private readonly tenantRooms = new Map<string, Set<string>>();
+    private readonly activeClients = new Map<string, Socket>();
+    private readonly expiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
     private analyticsTimer?: ReturnType<typeof setInterval>;
+    private authorizationTimer?: ReturnType<typeof setInterval>;
 
     constructor(
         @Inject(REDIS_SUBSCRIBER) private readonly redisSubscriber: RedisClientType,
@@ -46,6 +50,7 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
             // Subscribe to calls_stream
             this.logger.log('Subscribing to calls_stream...');
             await this.redisSubscriber.subscribe('calls_stream', (message) => {
+                this.disconnectExpiredClients();
                 this.logger.log(`Received Redis Message: ${message.substring(0, 50)}...`); // DEBUG
                 try {
                     const rawData = JSON.parse(message);
@@ -95,6 +100,9 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
 
         // Start the analytics snapshot ticker
         this.startAnalyticsTicker();
+        this.authorizationTimer = setInterval(() => {
+            void this.revalidateActiveClients();
+        }, AUTHORIZATION_INTERVAL_MS);
     }
 
     // ---------------------------------------------------------------------------
@@ -103,13 +111,18 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
 
     private startAnalyticsTicker() {
         this.analyticsTimer = setInterval(async () => {
-            if (this.tenantRooms.size === 0) return;
+            await this.revalidateActiveClients();
+            if (this.activeClients.size === 0) return;
 
-            for (const [tenantId, socketIds] of this.tenantRooms.entries()) {
-                if (socketIds.size === 0) continue;
+            const requestedTenants = new Set<string>();
+            for (const client of this.activeClients.values()) {
+                for (const tenantId of client.data.joinedTenantIds || []) requestedTenants.add(tenantId);
+            }
+            for (const tenantId of requestedTenants) {
 
                 try {
                     const snapshot = await this.buildAnalyticsSnapshot(tenantId);
+                    this.disconnectExpiredClients();
                     this.server.to(`tenant:${tenantId}`).emit('analytics_snapshot', snapshot);
                 } catch (err) {
                     this.logger.warn(`Analytics snapshot failed for tenant ${tenantId}: ${err.message}`);
@@ -198,6 +211,51 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     // Socket lifecycle
     // ---------------------------------------------------------------------------
 
+    private canMonitor(user: { role: string; monitoringEnabled: boolean }): boolean {
+        return user.role === 'SUPER_ADMIN' || user.role === 'ADMIN' || user.monitoringEnabled === true;
+    }
+
+    private disconnectExpiredClients() {
+        for (const client of this.activeClients.values()) {
+            if (!client.connected || !client.data.tokenExpiresAt || Date.now() >= client.data.tokenExpiresAt) {
+                client.disconnect(true);
+            }
+        }
+    }
+
+    private async revalidateClient(client: Socket): Promise<boolean> {
+        if (!client.connected || !client.data.user || Date.now() >= client.data.tokenExpiresAt) {
+            client.disconnect(true);
+            return false;
+        }
+
+        try {
+            const current = await this.prismaService.user.findUnique({
+                where: { id: client.data.user.sub },
+                select: { role: true, tenantId: true, status: true, monitoringEnabled: true },
+            });
+            const authenticated = client.data.user;
+            if (!current || current.status !== 'ACTIVE' || !this.canMonitor(current)
+                || current.role !== authenticated.role
+                || current.tenantId !== authenticated.tenantId
+                || current.monitoringEnabled !== authenticated.monitoringEnabled
+                || Date.now() >= client.data.tokenExpiresAt) {
+                client.disconnect(true);
+                return false;
+            }
+            return true;
+        } catch (error) {
+            this.logger.warn(`Monitor authorization recheck failed for ${client.id}: ${error.message}`);
+            client.disconnect(true);
+            return false;
+        }
+    }
+
+    private async revalidateActiveClients() {
+        this.disconnectExpiredClients();
+        await Promise.all(Array.from(this.activeClients.values()).map(client => this.revalidateClient(client)));
+    }
+
     async handleConnection(client: Socket) {
         try {
             const token = client.handshake.auth?.token || client.handshake.query?.token;
@@ -208,26 +266,42 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
             }
 
             const payload = this.jwtService.verify(token);
-
-            // Check permissions
-            const canMonitor = payload.role === 'SUPER_ADMIN' || payload.role === 'ADMIN' || payload.monitoringEnabled === true;
-            if (!canMonitor) {
+            const expiresAt = Number(payload.exp) * 1000;
+            if (!payload.sub || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+                client.disconnect(true);
+                return;
+            }
+            const current = await this.prismaService.user.findUnique({
+                where: { id: payload.sub },
+                select: { role: true, tenantId: true, status: true, monitoringEnabled: true },
+            });
+            if (!current || expiresAt <= Date.now() || current.status !== 'ACTIVE' || !this.canMonitor(current)
+                || current.role !== payload.role || current.tenantId !== payload.tenantId
+                || current.monitoringEnabled !== (payload.monitoringEnabled === true)) {
                 this.logger.warn(`Client ${client.id} (User: ${payload.sub}) denied monitoring access`);
-                client.disconnect();
+                client.disconnect(true);
                 return;
             }
 
-            // Store user info in socket data for later use
-            client.data.user = payload;
+            client.data.user = { sub: payload.sub, role: current.role, tenantId: current.tenantId,
+                monitoringEnabled: current.monitoringEnabled };
+            client.data.tokenExpiresAt = expiresAt;
+            client.data.joinedTenantIds = new Set<string>();
+            this.activeClients.set(client.id, client);
+            this.expiryTimers.set(client.id, setTimeout(() => client.disconnect(true), expiresAt - Date.now()));
             this.logger.log(`Client connected: ${client.id} (User: ${payload.sub})`);
         } catch (err) {
             this.logger.error(`Connection unauthorized: ${err.message}`);
-            client.disconnect();
+            client.disconnect(true);
         }
     }
 
     handleDisconnect(client: Socket) {
         this.logger.log(`Client disconnected: ${client.id}`);
+        const expiryTimer = this.expiryTimers.get(client.id);
+        if (expiryTimer) clearTimeout(expiryTimer);
+        this.expiryTimers.delete(client.id);
+        this.activeClients.delete(client.id);
         // Remove from all tenant rooms
         for (const [tenantId, socketIds] of this.tenantRooms.entries()) {
             socketIds.delete(client.id);
@@ -240,6 +314,7 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     @SubscribeMessage('join_room')
     async handleJoinRoom(@MessageBody() tenantId: string, @ConnectedSocket() client: Socket) {
         this.logger.log(`Received join_room request for tenant: ${tenantId}`); // DEBUG
+        if (!await this.revalidateClient(client)) return;
         const user = client.data.user;
         if (!user) {
             this.logger.warn(`Join room failed: No user attached to socket ${client.id}`);
@@ -291,18 +366,23 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
             }
             this.tenantRooms.get(room)!.add(client.id);
         }
+        client.data.joinedTenantIds.add(tenantId);
 
         this.logger.log(`Client ${client.id} joined rooms: ${Array.from(roomsToJoin).join(', ')} for user ${user.sub}`);
         client.emit('room_joined', { room: Array.from(roomsToJoin)[0], rooms: Array.from(roomsToJoin) });
 
         // Emit an immediate snapshot so the client doesn't wait 30s
-        this.buildAnalyticsSnapshot(tenantId)
-            .then(snapshot => client.emit('analytics_snapshot', snapshot))
-            .catch(err => this.logger.warn(`Immediate snapshot failed: ${err.message}`));
+        try {
+            const snapshot = await this.buildAnalyticsSnapshot(tenantId);
+            if (await this.revalidateClient(client)) client.emit('analytics_snapshot', snapshot);
+        } catch (err) {
+            this.logger.warn(`Immediate snapshot failed: ${err.message}`);
+        }
     }
 
     @SubscribeMessage('leave_room')
     async handleLeaveRoom(@MessageBody() tenantId: string, @ConnectedSocket() client: Socket) {
+        if (!await this.revalidateClient(client)) return;
         const roomsToLeave = new Set<string>();
 
         if (tenantId === 'all') {
@@ -339,6 +419,7 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
                 if (socketIds.size === 0) this.tenantRooms.delete(room);
             }
         }
+        client.data.joinedTenantIds.delete(tenantId);
 
         this.logger.log(`Client ${client.id} left rooms: ${Array.from(roomsToLeave).join(', ')}`);
         client.emit('room_left', { room: `tenant:${tenantId}` });
@@ -346,6 +427,10 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
 
     @SubscribeMessage('ping')
     handlePing(@ConnectedSocket() client: Socket) {
+        if (Date.now() >= client.data.tokenExpiresAt) {
+            client.disconnect(true);
+            return;
+        }
         this.logger.log(`Ping from ${client.id}`);
         return { event: 'pong', data: { time: Date.now() } };
     }

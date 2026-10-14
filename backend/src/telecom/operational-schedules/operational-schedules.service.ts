@@ -78,12 +78,12 @@ export class OperationalSchedulesService {
         // Validate route targets exist
         await this.validateRouteTarget(tenantId, dto.primaryRouteType, dto.primaryRouteTargetId);
 
-        if (dto.afterHoursRouteType && dto.afterHoursRouteTargetId) {
-            await this.validateRouteTarget(tenantId, dto.afterHoursRouteType, dto.afterHoursRouteTargetId);
+        if (dto.afterHoursRouteType || dto.afterHoursRouteTargetId) {
+            await this.validateRouteTarget(tenantId, dto.afterHoursRouteType || '', dto.afterHoursRouteTargetId);
         }
 
-        if (dto.weekendRouteType && dto.weekendRouteTargetId) {
-            await this.validateRouteTarget(tenantId, dto.weekendRouteType, dto.weekendRouteTargetId);
+        if (dto.weekendRouteType || dto.weekendRouteTargetId) {
+            await this.validateRouteTarget(tenantId, dto.weekendRouteType || '', dto.weekendRouteTargetId);
         }
 
         // Calculate daysMask from start/end days
@@ -132,17 +132,31 @@ export class OperationalSchedulesService {
             throw new NotFoundException('Schedule not found');
         }
 
-        // Validate route targets if being updated
-        if (dto.primaryRouteType && dto.primaryRouteTargetId) {
-            await this.validateRouteTarget(tenantId, dto.primaryRouteType, dto.primaryRouteTargetId);
-        }
-
-        if (dto.afterHoursRouteType && dto.afterHoursRouteTargetId) {
-            await this.validateRouteTarget(tenantId, dto.afterHoursRouteType, dto.afterHoursRouteTargetId);
-        }
-
-        if (dto.weekendRouteType && dto.weekendRouteTargetId) {
-            await this.validateRouteTarget(tenantId, dto.weekendRouteType, dto.weekendRouteTargetId);
+        // Validate the effective route after combining a partial request with stored values.
+        const routes = [
+            {
+                changed: dto.primaryRouteType !== undefined || dto.primaryRouteTargetId !== undefined,
+                type: dto.primaryRouteType ?? existing.primaryRouteType,
+                target: dto.primaryRouteTargetId ?? existing.primaryRouteTarget,
+                required: true,
+            },
+            {
+                changed: dto.afterHoursRouteType !== undefined || dto.afterHoursRouteTargetId !== undefined,
+                type: dto.afterHoursRouteType ?? existing.afterHoursRouteType,
+                target: dto.afterHoursRouteTargetId ?? existing.afterHoursRouteTarget,
+                required: false,
+            },
+            {
+                changed: dto.weekendRouteType !== undefined || dto.weekendRouteTargetId !== undefined,
+                type: dto.weekendRouteType ?? existing.weekendRouteType,
+                target: dto.weekendRouteTargetId ?? existing.weekendRouteTarget,
+                required: false,
+            },
+        ];
+        for (const route of routes) {
+            if (!route.changed) continue;
+            if (!route.required && !route.type && !route.target) continue;
+            await this.validateRouteTarget(tenantId, route.type, route.target);
         }
 
         // Calculate daysMask if start/end days are provided
@@ -170,19 +184,19 @@ export class OperationalSchedulesService {
 
         // Update
         const updated = await this.prisma.operationalSchedule.update({
-            where: { id },
+            where: { id, tenantId },
             data: {
                 ...(dto.name && { name: dto.name }),
                 ...(dto.timezone && { timezone: dto.timezone }),
                 ...(dto.businessHoursStart && { startTime: dto.businessHoursStart }),
                 ...(dto.businessHoursEnd && { endTime: dto.businessHoursEnd }),
                 ...(daysMask !== undefined && { daysMask: daysMask }),
-                ...(dto.primaryRouteType && { primaryRouteType: dto.primaryRouteType }),
-                ...(dto.primaryRouteTargetId && { primaryRouteTarget: dto.primaryRouteTargetId }),
-                ...(dto.afterHoursRouteType && { afterHoursRouteType: dto.afterHoursRouteType }),
-                ...(dto.afterHoursRouteTargetId && { afterHoursRouteTarget: dto.afterHoursRouteTargetId }),
-                ...(dto.weekendRouteType && { weekendRouteType: dto.weekendRouteType }),
-                ...(dto.weekendRouteTargetId && { weekendRouteTarget: dto.weekendRouteTargetId }),
+                ...(dto.primaryRouteType !== undefined && { primaryRouteType: dto.primaryRouteType }),
+                ...(dto.primaryRouteTargetId !== undefined && { primaryRouteTarget: dto.primaryRouteTargetId }),
+                ...(dto.afterHoursRouteType !== undefined && { afterHoursRouteType: dto.afterHoursRouteType }),
+                ...(dto.afterHoursRouteTargetId !== undefined && { afterHoursRouteTarget: dto.afterHoursRouteTargetId }),
+                ...(dto.weekendRouteType !== undefined && { weekendRouteType: dto.weekendRouteType }),
+                ...(dto.weekendRouteTargetId !== undefined && { weekendRouteTarget: dto.weekendRouteTargetId }),
             },
         });
 
@@ -298,6 +312,9 @@ export class OperationalSchedulesService {
         routeType: string,
         targetId?: string,
     ): Promise<void> {
+        if (!['extension', 'ring_group', 'ivr'].includes(routeType)) {
+            throw new BadRequestException(`Unknown route type: ${routeType}`);
+        }
         if (!targetId) {
             throw new BadRequestException(`${routeType} route requires a target ID`);
         }

@@ -16,6 +16,7 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { GetUser } from '../../auth/decorators/get-user.decorator';
 import { Role } from '@prisma/client';
+import { resolveTenantScope } from '../../auth/tenant-scope';
 
 @Controller('telecom/dids')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -29,9 +30,7 @@ export class DIDsController {
     @Get()
     @Roles(Role.ADMIN, Role.SUPPORT, Role.SUPER_ADMIN)
     findAll(@GetUser() user: any, @Query('tenantId') tenantId?: string) {
-        const targetTenantId = (user.role === Role.SUPER_ADMIN || user.role === Role.SUPPORT) && tenantId
-            ? tenantId
-            : user.tenantId;
+        const targetTenantId = resolveTenantScope(user, tenantId, true);
         return this.didsService.findAll(targetTenantId);
     }
 
@@ -42,7 +41,7 @@ export class DIDsController {
     @Get(':id')
     @Roles(Role.ADMIN, Role.SUPPORT)
     findOne(@GetUser() user: any, @Param('id') id: string) {
-        return this.didsService.findOne(user.tenantId, id);
+        return this.didsService.findOne(resolveTenantScope(user), id);
     }
 
     /**

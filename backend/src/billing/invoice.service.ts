@@ -2,7 +2,8 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BillingService } from './billing.service'; // Assuming integration later
-import { InvoiceStatus, Prisma } from '@prisma/client';
+import { InvoiceStatus, Prisma, Role } from '@prisma/client';
+import { resolveTenantScope, TenantPrincipal } from '../auth/tenant-scope';
 
 @Injectable()
 export class InvoiceService {
@@ -81,14 +82,21 @@ export class InvoiceService {
         return updated;
     }
 
-    async getInvoice(id: string) {
-        return this.prisma.invoice.findUnique({
-            where: { id },
+    async getInvoice(id: string, user: TenantPrincipal) {
+        const where = user.role === Role.SUPER_ADMIN
+            ? { id }
+            : { id, tenantId: resolveTenantScope(user) };
+        const invoice = await this.prisma.invoice.findUnique({
+            where,
             include: { adjustments: true }
         });
+        if (!invoice) throw new NotFoundException('Invoice not found');
+        return invoice;
     }
 
     async getInvoices(tenantId: string) {
+        // Do not let Prisma omit an undefined tenant predicate.
+        resolveTenantScope({ role: Role.ADMIN, tenantId });
         return this.prisma.invoice.findMany({
             where: { tenantId },
             orderBy: { createdAt: 'desc' },

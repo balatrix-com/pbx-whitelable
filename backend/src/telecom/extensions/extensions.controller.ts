@@ -16,7 +16,7 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { GetUser } from '../../auth/decorators/get-user.decorator';
 import { Role } from '@prisma/client';
-import { Public } from '../../auth/decorators/public.decorator';
+import { resolveTenantScope } from '../../auth/tenant-scope';
 
 @Controller('telecom/extensions')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -31,9 +31,7 @@ export class ExtensionsController {
     @Get()
     @Roles(Role.ADMIN, Role.SUPPORT, Role.SUPER_ADMIN)
     findAll(@GetUser() user: any, @Query('tenantId') tenantId?: string) {
-        const targetTenantId = (user.role === Role.SUPER_ADMIN || user.role === Role.SUPPORT) && tenantId
-            ? tenantId
-            : user.tenantId;
+        const targetTenantId = resolveTenantScope(user, tenantId, true);
         return this.extensionsService.findAll(targetTenantId);
     }
 
@@ -44,9 +42,7 @@ export class ExtensionsController {
     @Get('status')
     @Roles(Role.ADMIN, Role.SUPPORT, Role.SUPER_ADMIN)
     getStatus(@GetUser() user: any, @Query('tenantId') tenantId?: string) {
-        const targetTenantId = (user.role === Role.SUPER_ADMIN || user.role === Role.SUPPORT) && tenantId
-            ? tenantId
-            : user.tenantId;
+        const targetTenantId = resolveTenantScope(user, tenantId, true);
         return this.extensionsService.getActiveStatus(targetTenantId);
     }
 
@@ -57,9 +53,7 @@ export class ExtensionsController {
     @Get('next-number')
     @Roles(Role.ADMIN, Role.SUPER_ADMIN)
     async getNextNumber(@GetUser() user: any, @Query('tenantId') tenantId?: string) {
-        const targetTenantId = (user.role === Role.SUPER_ADMIN) && tenantId
-            ? tenantId
-            : user.tenantId;
+        const targetTenantId = resolveTenantScope(user, tenantId);
         const nextNum = await this.extensionsService.getNextExtensionNumber(targetTenantId);
         return { nextExtensionNumber: nextNum };
     }
@@ -72,18 +66,18 @@ export class ExtensionsController {
     @Get(':id')
     @Roles(Role.ADMIN, Role.SUPPORT)
     findOne(@GetUser() user: any, @Param('id') id: string) {
-        return this.extensionsService.findOne(user.tenantId, id);
+        return this.extensionsService.findOne(resolveTenantScope(user), id);
     }
 
     /**
      * POST /telecom/extensions/sync-from-billing
      * Sync extensions from sub-billing assets into PBX DB, Kamailio, and FreeSWITCH
      */
-    @Public()
     @Post('sync-from-billing')
-    async syncFromBilling(@Body() body: { customerId?: string; tenantId?: string }) {
-        const target = body.tenantId || body.customerId;
-        if (!target) return { success: false, message: 'customerId or tenantId is required' };
+    @Roles(Role.SUPER_ADMIN)
+    async syncFromBilling(@GetUser() user: any, @Body() body: { customerId?: string; tenantId?: string }) {
+        // The legacy customerId alias, like tenantId, must contain the PBX tenant UUID.
+        const target = resolveTenantScope(user, body.tenantId ?? body.customerId);
         await this.extensionsService.syncMissingExtensionsFromSubBilling(target);
         return { success: true, message: `Extensions synced for ${target}` };
     }
@@ -96,9 +90,7 @@ export class ExtensionsController {
     @Post()
     @Roles(Role.SUPER_ADMIN, Role.SUPPORT)
     create(@GetUser() user: any, @Body() dto: CreateExtensionDto & { targetTenantId?: string }) {
-        const tenantId = (user.role === Role.SUPER_ADMIN || user.role === Role.SUPPORT) && dto.targetTenantId
-            ? dto.targetTenantId
-            : user.tenantId;
+        const tenantId = resolveTenantScope(user, dto.targetTenantId, true);
         return this.extensionsService.create(tenantId, dto);
     }
 
@@ -114,7 +106,7 @@ export class ExtensionsController {
         @Param('id') id: string,
         @Body() dto: UpdateExtensionDto,
     ) {
-        return this.extensionsService.update(user.tenantId, id, dto);
+        return this.extensionsService.update(resolveTenantScope(user), id, dto);
     }
 
     /**
@@ -125,9 +117,7 @@ export class ExtensionsController {
     @Delete(':id')
     @Roles(Role.SUPER_ADMIN, Role.SUPPORT)
     remove(@GetUser() user: any, @Param('id') id: string, @Query('tenantId') tenantId?: string) {
-        const targetTenantId = (user.role === Role.SUPER_ADMIN || user.role === Role.SUPPORT) && tenantId
-            ? tenantId
-            : user.tenantId;
+        const targetTenantId = resolveTenantScope(user, tenantId, true);
         return this.extensionsService.remove(targetTenantId, id);
     }
 }

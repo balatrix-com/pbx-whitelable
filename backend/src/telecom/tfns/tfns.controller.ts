@@ -16,6 +16,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { Role } from '@prisma/client';
+import { resolveTenantScope } from '../../auth/tenant-scope';
 
 @Controller('telecom/tfns')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -26,9 +27,7 @@ export class TFNsController {
     @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.SUPPORT)
     findAll(@Request() req: any, @Query('tenantId') tenantId?: string) {
         const user = req.user;
-        const targetTenantId = (user.role === Role.SUPER_ADMIN || user.role === Role.SUPPORT) && tenantId
-            ? tenantId
-            : user.tenantId;
+        const targetTenantId = resolveTenantScope(user, tenantId, true);
         return this.tfnsService.findAll(targetTenantId);
     }
 
@@ -53,7 +52,7 @@ export class TFNsController {
     @Get(':id')
     @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.SUPPORT)
     findOne(@Request() req: any, @Param('id') id: string) {
-        return this.tfnsService.findOne(req.user.tenantId, id);
+        return this.tfnsService.findOne(resolveTenantScope(req.user), id);
     }
 
     @Post()

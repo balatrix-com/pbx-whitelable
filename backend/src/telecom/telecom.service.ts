@@ -197,8 +197,7 @@ export class TelecomService implements OnModuleInit {
         const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
         if (!tenant || !tenant.customerCode) return false;
         
-        const remotePath = `/recordings/${tenant.customerCode}/${callUuid}.mp3`;
-        return this.recordingStorageService.checkFileExists(remotePath);
+        return this.recordingStorageService.checkFileExists(tenant.customerCode, callUuid);
     }
 
     async streamRecording(tenantId: string, callUuid: string, res: any): Promise<void> {
@@ -208,8 +207,7 @@ export class TelecomService implements OnModuleInit {
             return;
         }
 
-        const remotePath = `/recordings/${tenant.customerCode}/${callUuid}.mp3`;
-        await this.recordingStorageService.streamAudio(remotePath, res);
+        await this.recordingStorageService.streamAudio(tenant.customerCode, callUuid, res);
     }
 
     // --- Routing Interconnection Logic ---
@@ -257,16 +255,25 @@ export class TelecomService implements OnModuleInit {
         if (!tfn) throw new NotFoundException('TFN not found');
         if (tfn.tenantId !== tenantId) throw new ForbiddenException('Access denied');
 
-        // Validate Target
-        if (data.routeType && data.routeTargetId) {
-            await this.validateRouteTarget(data.routeType, data.routeTargetId, tenantId);
+        const effectiveType = data.routeType ?? tfn.routeType;
+        const effectiveTarget = data.routeTargetId ?? tfn.routeTargetId;
+        const effectiveForward = data.forwardNumber ?? tfn.forwardNumber;
+        if (data.routeType !== undefined || data.routeTargetId !== undefined || data.forwardNumber !== undefined) {
+            if (effectiveType === 'forward') {
+                if (data.routeTargetId) throw new BadRequestException('Forward routes do not use a target ID');
+                if (!effectiveForward) throw new BadRequestException('Forward number is required for forward route type');
+            } else if (effectiveType) {
+                await this.validateRouteTarget(effectiveType, effectiveTarget || '', tenantId);
+            } else if (data.routeTargetId) {
+                throw new BadRequestException('Route type is required for a target');
+            }
         }
 
         const updated = await this.prisma.tFN.update({
-            where: { id },
+            where: { id, tenantId },
             data: {
                 routeType: data.routeType,
-                routeTargetId: data.routeTargetId,
+                routeTargetId: data.routeType === 'forward' ? null : data.routeTargetId,
                 forwardEnabled: data.forwardEnabled,
                 forwardNumber: data.forwardNumber
             }

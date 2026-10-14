@@ -194,23 +194,17 @@ export class OnboardingService {
             }
 
             // 6. Assign TFN if provided
+            let claimedTfnNumber: string | null = null;
             if (data.selectedTfnId) {
                 const tfn = await tx.tFN.findUnique({ where: { id: data.selectedTfnId } });
-                if (tfn && !tfn.tenantId && tfn.status === TFNStatus.AVAILABLE) {
-                    await tx.tFN.update({
-                        where: { id: tfn.id },
-                        data: {
-                            tenantId: tenant.id,
-                            status: TFNStatus.ASSIGNED,
-                            purchasedAt: new Date()
-                        }
-                    });
-                    // Sync TFN
-                    await this.freeSwitchSync.syncTFN(tfn.id, this.prisma).catch(err => {
-                        this.logger.error(`Failed to sync TFN ${tfn.number} for new tenant ${tenant.id}: ${err.message}`);
-                    });
-                    await this.lookupRedis.updateNumberLookup(tfn.number, tenant.id);
+                const claim = await tx.tFN.updateMany({
+                    where: { id: data.selectedTfnId, tenantId: null, status: TFNStatus.AVAILABLE },
+                    data: { tenantId: tenant.id, status: TFNStatus.ASSIGNED, purchasedAt: new Date() },
+                });
+                if (claim.count !== 1 || !tfn) {
+                    throw new BadRequestException('Selected TFN is no longer available');
                 }
+                claimedTfnNumber = tfn.number;
             }
 
             this.logger.log(`Provisioning completed for tenant ${tenant.id} (${tenant.customerCode})`);
@@ -218,18 +212,18 @@ export class OnboardingService {
             // Initialize Redis Lookup
             await this.lookupRedis.updateExtensionLookup(tenant.id, tenant.customerCode ?? undefined);
 
-            // 7. Sync Assets to Sub Billing if TFN provided
-            if (data.selectedTfnId) {
-                const tfn = await tx.tFN.findUnique({ where: { id: data.selectedTfnId } });
-                if (tfn) {
-                    this.syncAssetsToSubBilling(tenant.id, { tfns: [tfn.number] }).catch(err => {
-                        this.logger.error(`Deferred asset sync failed for tenant ${tenant.id}: ${err.message}`);
-                    });
-                }
-            }
-
-            return { tenant, user, subscription, extensionIdsToSync };
+            return { tenant, user, subscription, extensionIdsToSync, claimedTfnNumber };
         }, { timeout: 120000 });
+
+        // Publish only the committed owner. The losing concurrent transaction never syncs.
+        if (transactionResult.claimedTfnNumber && data.selectedTfnId) {
+            await this.freeSwitchSync.syncTFN(data.selectedTfnId, this.prisma).catch(err => {
+                this.logger.error(`Failed to sync TFN ${transactionResult.claimedTfnNumber}: ${err.message}`);
+            });
+            await this.lookupRedis.updateNumberLookup(transactionResult.claimedTfnNumber, transactionResult.tenant.id)
+                .catch(err => this.logger.error(`Failed to publish TFN lookup after commit: ${err.message}`));
+            await this.syncAssetsToSubBilling(transactionResult.tenant.id, { tfns: [transactionResult.claimedTfnNumber] });
+        }
 
         // Trigger Onboarding Completion Email for Sub-billing flow
         try {
@@ -319,23 +313,23 @@ export class OnboardingService {
             throw new BadRequestException('TFN selection not required or already completed');
         }
 
-        const tfn = await this.prisma.tFN.findUnique({ where: { id: tfnId } });
-        if (!tfn || tfn.tenantId || tfn.status !== TFNStatus.AVAILABLE) {
+        const claim = await this.prisma.tFN.updateMany({
+            where: { id: tfnId, tenantId: null, status: TFNStatus.AVAILABLE },
+            data: { tenantId, status: TFNStatus.ASSIGNED, purchasedAt: new Date() },
+        });
+        if (claim.count !== 1) {
             throw new BadRequestException('Selected TFN is no longer available');
         }
 
-        await this.prisma.tFN.update({
-            where: { id: tfn.id },
-            data: {
-                tenantId: tenantId,
-                status: TFNStatus.ASSIGNED,
-                purchasedAt: new Date()
-            }
-        });
+        const tfn = await this.prisma.tFN.findUnique({ where: { id: tfnId } });
+        if (!tfn || tfn.tenantId !== tenantId) {
+            throw new BadRequestException('Selected TFN could not be verified');
+        }
 
         // Sync
         await this.freeSwitchSync.syncTFN(tfn.id, this.prisma).catch(e => this.logger.error(`Sync TFN error: ${e.message}`));
-        await this.lookupRedis.updateNumberLookup(tfn.number, tenantId);
+        await this.lookupRedis.updateNumberLookup(tfn.number, tenantId)
+            .catch(e => this.logger.error(`Failed to publish TFN lookup after claim: ${e.message}`));
         await this.syncAssetsToSubBilling(tenantId, { tfns: [tfn.number] });
 
         return { success: true, message: 'TFN selected successfully' };

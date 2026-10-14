@@ -28,4 +28,29 @@ describe('Authentication access boundaries', () => {
         prisma.user.findUnique.mockResolvedValue({ id: 'user', status: 'ACTIVE', role: 'SUPPORT', tenantId: 'tenant' });
         expect(await strategy.validate({ sub: 'user', role: 'SUPER_ADMIN', tenantId: 'other' })).toMatchObject({ role: 'SUPPORT', tenantId: 'tenant' });
     });
+
+    it.each([
+        { tenantId: 'tenant-a', creatorRole: 'SUPER_ADMIN', creatorTenant: null, creatorStatus: 'ACTIVE', expected: false },
+        { tenantId: null, creatorRole: 'ADMIN', creatorTenant: 'tenant-a', creatorStatus: 'ACTIVE', expected: false },
+        { tenantId: null, creatorRole: 'SUPER_ADMIN', creatorTenant: 'tenant-a', creatorStatus: 'ACTIVE', expected: false },
+        { tenantId: null, creatorRole: 'SUPER_ADMIN', creatorTenant: null, creatorStatus: 'SUSPENDED', expected: false },
+        { tenantId: null, creatorRole: 'SUPER_ADMIN', creatorTenant: null, creatorStatus: 'ACTIVE', expected: true },
+    ])('derives platform support authority from current database state: %j', async fixture => {
+        const strategy = new JwtStrategy({ get: () => 'test-only-secret' } as any, prisma as any);
+        prisma.user.findUnique.mockResolvedValue({
+            id: 'support', status: 'ACTIVE', role: 'SUPPORT', tenantId: fixture.tenantId,
+            supportProfile: { adminUser: {
+                role: fixture.creatorRole, status: fixture.creatorStatus, tenantId: fixture.creatorTenant,
+            } },
+        });
+        expect(await strategy.validate({ sub: 'support', platformSupport: true }))
+            .toMatchObject({ platformSupport: fixture.expected });
+    });
+
+    it('does not infer platform support from a missing tenant or a token claim alone', async () => {
+        const strategy = new JwtStrategy({ get: () => 'test-only-secret' } as any, prisma as any);
+        prisma.user.findUnique.mockResolvedValue({ id: 'support', status: 'ACTIVE', role: 'SUPPORT', tenantId: null });
+        expect(await strategy.validate({ sub: 'support', platformSupport: true }))
+            .toMatchObject({ platformSupport: false });
+    });
 });

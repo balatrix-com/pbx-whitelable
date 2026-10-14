@@ -20,6 +20,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Role, User } from '@prisma/client';
+import { resolveTenantScope } from '../auth/tenant-scope';
 
 @Controller('subscription')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -48,11 +49,7 @@ export class SubscriptionTelecomController {
     @Get('tfns')
     @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.SUPPORT)
     async findAllTfns(@GetUser() user: any, @Query('tenantId') tenantId?: string) {
-        const targetTenantId = (user.role === Role.SUPER_ADMIN || user.role === Role.SUPPORT) && tenantId
-            ? tenantId
-            : user.tenantId;
-
-        if (!targetTenantId) return [];
+        const targetTenantId = resolveTenantScope(user, tenantId, true);
 
         try {
             // First check if sub-billing has assets for this tenant
@@ -138,11 +135,7 @@ export class SubscriptionTelecomController {
     @Get('dids')
     @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.SUPPORT)
     async findAllDids(@GetUser() user: any, @Query('tenantId') tenantId?: string) {
-        const targetTenantId = (user.role === Role.SUPER_ADMIN || user.role === Role.SUPPORT) && tenantId
-            ? tenantId
-            : user.tenantId;
-
-        if (!targetTenantId) return [];
+        const targetTenantId = resolveTenantScope(user, tenantId, true);
 
         try {
             // First check if sub-billing has assets for this tenant
