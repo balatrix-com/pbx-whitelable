@@ -92,28 +92,32 @@ describe('WalletService (switchSubscriptionPlan & Kamailio Sync)', () => {
     });
 
     describe('switchSubscriptionPlan', () => {
-        it('should auto-provision plan extensions and immediately sync FreeSWITCH and Kamailio subscribers', async () => {
+        it('should call sub-billing switch-plan with override_balance_check: true and update local subscription', async () => {
             const res = await service.switchSubscriptionPlan('U1010', 'tier_1_starter', true);
 
             expect(res.success).toBe(true);
 
-            // Should have created 5 extensions
-            expect(prisma.extension.create).toHaveBeenCalledTimes(5);
-            expect(prisma.extension.create).toHaveBeenCalledWith(
+            // Sub-billing switch-plan call
+            expect(httpService.post).toHaveBeenCalledWith(
+                'http://localhost:5005/api/subscriptions/switch-plan',
                 expect.objectContaining({
-                    data: expect.objectContaining({
-                        tenantId: 'U1010',
-                        extensionNumber: '101001'
-                    })
+                    customer_id: 'U1010',
+                    target_plan_id: 'tier_1_starter',
+                    execute_on_expiration: false,
+                    override_balance_check: true,
                 })
             );
 
-            // FreeSWITCH and Kamailio sync MUST be triggered for every newly created extension!
-            expect(freeSwitchSync.syncExtension).toHaveBeenCalledTimes(5);
-            expect(freeSwitchSync.syncExtension).toHaveBeenCalledWith('ext-uuid-101001');
-
-            // Redis Lookup MUST be updated
-            expect(lookupRedis.updateExtensionLookup).toHaveBeenCalledWith('U1010');
+            // Prisma subscription was created or updated
+            expect(prisma.subscription.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        tenantId: 'U1010',
+                        subBillingSubscriptionId: 'sub-uuid-1',
+                        status: 'ACTIVE',
+                    })
+                })
+            );
         });
     });
 });

@@ -236,7 +236,8 @@ export class WalletService {
                 this.httpService.post(`${this.subBillingUrl}/subscriptions/switch-plan`, {
                     customer_id: customerId,
                     target_plan_id: planId,
-                    execute_on_expiration: !immediate
+                    execute_on_expiration: !immediate,
+                    override_balance_check: true
                 })
             );
 
@@ -269,6 +270,19 @@ export class WalletService {
                     }
                     if (subPlan.free_mins !== undefined && subPlan.free_mins !== null) {
                         freeMins = Number(subPlan.free_mins);
+                    }
+                    if (subPlan.rate_card_id) {
+                        try {
+                            await firstValueFrom(
+                                this.httpService.post(`${this.subBillingUrl}/rate-cards/mappings`, {
+                                    customer_id: customerId,
+                                    ratecard_id: Number(subPlan.rate_card_id)
+                                })
+                            );
+                            this.logger.log(`Customer ${customerId} rate card mapping verified/synced to ${subPlan.rate_card_id}`);
+                        } catch (rcErr: any) {
+                            this.logger.warn(`Could not sync rate card mapping for ${customerId}: ${rcErr.message}`);
+                        }
                     }
                 }
             } catch (err) {

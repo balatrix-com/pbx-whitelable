@@ -37,12 +37,12 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, on
         try {
             const data = await subscriptionService.getPlans();
             setPlans(Array.isArray(data) ? data : []);
-            // If no plan selected yet and plans are loaded, default to the first non-current plan if available
+            // If no plan selected yet and plans are loaded, default to the first available or non-current plan
             if (!newPlan && Array.isArray(data) && data.length > 0) {
                 const currentPlanId = currentPlan?.plan_id || currentPlan?.id || currentPlan?.plan_name;
-                const otherPlan = data.find(p => (p.plan_id || p.id) !== currentPlanId);
-                if (otherPlan) {
-                    setSelectedPlan(otherPlan);
+                const targetDefault = currentPlanId ? data.find(p => (p.plan_id || p.id) !== currentPlanId) : data[0];
+                if (targetDefault) {
+                    setSelectedPlan(targetDefault);
                 }
             }
         } catch (err) {
@@ -58,7 +58,7 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, on
     const currentPrice = Number(currentPlan?.amount || currentPlan?.price || 0);
     const targetPrice = Number(selectedPlan?.amount || selectedPlan?.price || 0);
     const isUpgrade = targetPrice > currentPrice;
-    const isSamePlan = selectedPlan && (selectedPlan.plan_id || selectedPlan.id) === currentPlanId;
+    const isSamePlan = currentPlan && selectedPlan && (selectedPlan.plan_id || selectedPlan.id) === currentPlanId;
 
     const handleConfirmSwitch = async () => {
         if (!selectedPlan || isSamePlan) return;
@@ -69,9 +69,9 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, on
             const res = await subscriptionService.switchPlan(
                 customerId,
                 targetPlanId,
-                immediate
+                currentPlan ? immediate : true
             );
-            addToast('success', res?.message || `Successfully switched to ${selectedPlan.name}!`);
+            addToast('success', res?.message || `Successfully activated ${selectedPlan.name}!`);
             queryClient.invalidateQueries({ queryKey: ['subscription'] });
             queryClient.invalidateQueries({ queryKey: ['wallet'] });
             if (onSuccess) {
@@ -79,8 +79,8 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, on
             }
             onClose();
         } catch (err) {
-            console.error('Plan switch error:', err);
-            const msg = err.response?.data?.message || err.normalized?.message || err.message || 'Failed to switch plan';
+            console.error('Plan switch/activation error:', err);
+            const msg = err.response?.data?.message || err.normalized?.message || err.message || 'Failed to activate plan';
             setError(msg);
             addToast('error', msg);
         } finally {
@@ -104,10 +104,12 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, on
                             </div>
                             <div>
                                 <Dialog.Title className="text-lg font-extrabold text-gray-900 dark:text-white tracking-tight">
-                                    Change Subscription Plan
+                                    {currentPlan ? 'Change Subscription Plan' : 'Assign / Activate Subscription Plan'}
                                 </Dialog.Title>
                                 <p className="text-xs font-medium text-gray-500 dark:text-slate-400">
-                                    Upgrade or downgrade your active PBX billing tier
+                                    {currentPlan 
+                                        ? 'Upgrade or downgrade your active PBX billing tier' 
+                                        : 'Select an initial billing plan to activate PBX features for this tenant'}
                                 </p>
                             </div>
                         </div>
@@ -191,87 +193,113 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, on
                             )}
                         </div>
 
-                        {/* Step 2: Comparison Box */}
+                        {/* Step 2: Comparison Box / Plan Details */}
                         {selectedPlan && (
                             <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-800 flex items-center justify-between gap-4">
-                                <div className="flex-1 min-w-0">
-                                    <span className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider block">Current</span>
-                                    <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
-                                        {currentPlan?.name || currentPlan?.plan_name || 'Active Plan'}
-                                    </p>
-                                    <p className="text-xs font-mono text-gray-500 dark:text-slate-400">
-                                        ${currentPrice.toFixed(2)}/mo
-                                    </p>
-                                </div>
+                                {currentPlan ? (
+                                    <>
+                                        <div className="flex-1 min-w-0">
+                                            <span className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider block">Current</span>
+                                            <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                                                {currentPlan?.name || currentPlan?.plan_name || 'Active Plan'}
+                                            </p>
+                                            <p className="text-xs font-mono text-gray-500 dark:text-slate-400">
+                                                ${currentPrice.toFixed(2)}/mo
+                                            </p>
+                                        </div>
 
-                                <ArrowRight className="h-4 w-4 text-gray-400 dark:text-slate-500 flex-shrink-0" />
+                                        <ArrowRight className="h-4 w-4 text-gray-400 dark:text-slate-500 flex-shrink-0" />
 
-                                <div className="flex-1 min-w-0 text-right">
-                                    <span className="text-[10px] font-bold text-primary-600 dark:text-primary-400 uppercase tracking-wider block">
-                                        {isUpgrade ? 'Upgrade To' : 'Downgrade To'}
-                                    </span>
-                                    <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
-                                        {selectedPlan.name}
-                                    </p>
-                                    <p className="text-xs font-mono font-bold text-primary-600 dark:text-primary-400">
-                                        ${targetPrice.toFixed(2)}/mo
-                                    </p>
-                                </div>
+                                        <div className="flex-1 min-w-0 text-right">
+                                            <span className="text-[10px] font-bold text-primary-600 dark:text-primary-400 uppercase tracking-wider block">
+                                                {isUpgrade ? 'Upgrade To' : 'Downgrade To'}
+                                            </span>
+                                            <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                                                {selectedPlan.name}
+                                            </p>
+                                            <p className="text-xs font-mono font-bold text-primary-600 dark:text-primary-400">
+                                                ${targetPrice.toFixed(2)}/mo
+                                            </p>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="flex items-center justify-between w-full">
+                                        <div>
+                                            <span className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider block">Plan to Activate</span>
+                                            <p className="text-sm font-extrabold text-gray-900 dark:text-white">
+                                                {selectedPlan.name}
+                                            </p>
+                                            <span className="text-xs text-gray-500 dark:text-slate-400">
+                                                {selectedPlan.extensions || 1} Extensions • {selectedPlan.free_mins || 0} Free Mins
+                                            </span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-base font-extrabold font-mono text-primary-600 dark:text-primary-400 block">
+                                                ${targetPrice.toFixed(2)}/mo
+                                            </span>
+                                            <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full">
+                                                Initial Activation
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
-                        {/* Step 3: Timing Options Toggle */}
-                        <div className="space-y-3">
-                            <label className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-slate-300 block">
-                                2. When should the plan switch take effect?
-                            </label>
+                        {/* Step 3: Timing Options Toggle (only if already has an active plan) */}
+                        {currentPlan ? (
+                            <div className="space-y-3">
+                                <label className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-slate-300 block">
+                                    2. When should the plan switch take effect?
+                                </label>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {/* Option 1: Switch Immediately */}
-                                <button
-                                    type="button"
-                                    onClick={() => setImmediate(true)}
-                                    className={`p-3.5 rounded-xl border text-left transition-all ${
-                                        immediate 
-                                            ? 'bg-primary-50/60 dark:bg-primary-950/40 border-primary-500 ring-2 ring-primary-500/20' 
-                                            : 'bg-white dark:bg-slate-800/40 border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600'
-                                    }`}
-                                >
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                                            <Zap className="h-3.5 w-3.5 text-primary-600" />
-                                            Immediate (Prorated)
-                                        </span>
-                                        {immediate && <div className="h-2 w-2 rounded-full bg-primary-600"></div>}
-                                    </div>
-                                    <p className="text-[11px] font-medium text-gray-500 dark:text-slate-400 leading-tight">
-                                        Applies instantly. Proration is calculated and debited from your wallet now.
-                                    </p>
-                                </button>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {/* Option 1: Switch Immediately */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setImmediate(true)}
+                                        className={`p-3.5 rounded-xl border text-left transition-all ${
+                                            immediate 
+                                                ? 'bg-primary-50/60 dark:bg-primary-950/40 border-primary-500 ring-2 ring-primary-500/20' 
+                                                : 'bg-white dark:bg-slate-800/40 border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600'
+                                        }`}
+                                    >
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+                                                <Zap className="h-3.5 w-3.5 text-primary-600" />
+                                                Immediate (Prorated)
+                                            </span>
+                                            {immediate && <div className="h-2 w-2 rounded-full bg-primary-600"></div>}
+                                        </div>
+                                        <p className="text-[11px] font-medium text-gray-500 dark:text-slate-400 leading-tight">
+                                            Applies instantly. Proration is calculated and debited from your wallet now.
+                                        </p>
+                                    </button>
 
-                                {/* Option 2: Switch at Renewal */}
-                                <button
-                                    type="button"
-                                    onClick={() => setImmediate(false)}
-                                    className={`p-3.5 rounded-xl border text-left transition-all ${
-                                        !immediate 
-                                            ? 'bg-primary-50/60 dark:bg-primary-950/40 border-primary-500 ring-2 ring-primary-500/20' 
-                                            : 'bg-white dark:bg-slate-800/40 border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600'
-                                    }`}
-                                >
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                                            <ShieldCheck className="h-3.5 w-3.5 text-indigo-500" />
-                                            Next Billing Cycle
-                                        </span>
-                                        {!immediate && <div className="h-2 w-2 rounded-full bg-primary-600"></div>}
-                                    </div>
-                                    <p className="text-[11px] font-medium text-gray-500 dark:text-slate-400 leading-tight">
-                                        Schedules switch for the next renewal date with no immediate charge.
-                                    </p>
-                                </button>
+                                    {/* Option 2: Switch at Renewal */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setImmediate(false)}
+                                        className={`p-3.5 rounded-xl border text-left transition-all ${
+                                            !immediate 
+                                                ? 'bg-primary-50/60 dark:bg-primary-950/40 border-primary-500 ring-2 ring-primary-500/20' 
+                                                : 'bg-white dark:bg-slate-800/40 border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600'
+                                        }`}
+                                    >
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+                                                <ShieldCheck className="h-3.5 w-3.5 text-indigo-500" />
+                                                Next Billing Cycle
+                                            </span>
+                                            {!immediate && <div className="h-2 w-2 rounded-full bg-primary-600"></div>}
+                                        </div>
+                                        <p className="text-[11px] font-medium text-gray-500 dark:text-slate-400 leading-tight">
+                                            Schedules switch for the next renewal date with no immediate charge.
+                                        </p>
+                                    </button>
+                                </div>
                             </div>
-                        </div>
+                        ) : null}
 
                         {error && (
                             <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 text-xs font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
@@ -301,8 +329,10 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, on
                             {submitting ? (
                                 <>
                                     <Loader2 className="h-4 w-4 animate-spin" />
-                                    Switching Plan...
+                                    {currentPlan ? 'Switching Plan...' : 'Activating Plan...'}
                                 </>
+                            ) : !currentPlan ? (
+                                'Activate Plan'
                             ) : isSamePlan ? (
                                 'Current Plan'
                             ) : (

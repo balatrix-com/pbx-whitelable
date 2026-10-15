@@ -258,16 +258,25 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                             <AlertCircle className="h-10 w-10 text-amber-500 mx-auto mb-3" />
                             <h4 className="text-base font-bold text-gray-900 dark:text-white">No Active Subscription Found</h4>
                             <p className="text-xs text-gray-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
-                                You do not have an active billing plan assigned yet. Choose a plan to unlock PBX features.
+                                You do not have an active billing plan assigned yet. Assign a plan now to unlock PBX features.
                             </p>
-                            {onBrowsePlans && (
+                            <div className="mt-5 flex items-center justify-center gap-3">
                                 <button
-                                    onClick={onBrowsePlans}
-                                    className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-primary-600 hover:bg-primary-700 transition shadow-sm"
+                                    onClick={() => setPlanSwitchModalOpen(true)}
+                                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-primary-600 hover:bg-primary-700 transition shadow-md shadow-primary-600/20 active:scale-[0.98]"
                                 >
-                                    Browse Plans
+                                    <Sparkles className="h-4 w-4" />
+                                    Assign Plan / Subscribe
                                 </button>
-                            )}
+                                {onBrowsePlans && (
+                                    <button
+                                        onClick={onBrowsePlans}
+                                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-gray-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition shadow-xs"
+                                    >
+                                        Browse Plans
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
