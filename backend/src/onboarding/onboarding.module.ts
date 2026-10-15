@@ -13,6 +13,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { LookupRedisModule } from '../redis/lookup-redis.module';
 import { HttpModule } from '@nestjs/axios';
 import { MailModule } from '../mail/mail.module';
+import { EntitlementsModule } from '../entitlements/entitlements.module';
 
 @Module({
     imports: [
@@ -26,7 +27,8 @@ import { MailModule } from '../mail/mail.module';
         PaymentsModule,
         NotificationsModule,
         LookupRedisModule,
-        MailModule
+        MailModule,
+        EntitlementsModule,
     ],
     controllers: [OnboardingController],
     providers: [OnboardingService],

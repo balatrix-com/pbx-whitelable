@@ -112,12 +112,12 @@ export const subscriptionService = {
     // ------------------------------------------------------------------------
     // 5. ADD-ON PURCHASE (Connected to Backend API)
     // ------------------------------------------------------------------------
-    purchaseAddon: async (tenantId, addonId, quantity = 1) => {
+    purchaseAddon: async (tenantId, addonId, quantity = 1, idempotencyKey = crypto.randomUUID()) => {
         const res = await api.post('/addons/purchase', {
             tenantId,
             addonId,
             quantity
-        });
+        }, { headers: { 'Idempotency-Key': idempotencyKey } });
         return res.data;
     },
 

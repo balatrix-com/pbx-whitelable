@@ -19,6 +19,8 @@ import { ProvisionTenantDto } from './dto/provision-tenant.dto';
 import { Role, UserStatus, SubscriptionStatus, TFNStatus } from '@prisma/client';
 
 import { MailService } from '../mail/mail.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class OnboardingService {
@@ -37,6 +39,7 @@ export class OnboardingService {
         private lookupRedis: LookupRedisService,
         private httpService: HttpService,
         private mailService: MailService,
+        private entitlements: EntitlementsService,
     ) { }
 
 
@@ -52,6 +55,11 @@ export class OnboardingService {
 
         if (existingSub && existingSub.status === SubscriptionStatus.ACTIVE && existingSub.tenant) {
             this.logger.log(`Subscription ${data.subBillingSubscriptionId} already exists and is active. Skipping duplicate provisioning.`);
+            await this.lookupRedis.updateExtensionLookup(existingSub.tenant.id, existingSub.tenant.customerCode ?? undefined);
+            const assignedTfns = await this.prisma.tFN.findMany({ where: { tenantId: existingSub.tenant.id } });
+            if (assignedTfns.length) {
+                await this.syncAssetsToSubBilling(existingSub.tenant.id, { tfns: assignedTfns.map(tfn => tfn.number) });
+            }
             const adminUser = existingSub.tenant.users.find(u => u.role === Role.ADMIN);
             return {
                 tenant: existingSub.tenant,
@@ -167,14 +175,19 @@ export class OnboardingService {
 
             // 5. Provision Extensions (if any)
             const extensionIdsToSync: string[] = [];
-            if (data.extensionCount > 0) {
+            const baseExtensionCount = Number(data.extensionCount || 0);
+            if (!Number.isSafeInteger(baseExtensionCount) || baseExtensionCount < 0 ||
+                baseExtensionCount > plan.maxExtensions) {
+                throw new BadRequestException('Requested extensions exceed the plan allowance');
+            }
+            if (baseExtensionCount > 0) {
                 const existingExtensionsCount = await tx.extension.count({
                     where: { tenantId: tenant.id }
                 });
 
                 if (existingExtensionsCount === 0) {
                     const customerCode = tenant.customerCode;
-                    for (let i = 0; i < data.extensionCount; i++) {
+                    for (let i = 0; i < baseExtensionCount; i++) {
                         const suffix = (i + 1).toString().padStart(2, '0');
                         const extNum = `${customerCode}${suffix}`;
                         const ext = await tx.extension.create({
@@ -183,8 +196,8 @@ export class OnboardingService {
                                 name: `Extension ${suffix}`,
                                 tenantId: tenant.id,
                                 sequenceId: i + 1,
-                                sipUsername: `${extNum}_${customerCode}`,
-                                sipPassword: '123456',
+                                sipUsername: extNum,
+                                sipPassword: crypto.randomBytes(24).toString('base64url'),
                                 sipAuthRealm: process.env.SIP_SERVER || 'localhost'
                             }
                         });
@@ -196,6 +209,10 @@ export class OnboardingService {
             // 6. Assign TFN if provided
             let claimedTfnNumber: string | null = null;
             if (data.selectedTfnId) {
+                const assignedCount = await tx.tFN.count({ where: { tenantId: tenant.id } });
+                if (assignedCount >= plan.maxTFNs) {
+                    throw new BadRequestException('TFN plan allowance reached');
+                }
                 const tfn = await tx.tFN.findUnique({ where: { id: data.selectedTfnId } });
                 const claim = await tx.tFN.updateMany({
                     where: { id: data.selectedTfnId, tenantId: null, status: TFNStatus.AVAILABLE },
@@ -209,20 +226,15 @@ export class OnboardingService {
 
             this.logger.log(`Provisioning completed for tenant ${tenant.id} (${tenant.customerCode})`);
 
-            // Initialize Redis Lookup
-            await this.lookupRedis.updateExtensionLookup(tenant.id, tenant.customerCode ?? undefined);
-
             return { tenant, user, subscription, extensionIdsToSync, claimedTfnNumber };
         }, { timeout: 120000 });
 
+        await this.lookupRedis.updateExtensionLookup(transactionResult.tenant.id, transactionResult.tenant.customerCode ?? undefined);
         // Publish only the committed owner. The losing concurrent transaction never syncs.
         if (transactionResult.claimedTfnNumber && data.selectedTfnId) {
-            await this.freeSwitchSync.syncTFN(data.selectedTfnId, this.prisma).catch(err => {
-                this.logger.error(`Failed to sync TFN ${transactionResult.claimedTfnNumber}: ${err.message}`);
-            });
-            await this.lookupRedis.updateNumberLookup(transactionResult.claimedTfnNumber, transactionResult.tenant.id)
-                .catch(err => this.logger.error(`Failed to publish TFN lookup after commit: ${err.message}`));
             await this.syncAssetsToSubBilling(transactionResult.tenant.id, { tfns: [transactionResult.claimedTfnNumber] });
+            await this.freeSwitchSync.syncTFN(data.selectedTfnId, this.prisma);
+            await this.lookupRedis.updateNumberLookup(transactionResult.claimedTfnNumber, transactionResult.tenant.id);
         }
 
         // Trigger Onboarding Completion Email for Sub-billing flow
@@ -272,19 +284,7 @@ export class OnboardingService {
         if (!activeSub || !activeSub.subBillingSubscriptionId) return { needsTfn: false };
 
         // Call Sub-billing to get actual asset allowance (includes addons)
-        let totalAllowedTfns = activeSub.plan.maxTFNs;
-        try {
-            const subBilling = this.configService.get<any>('subBilling');
-            if (subBilling?.apiUrl) {
-                const endpoint = `${subBilling.apiUrl}/pbx/subscription-assets/${activeSub.subBillingSubscriptionId}`;
-                const response = await lastValueFrom(this.httpService.get(endpoint));
-                // Total TFNs the customer paid for (Base + Addons)
-                totalAllowedTfns = response.data.totalTfns;
-            }
-        } catch (error) {
-            this.logger.error(`Failed to fetch asset allowance from sub-billing: ${error.message}`);
-            // Fallback to plan default
-        }
+        const totalAllowedTfns = (await this.entitlements.allowance(tenantId)).tfns;
 
         const needsTfn = totalAllowedTfns > tenant.tfns.length;
 
@@ -313,24 +313,29 @@ export class OnboardingService {
             throw new BadRequestException('TFN selection not required or already completed');
         }
 
-        const claim = await this.prisma.tFN.updateMany({
-            where: { id: tfnId, tenantId: null, status: TFNStatus.AVAILABLE },
-            data: { tenantId, status: TFNStatus.ASSIGNED, purchasedAt: new Date() },
+        const tfn = await this.entitlements.withAvailableSlot(tenantId, 'tfns', async tx => {
+            const claim = await tx.tFN.updateMany({
+                where: { id: tfnId, tenantId: null, status: TFNStatus.AVAILABLE },
+                data: { tenantId, status: TFNStatus.ASSIGNED, purchasedAt: new Date() },
+            });
+            if (claim.count !== 1) throw new BadRequestException('Selected TFN is no longer available');
+            return tx.tFN.findUniqueOrThrow({ where: { id: tfnId } });
         });
-        if (claim.count !== 1) {
-            throw new BadRequestException('Selected TFN is no longer available');
-        }
-
-        const tfn = await this.prisma.tFN.findUnique({ where: { id: tfnId } });
         if (!tfn || tfn.tenantId !== tenantId) {
             throw new BadRequestException('Selected TFN could not be verified');
         }
 
-        // Sync
-        await this.freeSwitchSync.syncTFN(tfn.id, this.prisma).catch(e => this.logger.error(`Sync TFN error: ${e.message}`));
-        await this.lookupRedis.updateNumberLookup(tfn.number, tenantId)
-            .catch(e => this.logger.error(`Failed to publish TFN lookup after claim: ${e.message}`));
-        await this.syncAssetsToSubBilling(tenantId, { tfns: [tfn.number] });
+        try {
+            await this.syncAssetsToSubBilling(tenantId, { tfns: [tfn.number] });
+        } catch (error) {
+            await this.prisma.tFN.updateMany({
+                where: { id: tfn.id, tenantId, status: TFNStatus.ASSIGNED },
+                data: { tenantId: null, status: TFNStatus.AVAILABLE, purchasedAt: null },
+            });
+            throw error;
+        }
+        await this.freeSwitchSync.syncTFN(tfn.id, this.prisma);
+        await this.lookupRedis.updateNumberLookup(tfn.number, tenantId);
 
         return { success: true, message: 'TFN selected successfully' };
     }
@@ -338,26 +343,25 @@ export class OnboardingService {
     private async syncAssetsToSubBilling(tenantId: string, assets: { tfns?: string[], dids?: string[] }) {
         try {
             const subscription = await this.prisma.subscription.findFirst({
-                where: { tenantId },
+                where: { tenantId, status: SubscriptionStatus.ACTIVE },
                 orderBy: { createdAt: 'desc' }
             });
 
-            if (!subscription || !subscription.subBillingSubscriptionId) {
-                this.logger.warn(`No sub-billing subscription found for tenant ${tenantId}, skipping asset sync`);
-                return;
-            }
+            if (!subscription || !subscription.subBillingSubscriptionId) throw new Error('Active billing subscription mapping missing');
 
             const subBilling = this.configService.get<any>('subBilling');
-            if (!subBilling || !subBilling.apiUrl) {
-                this.logger.warn(`Sub-billing API URL not configured, skipping asset sync`);
-                return;
-            }
+            if (!subBilling || !subBilling.apiUrl) throw new Error('Sub-billing API URL not configured');
 
             const endpoint = `${subBilling.apiUrl}/pbx/sync-assets/${subscription.subBillingSubscriptionId}`;
-            await lastValueFrom(this.httpService.post(endpoint, assets));
+            const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { subBillingCustomerId: true } });
+            if (!tenant?.subBillingCustomerId) throw new Error('Billing customer mapping missing');
+            await lastValueFrom(this.httpService.post(endpoint, assets, {
+                headers: { 'x-pbx-customer-id': tenant.subBillingCustomerId },
+            }));
             this.logger.log(`Successfully synced assets for tenant ${tenantId} to sub-billing`);
         } catch (error) {
             this.logger.error(`Failed to sync assets to sub-billing for tenant ${tenantId}: ${error.message}`);
+            throw error;
         }
     }
 }

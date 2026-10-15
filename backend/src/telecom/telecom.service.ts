@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, ForbiddenException, OnModuleInit } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException, ConflictException, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { TransactionType, TFNStatus } from '@prisma/client';
@@ -6,6 +6,9 @@ import { EnforcementService, ServiceState } from '../enforcement/enforcement.ser
 import { FreeSwitchSyncService } from '../freeswitch/freeswitch-sync.service';
 import { AudioUploadService } from '../freeswitch/audio-upload.service';
 import { RecordingStorageService } from '../freeswitch/recording-storage.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
+import { LookupRedisService } from '../redis/lookup-redis.module';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class TelecomService implements OnModuleInit {
@@ -15,7 +18,9 @@ export class TelecomService implements OnModuleInit {
         private enforcementService: EnforcementService,
         private freeswitchSync: FreeSwitchSyncService,
         private audioUploadService: AudioUploadService,
-        private recordingStorageService: RecordingStorageService
+        private recordingStorageService: RecordingStorageService,
+        private entitlements: EntitlementsService,
+        private lookupRedis: LookupRedisService,
     ) { }
 
     async onModuleInit() {
@@ -57,22 +62,29 @@ export class TelecomService implements OnModuleInit {
         if (!tfn) throw new NotFoundException('TFN not found');
         if (tfn.status !== TFNStatus.AVAILABLE) throw new BadRequestException('TFN not available');
 
-        // Charge Wallet (One-time setup or pro-rated first month? Usually immediate charge)
-        try {
-            await this.walletService.adjustBalance(tenantId, Number(tfn.price), TransactionType.DEBIT, `Purchase TFN ${number}`, `TFN-${tfn.id}`);
-        } catch (err) {
-            throw new ForbiddenException('Insufficient funds to purchase TFN');
-        }
-
-        // Assign
-        return this.prisma.tFN.update({
-            where: { id: tfn.id },
-            data: {
-                status: TFNStatus.ASSIGNED,
-                tenantId,
-                purchasedAt: new Date()
+        const claimed = await this.entitlements.withAvailableSlot(tenantId, 'tfns', async tx => {
+            const locked = await tx.$queryRaw`SELECT id FROM tfns WHERE id = ${tfn.id} FOR UPDATE`;
+            if (!Array.isArray(locked) || locked.length !== 1) throw new NotFoundException('TFN not found');
+            const current = await tx.tFN.findUnique({ where: { id: tfn.id } });
+            if (current?.status !== TFNStatus.AVAILABLE || current?.tenantId) {
+                throw new ConflictException('TFN no longer available');
             }
+            try {
+                await this.walletService.adjustBalance(tenantId, Number(tfn.price), TransactionType.DEBIT,
+                    `Purchase TFN ${number}`, `TFN-${tfn.id}`);
+            } catch {
+                throw new ForbiddenException('Insufficient funds to purchase TFN');
+            }
+            const result = await tx.tFN.updateMany({
+                where: { id: tfn.id, status: TFNStatus.AVAILABLE, tenantId: null },
+                data: { status: TFNStatus.ASSIGNED, tenantId, purchasedAt: new Date() },
+            });
+            if (result.count !== 1) throw new ConflictException('TFN no longer available');
+            return tx.tFN.findUniqueOrThrow({ where: { id: tfn.id } });
         });
+        await this.freeswitchSync.syncTFN(claimed.id);
+        await this.lookupRedis.updateNumberLookup(claimed.number, tenantId);
+        return claimed;
     }
 
     // --- Extension Logic ---
@@ -91,15 +103,18 @@ export class TelecomService implements OnModuleInit {
         });
         if (existing) throw new BadRequestException(`Extension ${data.extensionNumber} already exists`);
 
-        return this.prisma.extension.create({
-            data: {
+        const extension = await this.entitlements.withAvailableSlot(tenantId, 'extensions', tx =>
+            tx.extension.create({ data: {
                 tenantId,
                 extensionNumber: data.extensionNumber,
                 name: data.name,
-                sipUsername: `${data.extensionNumber}@default`,
-                sipPassword: data.sipPassword || 'changeme',
-            }
-        });
+                sipUsername: data.extensionNumber,
+                sipPassword: data.sipPassword || crypto.randomBytes(24).toString('base64url'),
+            } })
+        );
+        await this.freeswitchSync.syncExtension(extension.id);
+        await this.lookupRedis.updateExtensionLookup(tenantId);
+        return extension;
     }
 
     // --- Monitoring Add-on Logic ---

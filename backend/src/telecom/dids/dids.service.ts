@@ -2,6 +2,7 @@ import {
     Injectable,
     NotFoundException,
     BadRequestException,
+    ConflictException,
     Logger,
 } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
@@ -11,6 +12,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { FreeSwitchSyncService } from '../../freeswitch/freeswitch-sync.service';
 import { CreateDIDDto, UpdateDIDDto } from './dto';
 import { LookupRedisService } from '../../redis/lookup-redis.module';
+import { EntitlementsService } from '../../entitlements/entitlements.service';
 
 @Injectable()
 export class DIDsService {
@@ -22,25 +24,31 @@ export class DIDsService {
         private lookupRedis: LookupRedisService,
         private readonly httpService: HttpService,
         private readonly configService: ConfigService,
+        private readonly entitlements: EntitlementsService,
     ) { }
 
     private async syncAssetsToSubBilling(tenantId: string, assets: { tfns?: string[], dids?: string[] }) {
         try {
             const subscription = await this.prisma.subscription.findFirst({
-                where: { tenantId },
+                where: { tenantId, status: 'ACTIVE' },
                 orderBy: { createdAt: 'desc' }
             });
 
-            const targetId = subscription?.subBillingSubscriptionId || tenantId;
+            const targetId = subscription?.subBillingSubscriptionId;
+            const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { subBillingCustomerId: true } });
+            if (!targetId || !tenant?.subBillingCustomerId) throw new Error('Billing mapping missing');
             const subBilling = this.configService.get<any>('subBilling');
             const apiUrl = subBilling?.apiUrl || process.env.SUB_BILLING_API_URL;
-            if (!apiUrl) return;
+            if (!apiUrl) throw new Error('Billing API is not configured');
 
             const endpoint = `${apiUrl}/pbx/sync-assets/${targetId}`;
-            await lastValueFrom(this.httpService.post(endpoint, assets));
+            await lastValueFrom(this.httpService.post(endpoint, assets, {
+                headers: { 'x-pbx-customer-id': tenant.subBillingCustomerId },
+            }));
             this.logger.log(`Successfully synced DID assets for tenant ${tenantId} to sub-billing`);
         } catch (error: any) {
             this.logger.error(`Failed to sync DID assets to sub-billing for tenant ${tenantId}: ${error.message}`);
+            throw error;
         }
     }
 
@@ -83,16 +91,21 @@ export class DIDsService {
      * Assign an available DID to a tenant
      */
     async assign(id: string, tenantId: string) {
-        const updated = await this.prisma.dID.update({
-            where: { id },
-            data: { tenantId }
+        const updated = await this.entitlements.withAvailableSlot(tenantId, 'dids', async tx => {
+            const claimed = await tx.dID.updateMany({
+                where: { id, tenantId: null }, data: { tenantId },
+            });
+            if (claimed.count !== 1) throw new ConflictException('DID is no longer available');
+            return tx.dID.findUniqueOrThrow({ where: { id } });
         });
 
-        // Update Redis Lookup DB
+        try {
+            await this.syncAssetsToSubBilling(tenantId, { dids: [updated.number] });
+        } catch (error) {
+            await this.prisma.dID.updateMany({ where: { id: updated.id, tenantId }, data: { tenantId: null } });
+            throw error;
+        }
         await this.lookupRedis.updateNumberLookup(updated.number, tenantId);
-
-        // Sync to Sub-Billing
-        await this.syncAssetsToSubBilling(tenantId, { dids: [updated.number] });
 
         return updated;
     }
@@ -120,6 +133,12 @@ export class DIDsService {
         });
 
         if (existing) {
+            if (existing.tenantId === tenantId) {
+                await this.syncAssetsToSubBilling(tenantId, { dids: [existing.number] });
+                await this.freeswitchSync.syncDID(existing.id);
+                await this.lookupRedis.updateNumberLookup(existing.number, tenantId);
+                return existing;
+            }
             throw new BadRequestException('DID number already exists');
         }
 
@@ -134,13 +153,14 @@ export class DIDsService {
         }
 
         // Create DID
-        const last = await this.prisma.dID.findFirst({
+        const did = await this.entitlements.withAvailableSlot(tenantId, 'dids', async tx => {
+        const last = await tx.dID.findFirst({
             where: { tenantId },
             orderBy: { sequenceId: 'desc' }
         });
         const sequenceId = (last?.sequenceId || 0) + 1;
 
-        const did = await this.prisma.dID.create({
+        return tx.dID.create({
             data: {
                 tenantId,
                 sequenceId,
@@ -150,20 +170,19 @@ export class DIDsService {
                 forwardNumber: dto.forwardNumber,
             },
         });
+        });
 
-        // Trigger FreeSWITCH sync
         try {
-            await this.freeswitchSync.syncDID(did.id);
-        } catch (error: any) {
-            this.logger.error(`FreeSWITCH sync failed for DID ${did.id}: ${error.message}`);
-            // Don't fail DID creation if sync fails
+            await this.syncAssetsToSubBilling(tenantId, { dids: [did.number] });
+        } catch (error) {
+            await this.prisma.dID.deleteMany({ where: { id: did.id, tenantId } });
+            throw error;
         }
+
+        await this.freeswitchSync.syncDID(did.id);
 
         // Update Redis Lookup DB
         await this.lookupRedis.updateNumberLookup(did.number, tenantId);
-
-        // Sync to Sub-Billing
-        await this.syncAssetsToSubBilling(tenantId, { dids: [did.number] });
 
         return did;
     }

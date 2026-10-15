@@ -31,7 +31,7 @@ export class FreeSwitchSyncService {
 
         // 1. Sync Kamailio Subscriber
         if (ext.sipPassword) {
-            await this.kamailioDB.syncSubscriber(ext.extensionNumber, ext.sipPassword);
+            await this.kamailioDB.syncSubscriber(ext.sipUsername, ext.sipPassword);
         } else {
             this.logger.warn(`Skipping Kamailio sync for ${ext.extensionNumber}: No SIP password available.`);
         }
@@ -543,7 +543,7 @@ export class FreeSwitchSyncService {
         if (!extension || !extension.tenant) return;
 
         // 1. Delete from Kamailio
-        await this.kamailioDB.deleteSubscriber(extension.extensionNumber);
+        await this.kamailioDB.deleteSubscriber(extension.sipUsername);
 
         // 2. Delete from FreeSWITCH
         const key = this.getExtensionDialplanKey(extension);

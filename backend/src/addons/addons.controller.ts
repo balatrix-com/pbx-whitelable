@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, Param, UseGuards, BadRequestException, Patch } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, UseGuards, BadRequestException, Patch, Headers } from '@nestjs/common';
 import { AddonsService } from './addons.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -72,12 +72,15 @@ export class AddonsController {
     @Post('purchase')
     @Roles(Role.SUPER_ADMIN, Role.ADMIN)
     @Audit('ADDON_PURCHASED', 'PLANS_ADDONS')
-    purchaseAddon(@GetUser() user: User, @Body() body: AddonPurchaseDto) {
+    purchaseAddon(@GetUser() user: User, @Body() body: AddonPurchaseDto, @Headers('idempotency-key') idempotencyKey: string) {
         const tenantId = resolveTenantScope(user, body.tenantId);
         if (!body.addonId) {
             throw new BadRequestException('addonId is required');
         }
-        return this.addonsService.purchaseAddon(tenantId, body.addonId, body.quantity || 1);
+        if (!idempotencyKey || !/^[a-zA-Z0-9_-]{16,128}$/.test(idempotencyKey)) {
+            throw new BadRequestException('A valid Idempotency-Key header is required');
+        }
+        return this.addonsService.purchaseAddon(tenantId, body.addonId, body.quantity || 1, idempotencyKey);
     }
 
     @Patch('subscriptions/:subscriptionAddonId/auto-renew')

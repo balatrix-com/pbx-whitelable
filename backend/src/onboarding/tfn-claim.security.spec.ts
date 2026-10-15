@@ -16,13 +16,15 @@ describe('Atomic TFN claim', () => {
                     return { count: 1 };
                 }),
                 findUnique: jest.fn(async () => ({ id: 'tfn-1', number: '+18005550123', tenantId: owner })),
+                findUniqueOrThrow: jest.fn(async () => ({ id: 'tfn-1', number: '+18005550123', tenantId: owner })),
             },
         };
         const freeswitch = { syncTFN: jest.fn().mockResolvedValue(undefined) };
         const redis = { updateNumberLookup: jest.fn().mockResolvedValue(undefined) };
+        const entitlements = { withAvailableSlot: jest.fn((_tenantId: any, _resource: any, action: any) => action(prisma)) };
         const service = new OnboardingService(prisma, {} as any, {} as any, {} as any,
             {} as any, {} as any, freeswitch as any, {} as any, {} as any,
-            redis as any, {} as any, {} as any);
+            redis as any, {} as any, {} as any, entitlements as any);
         jest.spyOn(service, 'getOnboardingStatus').mockResolvedValue({ needsTfn: true } as any);
         jest.spyOn(service as any, 'syncAssetsToSubBilling').mockResolvedValue(undefined);
 

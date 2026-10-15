@@ -4,6 +4,7 @@ import { FreeSwitchSyncService } from '../freeswitch/freeswitch-sync.service';
 import { ProvisionTenantDto } from './dto/provision-tenant.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
+import { timingSafeEqual } from 'crypto';
 
 @Controller('onboarding')
 export class OnboardingController {
@@ -37,10 +38,11 @@ export class OnboardingController {
     @Post('provision-tenant')
     async provisionTenant(@Body() data: ProvisionTenantDto, @Req() req: any) {
         const authHeader = req.headers['x-sync-token'];
-        const expectedToken = process.env.PBX_SYNC_TOKEN || 'your-super-secret-jwt-key-change-this-in-production';
+        const expectedToken = process.env.PBX_SYNC_TOKEN;
         
-        if (authHeader !== expectedToken) {
-            console.error(`[PBX Provisioning] Unauthorized attempt. Received: ${authHeader}, Expected: ${expectedToken ? 'SET' : 'MISSING'}`);
+        if (!expectedToken || typeof authHeader !== 'string' ||
+            Buffer.byteLength(authHeader) !== Buffer.byteLength(expectedToken) ||
+            !timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedToken))) {
             throw new UnauthorizedException('Invalid sync token');
         }
 

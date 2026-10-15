@@ -21,6 +21,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Role, User } from '@prisma/client';
 import { resolveTenantScope } from '../auth/tenant-scope';
+import { Audit } from '../audit/audit.decorator';
 
 @Controller('subscription')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -70,6 +71,7 @@ export class SubscriptionTelecomController {
      */
     @Post('tfns/:id/assign')
     @Roles(Role.SUPER_ADMIN)
+    @Audit('NUMBER_ASSIGNED', 'MANAGE_NUMBERS')
     async assignTfnById(
         @Param('id') id: string,
         @Body('tenantId') tenantId?: string,
@@ -86,6 +88,7 @@ export class SubscriptionTelecomController {
      */
     @Post('tfns/assign')
     @Roles(Role.SUPER_ADMIN)
+    @Audit('NUMBER_ASSIGNED', 'MANAGE_NUMBERS')
     async assignTfn(
         @Body() body: { id?: string; number?: string; tenantId?: string; targetTenantId?: string }
     ) {
@@ -103,6 +106,7 @@ export class SubscriptionTelecomController {
      */
     @Post('tfns/unassign')
     @Roles(Role.SUPER_ADMIN)
+    @Audit('NUMBER_UNASSIGNED', 'MANAGE_NUMBERS')
     async unassignTfn(@Body() body: { id?: string; number?: string }) {
         const idOrNumber = body.id || body.number;
         if (!idOrNumber) throw new BadRequestException('ID or Number is required');
@@ -114,6 +118,7 @@ export class SubscriptionTelecomController {
      */
     @Post('tfns/:id/unassign')
     @Roles(Role.SUPER_ADMIN)
+    @Audit('NUMBER_UNASSIGNED', 'MANAGE_NUMBERS')
     async unassignTfnById(@Param('id') id: string) {
         return this.adminService.unassignNumber('TFN', id);
     }
@@ -156,6 +161,7 @@ export class SubscriptionTelecomController {
      */
     @Post('dids/:id/assign')
     @Roles(Role.SUPER_ADMIN)
+    @Audit('NUMBER_ASSIGNED', 'MANAGE_NUMBERS')
     async assignDidById(
         @Param('id') id: string,
         @Body('tenantId') tenantId?: string,
@@ -172,6 +178,7 @@ export class SubscriptionTelecomController {
      */
     @Post('dids/assign')
     @Roles(Role.SUPER_ADMIN)
+    @Audit('NUMBER_ASSIGNED', 'MANAGE_NUMBERS')
     async assignDid(
         @Body() body: { id?: string; number?: string; tenantId?: string; targetTenantId?: string }
     ) {
@@ -189,6 +196,7 @@ export class SubscriptionTelecomController {
      */
     @Post('dids')
     @Roles(Role.SUPER_ADMIN)
+    @Audit('NUMBER_ASSIGNED', 'MANAGE_NUMBERS')
     async createDid(
         @GetUser() user: any,
         @Body() body: { didNumber?: string; number?: string; targetTenantId?: string; tenantId?: string }
@@ -214,6 +222,7 @@ export class SubscriptionTelecomController {
      */
     @Post('dids/unassign')
     @Roles(Role.SUPER_ADMIN)
+    @Audit('NUMBER_UNASSIGNED', 'MANAGE_NUMBERS')
     async unassignDid(@Body() body: { id?: string; number?: string }) {
         const idOrNumber = body.id || body.number;
         if (!idOrNumber) throw new Error('ID or Number is required');
@@ -225,6 +234,7 @@ export class SubscriptionTelecomController {
      */
     @Post('dids/:id/unassign')
     @Roles(Role.SUPER_ADMIN)
+    @Audit('NUMBER_UNASSIGNED', 'MANAGE_NUMBERS')
     async unassignDidById(@Param('id') id: string) {
         return this.adminService.unassignNumber('DID', id);
     }

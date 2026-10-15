@@ -12,6 +12,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { LookupRedisService } from '../redis/lookup-redis.module';
 import { HttpService } from '@nestjs/axios';
 import { MailService } from '../mail/mail.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 
 describe('OnboardingService (Unit)', () => {
     let service: OnboardingService;
@@ -31,7 +32,7 @@ describe('OnboardingService (Unit)', () => {
                 update: jest.fn(),
             },
             plan: {
-                findFirst: jest.fn().mockResolvedValue({ id: 'plan-id', name: 'Basic Plan', freeMinutes: 100 }),
+                findFirst: jest.fn().mockResolvedValue({ id: 'plan-id', name: 'Basic Plan', freeMinutes: 100, maxExtensions: 2 }),
             },
             subscription: {
                 findUnique: jest.fn(),
@@ -63,6 +64,7 @@ describe('OnboardingService (Unit)', () => {
                 { provide: LookupRedisService, useValue: { updateExtensionLookup: jest.fn(), updateNumberLookup: jest.fn() } },
                 { provide: HttpService, useValue: { get: jest.fn(), post: jest.fn() } },
                 { provide: MailService, useValue: { sendOnboardingCompletionEmail: jest.fn() } },
+                { provide: EntitlementsService, useValue: { allowance: jest.fn().mockResolvedValue({ tfns: 1 }) } },
             ],
         }).compile();
 
@@ -87,27 +89,27 @@ describe('OnboardingService (Unit)', () => {
             data: expect.objectContaining({
                 id: 'U0010',
                 subBillingCustomerId: 'U0010',
-                customerCode: '0010', // THE CRITICAL CHECK
+                customerCode: 'U0010',
             }),
         }));
 
         // Verify extension creation using 0010 as prefix
         expect(prisma.extension.create).toHaveBeenCalledWith(expect.objectContaining({
             data: expect.objectContaining({
-                extensionNumber: '001001', // Prefix + Suffix
-                sipUsername: '001001_0010',
-                sipPassword: '123456',
+                extensionNumber: 'U001001',
+                sipUsername: 'U001001',
+                sipPassword: expect.any(String),
             }),
         }));
 
         expect(prisma.extension.create).toHaveBeenCalledWith(expect.objectContaining({
             data: expect.objectContaining({
-                extensionNumber: '001002',
-                sipUsername: '001002_0010',
-                sipPassword: '123456',
+                extensionNumber: 'U001002',
+                sipUsername: 'U001002',
+                sipPassword: expect.any(String),
             }),
         }));
 
-        expect(result.tenant.customerCode).toBe('0010');
+        expect(result.tenant.customerCode).toBe('U0010');
     });
 });

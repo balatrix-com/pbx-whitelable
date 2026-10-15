@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
-import { Role, TransactionType } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { resolveTenantScope, TenantPrincipal } from '../auth/tenant-scope';
 
 interface BillingSubscription {
@@ -181,12 +181,13 @@ export class AddonsService {
         return data.data;
     }
 
-    private async fetchSubscriptionAddons(subscriptionId: string): Promise<BillingAddon[]> {
+    private async fetchSubscriptionAddons(subscriptionId: string, customerId?: string): Promise<BillingAddon[]> {
         this.assertResourceId(subscriptionId);
         let data: any;
         try {
             const response = await firstValueFrom(
-                this.httpService.get(`${this.subBillingUrl}/addons/subscription/${encodeURIComponent(subscriptionId)}`)
+                this.httpService.get(`${this.subBillingUrl}/addons/subscription/${encodeURIComponent(subscriptionId)}`,
+                    customerId ? { headers: { 'x-pbx-customer-id': customerId } } : undefined)
             );
             data = response.data;
         } catch (error) {
@@ -209,27 +210,30 @@ export class AddonsService {
             if (!owned) throw new NotFoundException('Subscription not found');
             authorizedId = owned.id;
         }
-        return { success: true, data: await this.fetchSubscriptionAddons(authorizedId) };
+        const customerId = user.role === Role.SUPER_ADMIN ? undefined :
+            (await this.walletService.getSubBillingCustomerId(resolveTenantScope(user)));
+        return { success: true, data: await this.fetchSubscriptionAddons(authorizedId, customerId) };
     }
 
-    private async assertAddonOwner(user: TenantPrincipal, subscriptionAddonId: string): Promise<void> {
+    private async assertAddonOwner(user: TenantPrincipal, subscriptionAddonId: string): Promise<string | undefined> {
         this.assertResourceId(subscriptionAddonId);
-        if (user.role === Role.SUPER_ADMIN) return;
+        if (user.role === Role.SUPER_ADMIN) return undefined;
         // The private API has no addon-by-ID ownership endpoint. Discover the row
         // only through this customer's subscriptions; never trust a client parent ID.
         const subscriptions = await this.getOwnedSubscriptions(user);
         for (const subscription of subscriptions) {
-            const addons = await this.fetchSubscriptionAddons(subscription.id);
-            if (addons.some(addon => addon.id === subscriptionAddonId)) return;
+            const addons = await this.fetchSubscriptionAddons(subscription.id, subscription.customer_id);
+            if (addons.some(addon => addon.id === subscriptionAddonId)) return subscription.customer_id;
         }
         throw new NotFoundException('Subscription addon not found');
     }
 
     async cancelSubscriptionAddon(user: TenantPrincipal, subscriptionAddonId: string) {
-        await this.assertAddonOwner(user, subscriptionAddonId);
+        const customerId = await this.assertAddonOwner(user, subscriptionAddonId);
         try {
             const response = await firstValueFrom(
-                this.httpService.delete(`${this.subBillingUrl}/addons/subscription/${encodeURIComponent(subscriptionAddonId)}`)
+                this.httpService.delete(`${this.subBillingUrl}/addons/subscription/${encodeURIComponent(subscriptionAddonId)}`,
+                    customerId ? { headers: { 'x-pbx-customer-id': customerId } } : undefined)
             );
             return response.data;
         } catch (error) {
@@ -240,10 +244,11 @@ export class AddonsService {
     }
 
     async toggleAutoRenew(user: TenantPrincipal, subscriptionAddonId: string, autoRenew: boolean) {
-        await this.assertAddonOwner(user, subscriptionAddonId);
+        const customerId = await this.assertAddonOwner(user, subscriptionAddonId);
         try {
             const response = await firstValueFrom(
-                this.httpService.patch(`${this.subBillingUrl}/addons/subscriptions/${encodeURIComponent(subscriptionAddonId)}/auto-renew`, { auto_renew: autoRenew })
+                this.httpService.patch(`${this.subBillingUrl}/addons/subscriptions/${encodeURIComponent(subscriptionAddonId)}/auto-renew`,
+                    { auto_renew: autoRenew }, customerId ? { headers: { 'x-pbx-customer-id': customerId } } : undefined)
             );
             return response.data;
         } catch (error) {
@@ -254,7 +259,8 @@ export class AddonsService {
 
     async getQuote(tenantId: string, addonId: string, quantity: number = 1) {
         if (!tenantId) throw new BadRequestException('Tenant ID is required');
-        const qty = Math.max(1, Number(quantity) || 1);
+        const qty = Number(quantity);
+        if (!Number.isSafeInteger(qty) || qty < 1 || qty > 100) throw new BadRequestException('Invalid add-on quantity');
 
         const customerId = await this.walletService.getSubBillingCustomerId(tenantId);
 
@@ -265,7 +271,7 @@ export class AddonsService {
                     customer_id: customerId,
                     addon_id: addonId,
                     quantity: qty
-                })
+                }, { headers: { 'x-pbx-customer-id': customerId } })
             );
             if (response.data?.success && response.data?.data) {
                 return response.data.data;
@@ -329,7 +335,7 @@ export class AddonsService {
         };
     }
 
-    async purchaseAddon(tenantId: string, addonId: string, quantity: number = 1) {
+    async purchaseAddon(tenantId: string, addonId: string, quantity: number, idempotencyKey: string) {
         const quote = await this.getQuote(tenantId, addonId, quantity);
         if (!quote.sufficient_funds) {
             throw new BadRequestException(
@@ -346,37 +352,13 @@ export class AddonsService {
                     customer_id: customerId,
                     addon_id: addonId,
                     quantity
-                })
+                }, { headers: { 'x-pbx-customer-id': customerId, 'idempotency-key': idempotencyKey } })
             );
             this.logger.log(`Tenant ${tenantId} successfully purchased add-on ${addonId} x${quantity} in Sub-Billing`);
             return response.data;
         } catch (subErr: any) {
-            this.logger.warn(`Sub-billing /addons/purchase endpoint error: ${subErr.message}. Executing local debit fallback.`);
-            
-            // Debit wallet via walletService
-            if (quote.prorated_charge_due > 0) {
-                await this.walletService.adjustBalance(
-                    tenantId,
-                    quote.prorated_charge_due,
-                    TransactionType.DEBIT,
-                    `Purchase Add-on: ${quote.name} (Qty: ${quote.quantity})`,
-                    `ADDON-${addonId}-${Date.now()}`
-                );
-            }
-
-            return {
-                success: true,
-                message: 'Add-on purchase confirmed successfully',
-                data: {
-                    tenant_id: tenantId,
-                    addon_purchased: {
-                        addon_id: addonId,
-                        name: quote.name,
-                        quantity: quote.quantity,
-                        prorated_charge_paid: quote.prorated_charge_due
-                    }
-                }
-            };
+            this.logger.error(`Sub-billing add-on purchase failed for tenant ${tenantId}: ${subErr.message}`);
+            throw new BadGatewayException('Unable to complete add-on purchase');
         }
     }
 }

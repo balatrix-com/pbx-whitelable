@@ -6,9 +6,10 @@ import { DIDsService } from './dids.service';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { FreeswitchModule } from '../../freeswitch/freeswitch.module';
 import { LookupRedisModule } from '../../redis/lookup-redis.module';
+import { EntitlementsModule } from '../../entitlements/entitlements.module';
 
 @Module({
-    imports: [PrismaModule, FreeswitchModule, LookupRedisModule, HttpModule, ConfigModule],
+    imports: [PrismaModule, FreeswitchModule, LookupRedisModule, HttpModule, ConfigModule, EntitlementsModule],
     controllers: [DIDsController],
     providers: [DIDsService],
     exports: [DIDsService],

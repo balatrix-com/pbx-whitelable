@@ -2,6 +2,7 @@ import {
     Injectable,
     NotFoundException,
     BadRequestException,
+    ConflictException,
     Logger,
 } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
@@ -11,6 +12,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { FreeSwitchSyncService } from '../../freeswitch/freeswitch-sync.service';
 import { CreateTFNDto, UpdateTFNDto } from './dto';
 import { LookupRedisService } from '../../redis/lookup-redis.module';
+import { EntitlementsService } from '../../entitlements/entitlements.service';
 
 @Injectable()
 export class TFNsService {
@@ -22,25 +24,31 @@ export class TFNsService {
         private lookupRedis: LookupRedisService,
         private readonly httpService: HttpService,
         private readonly configService: ConfigService,
+        private readonly entitlements: EntitlementsService,
     ) { }
 
     private async syncAssetsToSubBilling(tenantId: string, assets: { tfns?: string[], dids?: string[] }) {
         try {
             const subscription = await this.prisma.subscription.findFirst({
-                where: { tenantId },
+                where: { tenantId, status: 'ACTIVE' },
                 orderBy: { createdAt: 'desc' }
             });
 
-            const targetId = subscription?.subBillingSubscriptionId || tenantId;
+            const targetId = subscription?.subBillingSubscriptionId;
+            const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { subBillingCustomerId: true } });
+            if (!targetId || !tenant?.subBillingCustomerId) throw new Error('Billing mapping missing');
             const subBilling = this.configService.get<any>('subBilling');
             const apiUrl = subBilling?.apiUrl || process.env.SUB_BILLING_API_URL;
-            if (!apiUrl) return;
+            if (!apiUrl) throw new Error('Billing API is not configured');
 
             const endpoint = `${apiUrl}/pbx/sync-assets/${targetId}`;
-            await lastValueFrom(this.httpService.post(endpoint, assets));
+            await lastValueFrom(this.httpService.post(endpoint, assets, {
+                headers: { 'x-pbx-customer-id': tenant.subBillingCustomerId },
+            }));
             this.logger.log(`Successfully synced TFN assets for tenant ${tenantId} to sub-billing`);
         } catch (error: any) {
             this.logger.error(`Failed to sync TFN assets to sub-billing for tenant ${tenantId}: ${error.message}`);
+            throw error;
         }
     }
 
@@ -91,6 +99,12 @@ export class TFNsService {
         });
 
         if (existing) {
+            if (existing.tenantId === tenantId) {
+                await this.syncAssetsToSubBilling(tenantId, { tfns: [existing.number] });
+                await this.freeswitchSync.syncTFN(existing.id);
+                await this.lookupRedis.updateNumberLookup(existing.number, tenantId);
+                return existing;
+            }
             throw new BadRequestException('TFN number already exists');
         }
 
@@ -105,7 +119,7 @@ export class TFNsService {
         }
 
         // Create TFN
-        const tfn = await this.prisma.tFN.create({
+        const tfn = await this.entitlements.withAvailableSlot(tenantId, 'tfns', tx => tx.tFN.create({
             data: {
                 tenantId,
                 number: dto.tfnNumber,
@@ -115,16 +129,17 @@ export class TFNsService {
                 forwardNumber: dto.forwardNumber,
                 status: 'ASSIGNED',
             },
-        });
+        }));
 
+        try {
+            await this.syncAssetsToSubBilling(tenantId, { tfns: [tfn.number] });
+        } catch (error) {
+            await this.prisma.tFN.deleteMany({ where: { id: tfn.id, tenantId } });
+            throw error;
+        }
         this.logger.log(`Created TFN ${tfn.number} for tenant ${tenantId}`);
         await this.freeswitchSync.syncTFN(tfn.id);
-        
-        // Update Redis Lookup DB
         await this.lookupRedis.updateNumberLookup(tfn.number, tenantId);
-
-        // Sync to Sub-Billing
-        await this.syncAssetsToSubBilling(tenantId, { tfns: [tfn.number] });
         
         return tfn;
     }
@@ -294,12 +309,13 @@ export class TFNsService {
             }
         }
 
-        const updated = await this.prisma.tFN.update({
-            where: { id },
-            data: {
-                tenantId,
-                status: 'ASSIGNED'
-            }
+        const updated = await this.entitlements.withAvailableSlot(tenantId, 'tfns', async tx => {
+            const claimed = await tx.tFN.updateMany({
+                where: { id, tenantId: null, status: 'AVAILABLE' },
+                data: { tenantId, status: 'ASSIGNED' },
+            });
+            if (claimed.count !== 1) throw new ConflictException('TFN is no longer available');
+            return tx.tFN.findUniqueOrThrow({ where: { id } });
         });
 
         this.logger.log(`Assigned TFN ${updated.number} to tenant ${tenantId}`);

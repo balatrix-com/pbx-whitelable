@@ -6,9 +6,10 @@ import { AdminService } from './admin.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { FreeswitchModule } from '../freeswitch/freeswitch.module';
 import { LookupSyncController } from './lookup-sync.controller';
+import { EntitlementsModule } from '../entitlements/entitlements.module';
 
 @Module({
-    imports: [PrismaModule, HttpModule, ConfigModule, FreeswitchModule],
+    imports: [PrismaModule, HttpModule, ConfigModule, FreeswitchModule, EntitlementsModule],
     controllers: [AdminController, LookupSyncController],
     providers: [AdminService],
     exports: [AdminService],

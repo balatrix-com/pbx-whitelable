@@ -29,7 +29,7 @@ describe('Tenant-owned routing targets', () => {
     });
 
     it('rejects a DID target-only PATCH to a foreign extension before update or sync', async () => {
-        const service = new DIDsService(prisma, sync, redis, {} as any, {} as any);
+        const service = new DIDsService(prisma, sync, redis, {} as any, {} as any, {} as any);
         await expect(service.update('tenant-a', 'did-a', { routeDestinationId: 'ext-b' }))
             .rejects.toThrow(BadRequestException);
         expect(prisma.extension.findFirst).toHaveBeenCalledWith({ where: { id: 'ext-b', tenantId: 'tenant-a' } });
@@ -40,10 +40,11 @@ describe('Tenant-owned routing targets', () => {
     });
 
     it('rejects both TFN update paths when a partial target belongs to another tenant', async () => {
-        const service = new TFNsService(prisma, sync, redis, {} as any, {} as any);
+        const service = new TFNsService(prisma, sync, redis, {} as any, {} as any, {} as any);
         await expect(service.update('tenant-a', 'tfn-a', { routeDestinationId: 'ext-b' }))
             .rejects.toThrow(BadRequestException);
-        const telecom = new TelecomService(prisma, {} as any, {} as any, sync, {} as any, {} as any);
+        const telecom = new TelecomService(prisma, {} as any, {} as any, sync, {} as any, {} as any,
+            {} as any, {} as any);
         await expect(telecom.updateTFNRouting('tfn-a', 'tenant-a', { routeTargetId: 'ext-b' }))
             .rejects.toThrow(BadRequestException);
         expect(prisma.tFN.update).not.toHaveBeenCalled();

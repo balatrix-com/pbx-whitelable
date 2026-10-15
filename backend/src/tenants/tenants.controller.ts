@@ -7,6 +7,7 @@ import { Public } from '../auth/decorators/public.decorator';
 import { Role } from '@prisma/client';
 import { UpdateTenantDetailsDto } from './dto/update-tenant-details.dto';
 import { Audit } from '../audit/audit.decorator';
+import { InternalServiceGuard } from '../auth/guards/internal-service.guard';
 
 @Controller('tenants')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -114,14 +115,8 @@ export class TenantsController {
 
     @Public()
     @Post(':id/sync-archive')
-    async syncArchive(@Param('id') id: string, @Req() req: any) {
-        const authHeader = req.headers['x-sync-token'];
-        const expectedToken = process.env.PBX_SYNC_TOKEN || 'your-super-secret-jwt-key-change-this-in-production';
-        
-        if (authHeader !== expectedToken) {
-            throw new UnauthorizedException('Invalid sync token for tenant archival sync');
-        }
-
+    @UseGuards(InternalServiceGuard)
+    async syncArchive(@Param('id') id: string) {
         // Call the service to archive the tenant locally in PBX
         return this.tenantsService.deleteTenant(id, { skipSubBillingSync: true });
     }

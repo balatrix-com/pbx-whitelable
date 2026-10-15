@@ -104,8 +104,7 @@ export class KamailioDBService {
      */
     async syncSubscriber(username: string, passwordPlain: string): Promise<void> {
         if (!this.realm) {
-            this.logger.error('Cannot sync subscriber: SIP_REALM is not defined in environment variables.');
-            return;
+            throw new Error('Cannot sync subscriber: SIP_REALM is not defined');
         }
 
         // Calculate HA1: MD5(username:realm:password)
@@ -131,6 +130,7 @@ export class KamailioDBService {
             this.logger.log(`Synced Kamailio subscriber: ${username}@${this.realm}`);
         } catch (error) {
             this.logger.error(`Failed to sync Kamailio subscriber ${username}:`, error);
+            throw error;
         }
     }
 

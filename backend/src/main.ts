@@ -8,6 +8,7 @@ import compression from 'compression';
 import helmet from 'helmet';
 import * as fs from 'fs';
 import * as path from 'path';
+import { installBillingHttpAuth } from './auth/billing-http-auth';
 
 async function bootstrap() {
   // Ensure uploads directory exists
@@ -19,6 +20,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bodyParser: false, // Disable default body parser
   });
+  installBillingHttpAuth();
 
   app.setGlobalPrefix('api');
   // Only our loopback reverse proxy may supply the client IP used by throttling.
@@ -41,7 +43,8 @@ async function bootstrap() {
   }));
   app.use(express.json({
     verify: (req: any, res: any, buf: any, encoding: any) => {
-      if (req.url === '/billing/webhook') {
+      if (req.url === '/billing/webhook' || req.url === '/api/internal/extensions/sync-from-billing' ||
+          /^\/api\/tenants\/[^/]+\/sync-archive$/.test(req.url)) {
         req.rawBody = buf;
       }
     }

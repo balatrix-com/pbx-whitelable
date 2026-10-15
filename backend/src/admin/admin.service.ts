@@ -1,10 +1,11 @@
-import { Injectable, Logger, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, HttpException, HttpStatus, NotFoundException, ConflictException, BadGatewayException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { lastValueFrom } from 'rxjs';
 import { FreeSwitchSyncService } from '../freeswitch/freeswitch-sync.service';
 import { LookupRedisService } from '../redis/lookup-redis.module';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 
 @Injectable()
 export class AdminService {
@@ -16,6 +17,7 @@ export class AdminService {
         private readonly configService: ConfigService,
         private readonly freeswitchSync: FreeSwitchSyncService,
         private readonly lookupRedis: LookupRedisService,
+        private readonly entitlements: EntitlementsService,
     ) { }
 
     private get subBillingUrl() {
@@ -504,33 +506,50 @@ export class AdminService {
     private async syncAssetsToSubBilling(tenantId: string, assets: { tfns?: string[], dids?: string[] }) {
         try {
             const subscription = await this.prisma.subscription.findFirst({
-                where: { tenantId },
+                where: { tenantId, status: 'ACTIVE' },
                 orderBy: { createdAt: 'desc' }
             });
 
-            const targetId = subscription?.subBillingSubscriptionId || tenantId;
+            const targetId = subscription?.subBillingSubscriptionId;
+            if (!targetId) throw new BadGatewayException('Active billing subscription mapping missing');
+            const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { subBillingCustomerId: true } });
+            if (!tenant?.subBillingCustomerId) throw new BadGatewayException('Billing customer mapping missing');
 
             if (!this.subBillingUrl) {
                 this.logger.warn(`Sub-billing API URL not configured, skipping asset sync`);
-                return;
+                throw new BadGatewayException('Sub-billing URL not configured');
             }
 
             const endpoint = `${this.subBillingUrl}/pbx/sync-assets/${targetId}`;
-            await lastValueFrom(this.httpService.post(endpoint, assets));
+            await lastValueFrom(this.httpService.post(endpoint, assets, {
+                headers: { 'x-pbx-customer-id': tenant.subBillingCustomerId },
+            }));
             this.logger.log(`Successfully synced assets for tenant ${tenantId} to sub-billing`);
         } catch (error: any) {
             this.logger.error(`Failed to sync assets to sub-billing for tenant ${tenantId}: ${error.message}`);
+            throw error;
         }
     }
 
-    private async unassignAssetsInSubBilling(assets: { tfns?: string[], dids?: string[] }) {
+    private async unassignAssetsInSubBilling(tenantId: string, assets: { tfns?: string[], dids?: string[] }) {
         try {
-            if (!this.subBillingUrl) return;
+            if (!this.subBillingUrl) throw new BadGatewayException('Sub-billing URL not configured');
+            const subscription = await this.prisma.subscription.findFirst({
+                where: { tenantId, status: 'ACTIVE' },
+                orderBy: { createdAt: 'desc' },
+            });
+            if (!subscription?.subBillingSubscriptionId) throw new BadGatewayException('Active billing subscription mapping missing');
+            const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { subBillingCustomerId: true } });
+            if (!tenant?.subBillingCustomerId) throw new BadGatewayException('Billing customer mapping missing');
             const endpoint = `${this.subBillingUrl}/pbx/unassign-assets`;
-            await lastValueFrom(this.httpService.post(endpoint, assets));
+            await lastValueFrom(this.httpService.post(endpoint, {
+                subscriptionId: subscription.subBillingSubscriptionId,
+                ...assets,
+            }, { headers: { 'x-pbx-customer-id': tenant.subBillingCustomerId } }));
             this.logger.log(`Successfully unassigned assets in sub-billing: ${JSON.stringify(assets)}`);
         } catch (error: any) {
             this.logger.error(`Failed to unassign assets in sub-billing: ${error.message}`);
+            throw error;
         }
     }
 
@@ -540,24 +559,34 @@ export class AdminService {
                 where: { OR: [{ id: idOrNumber }, { number: idOrNumber }] }
             });
             if (!tfn) throw new NotFoundException(`TFN ${idOrNumber} not found`);
+            if (tfn.tenantId === tenantId) {
+                await this.syncAssetsToSubBilling(tenantId, { tfns: [tfn.number] });
+                await this.freeswitchSync.syncTFN(tfn.id);
+                await this.lookupRedis.updateNumberLookup(tfn.number, tenantId);
+                return tfn;
+            }
+            if (tfn.tenantId || tfn.status !== 'AVAILABLE') throw new ConflictException('TFN is not available');
 
-            const updated = await this.prisma.tFN.update({
-                where: { id: tfn.id },
-                data: {
-                    tenantId,
-                    status: 'ASSIGNED',
-                    purchasedAt: new Date()
-                }
+            const updated = await this.entitlements.withAvailableSlot(tenantId, 'tfns', async tx => {
+                const claim = await tx.tFN.updateMany({
+                    where: { id: tfn.id, tenantId: null, status: 'AVAILABLE' },
+                    data: { tenantId, status: 'ASSIGNED', purchasedAt: new Date() },
+                });
+                if (claim.count !== 1) throw new ConflictException('TFN is no longer available');
+                return tx.tFN.findUniqueOrThrow({ where: { id: tfn.id } });
             });
 
-            // Sync FreeSWITCH & Redis
-            await this.freeswitchSync.syncTFN(updated.id).catch(err => {
-                this.logger.error(`Failed to sync FreeSWITCH for TFN ${updated.number}: ${err.message}`);
-            });
+            try {
+                await this.syncAssetsToSubBilling(tenantId, { tfns: [updated.number] });
+            } catch (error) {
+                await this.prisma.tFN.updateMany({
+                    where: { id: updated.id, tenantId, status: 'ASSIGNED' },
+                    data: { tenantId: null, status: 'AVAILABLE', purchasedAt: null },
+                });
+                throw error;
+            }
+            await this.freeswitchSync.syncTFN(updated.id);
             await this.lookupRedis.updateNumberLookup(updated.number, tenantId);
-
-            // Sync to Sub-Billing
-            await this.syncAssetsToSubBilling(tenantId, { tfns: [updated.number] });
 
             return updated;
         } else {
@@ -565,17 +594,29 @@ export class AdminService {
                 where: { OR: [{ id: idOrNumber }, { number: idOrNumber }] }
             });
             if (!did) throw new NotFoundException(`DID ${idOrNumber} not found`);
+            if (did.tenantId === tenantId) {
+                await this.syncAssetsToSubBilling(tenantId, { dids: [did.number] });
+                await this.lookupRedis.updateNumberLookup(did.number, tenantId);
+                return did;
+            }
+            if (did.tenantId) throw new ConflictException('DID is not available');
 
-            const updated = await this.prisma.dID.update({
-                where: { id: did.id },
-                data: { tenantId }
+            const updated = await this.entitlements.withAvailableSlot(tenantId, 'dids', async tx => {
+                const claim = await tx.dID.updateMany({
+                    where: { id: did.id, tenantId: null },
+                    data: { tenantId },
+                });
+                if (claim.count !== 1) throw new ConflictException('DID is no longer available');
+                return tx.dID.findUniqueOrThrow({ where: { id: did.id } });
             });
 
-            // Update Redis Lookup
+            try {
+                await this.syncAssetsToSubBilling(tenantId, { dids: [updated.number] });
+            } catch (error) {
+                await this.prisma.dID.updateMany({ where: { id: updated.id, tenantId }, data: { tenantId: null } });
+                throw error;
+            }
             await this.lookupRedis.updateNumberLookup(updated.number, tenantId);
-
-            // Sync to Sub-Billing
-            await this.syncAssetsToSubBilling(tenantId, { dids: [updated.number] });
 
             return updated;
         }
@@ -597,7 +638,8 @@ export class AdminService {
                 await this.lookupRedis.deleteNumberLookup(tfn.number);
 
                 // Unassign in Sub-Billing
-                await this.unassignAssetsInSubBilling({ tfns: [tfn.number] });
+                if (!tfn.tenantId) throw new ConflictException('TFN has no billing owner');
+                await this.unassignAssetsInSubBilling(tfn.tenantId, { tfns: [tfn.number] });
 
                 return this.prisma.tFN.update({
                     where: { id: tfn.id },
@@ -627,7 +669,8 @@ export class AdminService {
                 await this.lookupRedis.deleteNumberLookup(did.number);
 
                 // Unassign in Sub-Billing
-                await this.unassignAssetsInSubBilling({ dids: [did.number] });
+                if (!did.tenantId) throw new ConflictException('DID has no billing owner');
+                await this.unassignAssetsInSubBilling(did.tenantId, { dids: [did.number] });
 
                 return this.prisma.dID.update({
                     where: { id: did.id },

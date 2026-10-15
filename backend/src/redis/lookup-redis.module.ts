@@ -61,6 +61,7 @@ export class LookupRedisService {
             this.logger.log(`Updated number lookup: ${key} -> ${code}`);
         } catch (err) {
             this.logger.error(`Failed to update number lookup for ${number}: ${err.message}`);
+            throw err;
         }
     }
 
@@ -99,6 +100,7 @@ export class LookupRedisService {
             }
         } catch (err) {
             this.logger.error(`Failed to update extension prefix for tenant ${tenantId}: ${err.message}`);
+            throw err;
         }
     }
 

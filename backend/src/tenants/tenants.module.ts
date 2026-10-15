@@ -9,11 +9,12 @@ import { LookupRedisModule } from '../redis/lookup-redis.module';
 import { WalletModule } from '../wallet/wallet.module';
 import { MailModule } from '../mail/mail.module';
 import { ExtensionsModule } from '../telecom/extensions/extensions.module';
+import { InternalServiceGuard } from '../auth/guards/internal-service.guard';
 
 @Module({
     imports: [FreeswitchModule, AdminModule, LookupRedisModule, WalletModule, MailModule, ExtensionsModule],
     controllers: [TenantsController],
-    providers: [TenantsService, PrismaService],
+    providers: [TenantsService, PrismaService, InternalServiceGuard],
     exports: [TenantsService],
 })
 export class TenantsModule { }

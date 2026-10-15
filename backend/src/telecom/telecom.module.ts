@@ -15,6 +15,8 @@ import { FreeswitchModule } from '../freeswitch/freeswitch.module';
 import { TFNsModule } from './tfns/tfns.module';
 import { DIDForwardsModule } from './did-forwards/did-forwards.module';
 import { PhoneNumbersModule } from './phone-numbers/phone-numbers.module';
+import { EntitlementsModule } from '../entitlements/entitlements.module';
+import { LookupRedisModule } from '../redis/lookup-redis.module';
 
 import { AdminModule } from '../admin/admin.module';
 import { SubscriptionTelecomController } from './subscription-telecom.controller';
@@ -38,6 +40,8 @@ import { TeardownEnforcerService } from './teardown-enforcer.service';
     DIDForwardsModule,
     AdminModule,
     PhoneNumbersModule,
+    EntitlementsModule,
+    LookupRedisModule,
   ],
   controllers: [TelecomController, SubscriptionTelecomController],
   providers: [TelecomService, TeardownEnforcerService],

@@ -22,7 +22,8 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed:tfns": "ts-node prisma/seed-tfns.ts",
-    "seed:ratecards": "ts-node prisma/rate_card.ts"
+    "seed:ratecards": "ts-node prisma/rate_card.ts",
+    "reconcile:sip-identities": "node scripts/reconcile-sip-identities.js"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

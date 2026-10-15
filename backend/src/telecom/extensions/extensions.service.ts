@@ -2,6 +2,7 @@ import {
     Injectable,
     NotFoundException,
     BadRequestException,
+    BadGatewayException,
     Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -14,6 +15,7 @@ import { LookupRedisService } from '../../redis/lookup-redis.module';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { lastValueFrom } from 'rxjs';
+import { EntitlementsService } from '../../entitlements/entitlements.service';
 
 @Injectable()
 export class ExtensionsService {
@@ -25,6 +27,7 @@ export class ExtensionsService {
         private readonly lookupRedis: LookupRedisService,
         private readonly httpService: HttpService,
         private readonly configService: ConfigService,
+        private readonly entitlements: EntitlementsService,
     ) { }
 
     private async resolveTenantId(tenantId: string): Promise<string> {
@@ -39,15 +42,20 @@ export class ExtensionsService {
     /**
      * Auto-sync any extensions defined in sub-billing assets into PBX DB, Kamailio subscriber table, and FreeSWITCH
      */
-    async syncMissingExtensionsFromSubBilling(tenantId: string): Promise<void> {
+    async syncMissingExtensionsFromSubBilling(tenantId: string): Promise<{ created: number; alreadyPresent: number; syncFailed: number }> {
         const targetTenantId = await this.resolveTenantId(tenantId);
         const tenant = await this.prisma.tenant.findUnique({
             where: { id: targetTenantId },
             select: { id: true, customerCode: true, subBillingCustomerId: true }
         });
-        if (!tenant) return;
+        if (!tenant?.subBillingCustomerId) throw new BadRequestException('Tenant billing mapping not found');
 
-        const customerId = tenant.subBillingCustomerId || tenant.customerCode || targetTenantId;
+        const customerId = tenant.subBillingCustomerId;
+        const subscription = await this.prisma.subscription.findFirst({
+            where: { tenantId: targetTenantId, status: 'ACTIVE' },
+            orderBy: { createdAt: 'desc' },
+        });
+        if (!subscription?.subBillingSubscriptionId) throw new BadRequestException('Active subscription not found');
         const subBilling = this.configService.get<any>('subBilling');
         const apiUrl = subBilling?.apiUrl || process.env.SUB_BILLING_API_URL || 'http://localhost:5005/api';
 
@@ -58,47 +66,43 @@ export class ExtensionsService {
             );
             subBillingAssets = response.data;
         } catch (err: any) {
-            this.logger.debug(`Could not fetch sub-billing assets for ${customerId}: ${err.message}`);
-            return;
+            throw new BadGatewayException('Unable to fetch billing extension assets');
         }
 
-        if (!subBillingAssets || !Array.isArray(subBillingAssets.extensions) || subBillingAssets.extensions.length === 0) {
-            return;
+        if (subBillingAssets?.subscriptionId !== subscription.subBillingSubscriptionId ||
+            subBillingAssets?.customerId !== customerId || !Array.isArray(subBillingAssets.extensions)) {
+            throw new BadGatewayException('Invalid billing extension assets');
         }
+        const allowance = await this.entitlements.allowance(targetTenantId);
+        const assets = subBillingAssets.extensions.filter((asset: any) => asset.status === 'active');
+        if (assets.length > allowance.extensions) throw new BadGatewayException('Billing extension assets exceed entitlement');
+        let created = 0;
+        let alreadyPresent = 0;
+        let syncFailed = 0;
 
         const existingExtensions = await this.prisma.extension.findMany({
             where: { tenantId: targetTenantId }
         });
         const existingMap = new Map(existingExtensions.map(e => [e.extensionNumber, e]));
 
-        for (const extAsset of subBillingAssets.extensions) {
+        for (const extAsset of assets) {
             let extNum = String(extAsset.extension_number || extAsset.extensionNumber).trim();
             if (!extNum) continue;
 
-            // Defensive normalization: Guarantee {customerCode}{sequence} standard
-            if (tenant.customerCode && !extNum.startsWith(tenant.customerCode)) {
-                const sequenceMatch = extNum.match(/(\d{2})$/);
-                if (sequenceMatch) {
-                    extNum = `${tenant.customerCode}${sequenceMatch[1]}`;
-                } else {
-                    extNum = `${tenant.customerCode}${extNum}`;
-                }
+            if (!tenant.customerCode || !extNum.startsWith(tenant.customerCode) ||
+                !/^\d+$/.test(extNum.slice(tenant.customerCode.length))) {
+                throw new BadGatewayException('Billing returned an invalid extension number');
             }
 
             const existingExt = existingMap.get(extNum);
             if (!existingExt) {
                 try {
-                    const defaultPassword = 'Password@123';
+                    const defaultPassword = crypto.randomBytes(24).toString('base64url');
                     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
-                    const sipPasswordPlaintext = '123456';
+                    const sipPasswordPlaintext = crypto.randomBytes(24).toString('base64url');
 
-                    const newExt = await this.prisma.extension.upsert({
-                        where: { sipUsername: extNum },
-                        update: {
-                            extensionNumber: extNum,
-                            name: extAsset.extension_name || `Extension ${extNum}`,
-                        },
-                        create: {
+                    const newExt = await this.entitlements.withAvailableSlot(targetTenantId, 'extensions', tx =>
+                        tx.extension.create({ data: {
                             tenantId: targetTenantId,
                             extensionNumber: extNum,
                             name: extAsset.extension_name || `Extension ${extNum}`,
@@ -106,29 +110,38 @@ export class ExtensionsService {
                             sipUsername: extNum,
                             sipPassword: sipPasswordPlaintext,
                             sipAuthRealm: process.env.SIP_SERVER || 'localhost',
-                        }
-                    });
+                        } })
+                    );
+                    created++;
 
                     existingMap.set(extNum, newExt);
                     this.logger.log(`[Auto-Sync] Synced/Upserted extension ${extNum} in PBX DB for tenant ${targetTenantId}`);
 
                     // Sync to FreeSWITCH & Kamailio
                     await this.freeSwitchSync.syncExtension(newExt.id).catch(err => {
+                        syncFailed++;
                         this.logger.warn(`Failed to sync FreeSWITCH/Kamailio for ${extNum}: ${err.message}`);
                     });
                 } catch (createErr: any) {
                     this.logger.error(`Error auto-syncing extension ${extNum} for ${targetTenantId}: ${createErr.message}`);
+                    throw createErr;
                 }
             } else {
+                alreadyPresent++;
                 // Ensure existing extension is registered in Kamailio subscriber table
                 await this.freeSwitchSync.syncExtension(existingExt.id).catch(err => {
-                    this.logger.debug(`Kamailio sync check failed for ${extNum}: ${err.message}`);
+                    syncFailed++;
+                    this.logger.warn(`Kamailio sync check failed for ${extNum}: ${err.message}`);
                 });
             }
         }
 
         // Sync with Redis Lookup DB
-        await this.lookupRedis.updateExtensionLookup(targetTenantId).catch(() => {});
+        await this.lookupRedis.updateExtensionLookup(targetTenantId).catch(err => {
+            syncFailed++;
+            this.logger.warn(`Extension lookup sync failed for tenant ${targetTenantId}: ${err.message}`);
+        });
+        return { created, alreadyPresent, syncFailed };
     }
 
     /**
@@ -214,10 +227,13 @@ export class ExtensionsService {
         // Let's find the highest extension number for this tenant that matches pattern, or just use count + 1 if simple.
         // User requested "100101", "100102".
 
-        const extensionNumber = await this.getNextExtensionNumber(tenantId);
+        const sipPasswordPlaintext = crypto.randomBytes(24).toString('base64url');
+        const hashedPassword = await bcrypt.hash(dto.password, 10);
+        const extension = await this.entitlements.withAvailableSlot(tenantId, 'extensions', async tx => {
+        const extensionNumber = await this.getNextExtensionNumber(tenantId, tx);
 
         // Verify uniqueness (paranoid check)
-        const checkUnique = await this.prisma.extension.findUnique({
+        const checkUnique = await tx.extension.findUnique({
             where: {
                 tenantId_extensionNumber: {
                     tenantId,
@@ -232,11 +248,8 @@ export class ExtensionsService {
         }
 
         // 3. Create Extension
-        const hashedPassword = await bcrypt.hash(dto.password, 10);
-
         // Generate SIP credentials
         const sipUsername = extensionNumber; // Use extension number as username
-        const sipPasswordPlaintext = '123456';
 
         // Note: We are storing the plaintext SIP password in `sipPassword` field as FreeSWITCH needs to know it (or we store hash if using hash auth, but typically plaintext for directory)
         // Actually, freeswitch usually needs the password to authenticate the user. 
@@ -246,7 +259,7 @@ export class ExtensionsService {
         // Standard FS uses plain password in directory xml users.
         // So we store `sipPasswordPlaintext` in `sipPassword`.
 
-        const extension = await this.prisma.extension.create({
+        return tx.extension.create({
             data: {
                 tenantId,
                 extensionNumber: extensionNumber, // Enforced format
@@ -272,6 +285,7 @@ export class ExtensionsService {
 
                 outboundCallerIdNumber: dto.outboundCallerIdNumber,
             },
+        });
         });
 
         this.logger.log(`Created extension ${extension.extensionNumber} for tenant ${tenantId}`);
@@ -420,8 +434,8 @@ export class ExtensionsService {
         return { message: 'Extension deleted successfully' };
     }
 
-    async getNextExtensionNumber(tenantId: string): Promise<string> {
-        const tenant = await this.prisma.tenant.findUnique({
+    async getNextExtensionNumber(tenantId: string, db: any = this.prisma): Promise<string> {
+        const tenant = await db.tenant.findUnique({
             where: { id: tenantId },
             select: { customerCode: true }
         });
@@ -434,7 +448,7 @@ export class ExtensionsService {
         let maxSequence = 0;
 
         // Check Extensions Table
-        const lastExtension = await this.prisma.extension.findFirst({
+        const lastExtension = await db.extension.findFirst({
             where: { tenantId },
             orderBy: { extensionNumber: 'desc' },
         });
@@ -447,7 +461,7 @@ export class ExtensionsService {
         }
 
         // Check Users Table (Monitoring Extensions)
-        const usersWithExtensions = await this.prisma.user.findMany({
+        const usersWithExtensions = await db.user.findMany({
             where: {
                 tenantId,
                 monitoringExtension: { not: null }

@@ -6,6 +6,7 @@ import { LookupRedisService } from '../../redis/lookup-redis.module';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { of, throwError } from 'rxjs';
+import { EntitlementsService } from '../../entitlements/entitlements.service';
 
 describe('ExtensionsService (Kamailio & Sub-Billing Auto-Sync)', () => {
     let service: ExtensionsService;
@@ -33,6 +34,9 @@ describe('ExtensionsService (Kamailio & Sub-Billing Auto-Sync)', () => {
                 }),
                 count: jest.fn().mockResolvedValue(0),
             },
+            subscription: {
+                findFirst: jest.fn().mockResolvedValue({ subBillingSubscriptionId: 'SUB-1', status: 'ACTIVE' }),
+            },
         };
 
         freeSwitchSync = {
@@ -49,6 +53,7 @@ describe('ExtensionsService (Kamailio & Sub-Billing Auto-Sync)', () => {
             get: jest.fn().mockReturnValue(
                 of({
                     data: {
+                        customerId: 'U1006', subscriptionId: 'SUB-1',
                         extensions: [
                             { extension_number: '100601', extension_name: 'Extension 100601', status: 'active' },
                             { extension_number: '100602', extension_name: 'Extension 100602', status: 'active' }
@@ -70,6 +75,10 @@ describe('ExtensionsService (Kamailio & Sub-Billing Auto-Sync)', () => {
                 { provide: LookupRedisService, useValue: lookupRedis },
                 { provide: HttpService, useValue: httpService },
                 { provide: ConfigService, useValue: configService },
+                { provide: EntitlementsService, useValue: {
+                    allowance: jest.fn().mockResolvedValue({ extensions: 2, tfns: 1, dids: 0 }),
+                    withAvailableSlot: jest.fn((_tenantId: any, _resource: any, action: any) => action(prisma)),
+                } },
             ],
         }).compile();
 
@@ -124,34 +133,27 @@ describe('ExtensionsService (Kamailio & Sub-Billing Auto-Sync)', () => {
             expect(freeSwitchSync.syncExtension).toHaveBeenCalledWith('ext-existing-1');
         });
 
-        it('should gracefully handle sub-billing service network errors without throwing', async () => {
+        it('should surface sub-billing network errors for retry', async () => {
             httpService.get.mockReturnValueOnce(throwError(() => new Error('Sub-billing connection refused')));
 
-            await expect(service.syncMissingExtensionsFromSubBilling('tenant-uuid-1')).resolves.not.toThrow();
+            await expect(service.syncMissingExtensionsFromSubBilling('tenant-uuid-1')).rejects.toThrow();
             expect(prisma.extension.create).not.toHaveBeenCalled();
         });
 
-        it('should normalize legacy truncated extension numbers to standard format with customerCode', async () => {
+        it('should reject an asset number outside the tenant namespace', async () => {
             httpService.get.mockReturnValueOnce(
                 of({
                     data: {
+                        customerId: 'U1006', subscriptionId: 'SUB-1',
                         extensions: [
-                            { extension_number: '00601', extension_name: 'Legacy Truncated 1' },
-                            { extension_number: '00602', extension_name: 'Legacy Truncated 2' }
+                            { extension_number: '00601', extension_name: 'Foreign', status: 'active' }
                         ]
                     }
                 })
             );
 
-            await service.syncMissingExtensionsFromSubBilling('tenant-uuid-1');
-
-            expect(prisma.extension.create).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    data: expect.objectContaining({
-                        extensionNumber: '100601'
-                    })
-                })
-            );
+            await expect(service.syncMissingExtensionsFromSubBilling('tenant-uuid-1')).rejects.toThrow();
+            expect(prisma.extension.create).not.toHaveBeenCalled();
         });
     });
 

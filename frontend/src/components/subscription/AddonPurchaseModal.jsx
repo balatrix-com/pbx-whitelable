@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Dialog } from '@headlessui/react';
 import { X, CheckCircle2, AlertTriangle, Loader2, Wallet, Calendar, DollarSign, Package, ShieldAlert } from 'lucide-react';
 import { subscriptionService } from '../../services/subscription.service';
@@ -8,6 +8,11 @@ const AddonPurchaseModal = ({ isOpen, onClose, quote, customerId, onSuccess }) =
     const { addToast } = useToast();
     const [purchasing, setPurchasing] = useState(false);
     const [purchaseError, setPurchaseError] = useState(null);
+    const purchaseKey = useRef(crypto.randomUUID());
+
+    useEffect(() => {
+        purchaseKey.current = crypto.randomUUID();
+    }, [quote?.addon_id, quote?.quantity, customerId]);
 
     if (!quote) return null;
 
@@ -16,15 +21,17 @@ const AddonPurchaseModal = ({ isOpen, onClose, quote, customerId, onSuccess }) =
         setPurchaseError(null);
         try {
             const res = await subscriptionService.purchaseAddon(
-                customerId || quote.customer_id || 'U1001',
+                customerId,
                 quote.addon_id,
-                quote.quantity
+                quote.quantity,
+                purchaseKey.current
             );
             addToast('success', res?.message || 'Add-on purchased successfully!');
             if (onSuccess) {
                 onSuccess();
             }
             onClose();
+            purchaseKey.current = crypto.randomUUID();
         } catch (err) {
             console.error('Purchase error:', err);
             const msg = err.response?.data?.message || err.normalized?.message || 'Failed to purchase add-on';
