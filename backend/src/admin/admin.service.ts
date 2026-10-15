@@ -629,29 +629,29 @@ export class AdminService {
                 include: { tenant: true }
             });
             if (tfn) {
-                // Cleanup routing in FreeSWITCH
-                await this.freeswitchSync.deleteTFN(tfn).catch(err => {
-                    this.logger.error(`Failed to cleanup FreeSWITCH for TFN ${tfn.number}: ${err.message}`);
-                });
-
-                // Cleanup Redis mapping
-                await this.lookupRedis.deleteNumberLookup(tfn.number);
-
-                // Unassign in Sub-Billing
                 if (!tfn.tenantId) throw new ConflictException('TFN has no billing owner');
                 await this.unassignAssetsInSubBilling(tfn.tenantId, { tfns: [tfn.number] });
-
-                return this.prisma.tFN.update({
-                    where: { id: tfn.id },
+                const changed = await this.prisma.tFN.updateMany({
+                    where: { id: tfn.id, tenantId: tfn.tenantId },
                     data: {
                         tenantId: null,
                         status: 'AVAILABLE',
+                        purchasedAt: null,
                         routeType: null,
                         routeTargetId: null,
                         forwardEnabled: false,
                         forwardNumber: null
                     }
                 });
+                if (changed.count !== 1) {
+                    await this.syncAssetsToSubBilling(tfn.tenantId, { tfns: [tfn.number] });
+                    throw new ConflictException('TFN assignment changed during unassign');
+                }
+                await this.freeswitchSync.deleteTFN(tfn).catch(err => {
+                    this.logger.error(`Failed to cleanup FreeSWITCH for TFN ${tfn.number}: ${err.message}`);
+                });
+                await this.lookupRedis.deleteNumberLookup(tfn.number);
+                return this.prisma.tFN.findUniqueOrThrow({ where: { id: tfn.id } });
             }
             throw new NotFoundException(`TFN ${idOrNumber} not found`);
         } else {
@@ -660,20 +660,10 @@ export class AdminService {
                 include: { tenant: true }
             });
             if (did) {
-                // Cleanup routing in FreeSWITCH
-                await this.freeswitchSync.deleteDID(did).catch(err => {
-                    this.logger.error(`Failed to cleanup FreeSWITCH for DID ${did.number}: ${err.message}`);
-                });
-
-                // Cleanup Redis mapping
-                await this.lookupRedis.deleteNumberLookup(did.number);
-
-                // Unassign in Sub-Billing
                 if (!did.tenantId) throw new ConflictException('DID has no billing owner');
                 await this.unassignAssetsInSubBilling(did.tenantId, { dids: [did.number] });
-
-                return this.prisma.dID.update({
-                    where: { id: did.id },
+                const changed = await this.prisma.dID.updateMany({
+                    where: { id: did.id, tenantId: did.tenantId },
                     data: {
                         tenantId: null,
                         routeType: null,
@@ -682,6 +672,15 @@ export class AdminService {
                         forwardNumber: null
                     }
                 });
+                if (changed.count !== 1) {
+                    await this.syncAssetsToSubBilling(did.tenantId, { dids: [did.number] });
+                    throw new ConflictException('DID assignment changed during unassign');
+                }
+                await this.freeswitchSync.deleteDID(did).catch(err => {
+                    this.logger.error(`Failed to cleanup FreeSWITCH for DID ${did.number}: ${err.message}`);
+                });
+                await this.lookupRedis.deleteNumberLookup(did.number);
+                return this.prisma.dID.findUniqueOrThrow({ where: { id: did.id } });
             }
             throw new NotFoundException(`DID ${idOrNumber} not found`);
         }

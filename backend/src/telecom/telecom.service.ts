@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, ForbiddenException, ConflictException, OnModuleInit } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { TransactionType, TFNStatus } from '@prisma/client';
@@ -8,6 +8,7 @@ import { AudioUploadService } from '../freeswitch/audio-upload.service';
 import { RecordingStorageService } from '../freeswitch/recording-storage.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
 import { LookupRedisService } from '../redis/lookup-redis.module';
+import { AdminService } from '../admin/admin.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -21,6 +22,7 @@ export class TelecomService implements OnModuleInit {
         private recordingStorageService: RecordingStorageService,
         private entitlements: EntitlementsService,
         private lookupRedis: LookupRedisService,
+        private adminService: AdminService,
     ) { }
 
     async onModuleInit() {
@@ -58,33 +60,10 @@ export class TelecomService implements OnModuleInit {
         if (state === ServiceState.PLAN_EXPIRED) throw new ForbiddenException('Plan expired');
         if (state === ServiceState.WALLET_NEGATIVE) throw new ForbiddenException('Wallet negative');
 
-        const tfn = await this.prisma.tFN.findUnique({ where: { number } });
-        if (!tfn) throw new NotFoundException('TFN not found');
-        if (tfn.status !== TFNStatus.AVAILABLE) throw new BadRequestException('TFN not available');
-
-        const claimed = await this.entitlements.withAvailableSlot(tenantId, 'tfns', async tx => {
-            const locked = await tx.$queryRaw`SELECT id FROM tfns WHERE id = ${tfn.id} FOR UPDATE`;
-            if (!Array.isArray(locked) || locked.length !== 1) throw new NotFoundException('TFN not found');
-            const current = await tx.tFN.findUnique({ where: { id: tfn.id } });
-            if (current?.status !== TFNStatus.AVAILABLE || current?.tenantId) {
-                throw new ConflictException('TFN no longer available');
-            }
-            try {
-                await this.walletService.adjustBalance(tenantId, Number(tfn.price), TransactionType.DEBIT,
-                    `Purchase TFN ${number}`, `TFN-${tfn.id}`);
-            } catch {
-                throw new ForbiddenException('Insufficient funds to purchase TFN');
-            }
-            const result = await tx.tFN.updateMany({
-                where: { id: tfn.id, status: TFNStatus.AVAILABLE, tenantId: null },
-                data: { status: TFNStatus.ASSIGNED, tenantId, purchasedAt: new Date() },
-            });
-            if (result.count !== 1) throw new ConflictException('TFN no longer available');
-            return tx.tFN.findUniqueOrThrow({ where: { id: tfn.id } });
-        });
-        await this.freeswitchSync.syncTFN(claimed.id);
-        await this.lookupRedis.updateNumberLookup(claimed.number, tenantId);
-        return claimed;
+        // Plan capacity and ownership are enforced by the shared assignment path.
+        // A separate wallet debit here was non-atomic with both databases and could
+        // charge a tenant for a number that was never assigned.
+        return this.adminService.assignNumber('TFN', number, tenantId);
     }
 
     // --- Extension Logic ---
