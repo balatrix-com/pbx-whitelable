@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Delete, Body, Param, UseGuards, BadRequestException, Patch, Headers } from '@nestjs/common';
-import { AddonsService } from './addons.service';
+import { AddonsService, BillingAddon } from './addons.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';

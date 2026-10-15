@@ -13,7 +13,7 @@ interface BillingSubscription {
     customer_id: string;
 }
 
-interface BillingAddon {
+export interface BillingAddon {
     id: string;
     subscription_id: string;
     [key: string]: unknown;

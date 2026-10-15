@@ -47,7 +47,7 @@ export class EntitlementsService {
         return data.allowed;
     }
 
-    async withAvailableSlot<T>(tenantId: string, resource: Resource, action: (tx: any) => Promise<T>): Promise<T> {
+    async withAvailableSlot<T = any>(tenantId: string, resource: Resource, action: (tx: any) => Promise<T> | T): Promise<T> {
         const allowed = (await this.allowance(tenantId))[resource];
         return this.prisma.$transaction(async tx => {
             // Serialize every quota-consuming operation for this tenant.

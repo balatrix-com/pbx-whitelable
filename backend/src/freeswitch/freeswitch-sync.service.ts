@@ -98,7 +98,7 @@ export class FreeSwitchSyncService {
         if (!rg) return;
 
         const key = `rg${rg.sequenceId}_${rg.tenant.customerCode}`;
-        if (rg.members.some(member => member.extension.tenantId !== rg.tenantId)) {
+        if (rg.members.some((member: any) => member.extension.tenantId !== rg.tenantId)) {
             this.logger.warn(`Ring group ${rg.id} contains an extension outside its tenant`);
             await this.freeswitchDB.deleteDialplanPattern(key);
             return;
