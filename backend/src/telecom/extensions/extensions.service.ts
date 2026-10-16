@@ -85,6 +85,17 @@ export class ExtensionsService {
         });
         const existingMap = new Map(existingExtensions.map(e => [e.extensionNumber, e]));
 
+        // Check monitoring users to defend against collision
+        const monitoringUsers = await this.prisma.user.findMany({
+            where: {
+                tenantId: targetTenantId,
+                monitoringEnabled: true,
+                monitoringExtension: { not: null }
+            },
+            select: { id: true, monitoringExtension: true }
+        });
+        const monitoringMap = new Map(monitoringUsers.map(u => [u.monitoringExtension, u]));
+
         for (const extAsset of assets) {
             let extNum = String(extAsset.extension_number || extAsset.extensionNumber).trim();
             if (!extNum) continue;
@@ -92,6 +103,13 @@ export class ExtensionsService {
             if (!tenant.customerCode || !extNum.startsWith(tenant.customerCode) ||
                 !/^\d+$/.test(extNum.slice(tenant.customerCode.length))) {
                 throw new BadGatewayException('Billing returned an invalid extension number');
+            }
+
+            // Defensive Collision Guard: If incoming extension asset number collides with an active monitoring user
+            if (monitoringMap.has(extNum)) {
+                this.logger.warn(`[Auto-Sync] Collision detected: Billing extension asset ${extNum} collides with monitoring user ${monitoringMap.get(extNum)?.id}. Auto-resolving sequence.`);
+                extNum = await this.getNextExtensionNumber(targetTenantId);
+                this.logger.log(`[Auto-Sync] Re-allocated standard extension to ${extNum}`);
             }
 
             const existingExt = existingMap.get(extNum);
@@ -447,14 +465,14 @@ export class ExtensionsService {
         const pattern = new RegExp(`^${tenant.customerCode}(\\d+)$`);
         let maxSequence = 0;
 
-        // Check Extensions Table
-        const lastExtension = await db.extension.findFirst({
+        // Check Extensions Table (check all extensions to find true numeric maximum)
+        const allExtensions = await db.extension.findMany({
             where: { tenantId },
-            orderBy: { extensionNumber: 'desc' },
+            select: { extensionNumber: true }
         });
 
-        if (lastExtension) {
-            const match = lastExtension.extensionNumber.match(pattern);
+        for (const ext of allExtensions) {
+            const match = ext.extensionNumber.match(pattern);
             if (match) {
                 maxSequence = Math.max(maxSequence, parseInt(match[1], 10));
             }

@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException, BadRequestException, Optional, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Role, UserStatus, UserAuditAction } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -8,13 +8,20 @@ import { PaginationQueryDto } from './dto/pagination-query.dto';
 
 import { KamailioDBService } from '../freeswitch/kamailio-db.service';
 import { MailService } from '../mail/mail.service';
+import { HttpService } from '@nestjs/axios';
+import { ConfigService } from '@nestjs/config';
+import { lastValueFrom } from 'rxjs';
 
 @Injectable()
 export class UsersService {
+    private readonly logger = new Logger(UsersService.name);
+
     constructor(
         private prisma: PrismaService,
         private kamailioService: KamailioDBService,
         private mailService: MailService,
+        @Optional() private httpService?: HttpService,
+        @Optional() private configService?: ConfigService,
     ) { }
 
     // Helper to create audit log
@@ -277,6 +284,68 @@ export class UsersService {
         };
     }
 
+    private async syncMonitoringToSubBilling(
+        tenantId: string,
+        monitoring: Array<{ extensionNumber: string; userName?: string; userEmail?: string }>
+    ) {
+        if (!this.httpService) return;
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { subBillingCustomerId: true }
+        });
+        if (!tenant?.subBillingCustomerId) return;
+
+        const subscription = await this.prisma.subscription.findFirst({
+            where: { tenantId, status: 'ACTIVE' },
+            orderBy: { createdAt: 'desc' }
+        });
+        if (!subscription?.subBillingSubscriptionId) return;
+
+        const subBilling = this.configService?.get<any>('subBilling');
+        const apiUrl = subBilling?.apiUrl || process.env.SUB_BILLING_API_URL || 'http://localhost:5005/api';
+        const endpoint = `${apiUrl}/pbx/sync-assets/${subscription.subBillingSubscriptionId}`;
+
+        await lastValueFrom(
+            this.httpService.post(
+                endpoint,
+                { monitoring },
+                { headers: { 'x-pbx-customer-id': tenant.subBillingCustomerId } }
+            )
+        );
+        this.logger.log(`Synced monitoring extension(s) for tenant ${tenantId} to sub-billing`);
+    }
+
+    private async unassignMonitoringFromSubBilling(tenantId: string, extensionNumbers: string[]) {
+        if (!this.httpService) return;
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { subBillingCustomerId: true }
+        });
+        if (!tenant?.subBillingCustomerId) return;
+
+        const subscription = await this.prisma.subscription.findFirst({
+            where: { tenantId, status: 'ACTIVE' },
+            orderBy: { createdAt: 'desc' }
+        });
+        if (!subscription?.subBillingSubscriptionId) return;
+
+        const subBilling = this.configService?.get<any>('subBilling');
+        const apiUrl = subBilling?.apiUrl || process.env.SUB_BILLING_API_URL || 'http://localhost:5005/api';
+        const endpoint = `${apiUrl}/pbx/unassign-assets`;
+
+        await lastValueFrom(
+            this.httpService.post(
+                endpoint,
+                {
+                    subscriptionId: subscription.subBillingSubscriptionId,
+                    monitoring: extensionNumbers
+                },
+                { headers: { 'x-pbx-customer-id': tenant.subBillingCustomerId } }
+            )
+        );
+        this.logger.log(`Unassigned monitoring extension(s) ${extensionNumbers.join(', ')} for tenant ${tenantId} in sub-billing`);
+    }
+
     async updatePermissions(
         actorId: string,
         targetUserId: string,
@@ -290,6 +359,13 @@ export class UsersService {
             throw new ForbiddenException('You do not have permission to manage this user');
         }
 
+        const targetUser = await this.prisma.user.findUnique({
+            where: { id: targetUserId }
+        });
+        if (!targetUser) throw new NotFoundException('User not found');
+
+        const oldMonitoringExt = targetUser.monitoringExtension;
+
         // Validate extension uniqueness if provided
         if (monitoringEnabled && monitoringExtension) {
             const existing = await this.prisma.user.findFirst({
@@ -300,6 +376,32 @@ export class UsersService {
             });
             if (existing) {
                 throw new BadRequestException(`Extension ${monitoringExtension} is already assigned to another user`);
+            }
+
+            // Prevent collision with standard extensions
+            const existingExtension = await this.prisma.extension.findFirst({
+                where: {
+                    extensionNumber: monitoringExtension
+                }
+            });
+            if (existingExtension) {
+                throw new BadRequestException(`Extension ${monitoringExtension} is already in use as a standard extension`);
+            }
+        }
+
+        // Sync with Sub-Billing
+        if (targetUser.tenantId) {
+            if (monitoringEnabled && monitoringExtension) {
+                if (oldMonitoringExt && oldMonitoringExt !== monitoringExtension) {
+                    await this.unassignMonitoringFromSubBilling(targetUser.tenantId, [oldMonitoringExt]);
+                }
+                await this.syncMonitoringToSubBilling(targetUser.tenantId, [{
+                    extensionNumber: monitoringExtension,
+                    userName: name || targetUser.name || undefined,
+                    userEmail: targetUser.email
+                }]);
+            } else if (!monitoringEnabled && oldMonitoringExt) {
+                await this.unassignMonitoringFromSubBilling(targetUser.tenantId, [oldMonitoringExt]);
             }
         }
 
@@ -317,14 +419,17 @@ export class UsersService {
         // Sync with Kamailio
         try {
             if (monitoringEnabled && updatedUser.monitoringExtension && updatedUser.monitoringSecret) {
+                if (oldMonitoringExt && oldMonitoringExt !== updatedUser.monitoringExtension) {
+                    await this.kamailioService.deleteSubscriber(oldMonitoringExt);
+                }
                 await this.kamailioService.syncSubscriber(updatedUser.monitoringExtension, updatedUser.monitoringSecret);
-            } else if (!monitoringEnabled && updatedUser.monitoringExtension) {
+            } else if (!monitoringEnabled && oldMonitoringExt) {
                 // If monitoring is disabled, remove the SIP account
-                await this.kamailioService.deleteSubscriber(updatedUser.monitoringExtension);
+                await this.kamailioService.deleteSubscriber(oldMonitoringExt);
             }
         } catch (error) {
-            // Log but don't fail the request?
-            console.error('Failed to sync monitoring extension to Kamailio', error);
+            this.logger.error(`Failed to sync monitoring extension to Kamailio: ${error.message}`);
+            throw error;
         }
 
         // Audit log
@@ -352,6 +457,18 @@ export class UsersService {
         });
 
         if (!targetUser) throw new NotFoundException('User not found');
+
+        // If user had an active monitoring extension, clean up from Sub-Billing and Kamailio
+        if (targetUser.monitoringEnabled && targetUser.monitoringExtension) {
+            try {
+                if (targetUser.tenantId) {
+                    await this.unassignMonitoringFromSubBilling(targetUser.tenantId, [targetUser.monitoringExtension]);
+                }
+                await this.kamailioService.deleteSubscriber(targetUser.monitoringExtension);
+            } catch (err: any) {
+                this.logger.error(`Error cleaning up monitoring extension for deleted user ${targetUserId}: ${err.message}`);
+            }
+        }
 
         // Hard Delete with manual cascade
         await this.prisma.$transaction(async (prisma) => {
