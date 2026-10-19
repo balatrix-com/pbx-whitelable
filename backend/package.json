@@ -23,7 +23,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed:tfns": "ts-node prisma/seed-tfns.ts",
     "seed:ratecards": "ts-node prisma/rate_card.ts",
-    "reconcile:sip-identities": "node scripts/reconcile-sip-identities.js"
+    "reconcile:sip-identities": "node scripts/reconcile-sip-identities.js",
+    "migrate": "prisma migrate deploy"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
