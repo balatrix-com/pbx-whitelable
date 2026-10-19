@@ -46,8 +46,6 @@ import PlansPage from './pages/admin/PlansPage';
 import SubscriptionsPage from './pages/admin/SubscriptionsPage';
 import AddonsPage from './pages/admin/AddonsPage';
 import CreatePlanPage from './pages/admin/CreatePlanPage';
-import OnboardingLayout from './pages/onboarding/OnboardingLayout';
-import TfnOnboardingPage from './pages/onboarding/TfnOnboardingPage';
 import PrivateLayout from './components/layout/PrivateLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import PlatformDashboard from './pages/platform/PlatformDashboard';
@@ -96,10 +94,8 @@ function App() {
                                         <Route path="/invite/accept" element={<AcceptInvitePage />} />
                                         <Route path="/impersonate" element={<ImpersonateLoader />} />
                                         <Route path="/auth/change-password" element={<ChangePasswordPage />} />
-                                        {/* Onboarding Routes */}
-                                        <Route element={<OnboardingLayout />}>
-                                            <Route path="/onboarding/select-tfn" element={<TfnOnboardingPage />} />
-                                        </Route>
+                                        {/* Onboarding Redirect to Dashboard */}
+                                        <Route path="/onboarding/*" element={<Navigate to="/dashboard" replace />} />
 
                                         {/* Protected Routes */}
                                         {/* Protected Routes */}

@@ -21,6 +21,8 @@ const CreatePlanPage = () => {
     const navigate = useNavigate();
     const { addToast } = useToast();
     const [submitting, setSubmitting] = useState(false);
+    const [rateCards, setRateCards] = useState([]);
+    const [loadingRateCards, setLoadingRateCards] = useState(false);
 
     const [formData, setFormData] = useState({
         plan_id: '',
@@ -28,7 +30,7 @@ const CreatePlanPage = () => {
         amount: 49.99,
         currency: 'usd',
         validity_months: 1,
-        rate_card_id: '8',
+        rate_card_id: '',
         free_mins: 1000,
         tfns: 2,
         dids: 1,
@@ -36,6 +38,32 @@ const CreatePlanPage = () => {
         monitoring_per_user: 1,
         setup_fees: 10.00
     });
+
+    useEffect(() => {
+        let isMounted = true;
+        const fetchRateCards = async () => {
+            setLoadingRateCards(true);
+            try {
+                const list = await subscriptionService.getRateCards();
+                if (!isMounted) return;
+                setRateCards(list);
+                if (list.length > 0) {
+                    setFormData(prev => ({
+                        ...prev,
+                        rate_card_id: prev.rate_card_id && list.some(rc => String(rc.ratecard_id) === String(prev.rate_card_id))
+                            ? prev.rate_card_id
+                            : String(list[0].ratecard_id)
+                    }));
+                }
+            } catch (err) {
+                console.error('Error fetching rate cards in CreatePlanPage:', err);
+            } finally {
+                if (isMounted) setLoadingRateCards(false);
+            }
+        };
+        fetchRateCards();
+        return () => { isMounted = false; };
+    }, []);
 
     const handleChange = (e) => {
         const { name, value, type } = e.target;
@@ -49,6 +77,11 @@ const CreatePlanPage = () => {
         e.preventDefault();
         if (!formData.name.trim()) {
             addToast('error', 'Plan name is required');
+            return;
+        }
+
+        if (!formData.rate_card_id) {
+            addToast('error', 'Please select a rate card for this plan');
             return;
         }
 
@@ -264,15 +297,36 @@ const CreatePlanPage = () => {
                         {/* Rate Card Mapping */}
                         <div>
                             <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-slate-300 mb-1.5">
-                                Bound Rate Card ID
+                                Bound Rate Card *
                             </label>
-                            <input
-                                type="text"
+                            <select
                                 name="rate_card_id"
                                 value={formData.rate_card_id}
                                 onChange={handleChange}
-                                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/60 text-sm font-mono font-bold text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
-                            />
+                                required
+                                disabled={loadingRateCards}
+                                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/60 text-sm font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                            >
+                                {loadingRateCards ? (
+                                    <option value="">Loading rate cards...</option>
+                                ) : rateCards.length === 0 ? (
+                                    <option value="">No rate cards available</option>
+                                ) : (
+                                    <>
+                                        <option value="" disabled>Select Rate Card</option>
+                                        {rateCards.map((rc) => (
+                                            <option key={rc.ratecard_id} value={String(rc.ratecard_id)}>
+                                                {rc.name} (Rate Card ID: {rc.ratecard_id}){rc.currency ? ` - ${rc.currency.toUpperCase()}` : ''}
+                                            </option>
+                                        ))}
+                                    </>
+                                )}
+                            </select>
+                            {formData.rate_card_id && (
+                                <p className="text-[11px] font-medium text-gray-500 dark:text-slate-400 mt-1">
+                                    Selected ID to store: <span className="font-mono font-bold text-primary-600 dark:text-primary-400">{formData.rate_card_id}</span>
+                                </p>
+                            )}
                         </div>
 
                         {/* TFNs */}

@@ -18,4 +18,25 @@ describe('Plan deletion authorization', () => {
     if (allowed) await controller.deletePlan('plan-b');
     expect(service.deletePlan).toHaveBeenCalledTimes(role === Role.SUPER_ADMIN ? 1 : 0);
   });
+
+  it.each([Role.ADMIN, Role.SUPPORT, Role.SUPER_ADMIN])('checks %s before fetching rate cards', async role => {
+    const service = {
+      deletePlan: jest.fn().mockResolvedValue({ success: true }),
+      getRateCards: jest.fn().mockResolvedValue([{ ratecard_id: 1, name: 'Standard_Global' }]),
+    };
+    const controller = new PlansController(service as any);
+    const context = {
+      getHandler: () => PlansController.prototype.getRateCards,
+      getClass: () => PlansController,
+      switchToHttp: () => ({ getRequest: () => ({ user: { role } }) }),
+    } as unknown as ExecutionContext;
+    const allowed = new RolesGuard(new Reflector()).canActivate(context);
+    expect(allowed).toBe(role === Role.ADMIN || role === Role.SUPER_ADMIN);
+    if (allowed) {
+      const res = await controller.getRateCards();
+      expect(res).toEqual([{ ratecard_id: 1, name: 'Standard_Global' }]);
+    }
+    expect(service.getRateCards).toHaveBeenCalledTimes(role === Role.ADMIN || role === Role.SUPER_ADMIN ? 1 : 0);
+  });
 });
+

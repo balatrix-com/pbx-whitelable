@@ -73,13 +73,27 @@ export class PlansService implements OnModuleInit {
         });
     }
 
+    async getRateCards() {
+        try {
+            this.logger.log(`Fetching rate cards from sub-billing: ${this.subBillingUrl}/rate-cards`);
+            const response = await firstValueFrom(
+                this.httpService.get(`${this.subBillingUrl}/rate-cards`)
+            );
+            return response.data?.data || response.data || [];
+        } catch (error) {
+            this.logger.error(`Failed to fetch rate cards from sub-billing: ${error.message}`);
+            return [];
+        }
+    }
+
     async createCustom(data: any, userId: string) {
         let subBillingResult = null;
         try {
             const response = await firstValueFrom(
                 this.httpService.post(`${this.subBillingUrl}/v1/plans`, {
                     ...data,
-                    plan_id: data.plan_id || data.name?.toLowerCase().replace(/[^a-z0-9]/g, '_')
+                    plan_id: data.plan_id || data.name?.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+                    rate_card_id: data.rate_card_id ? String(data.rate_card_id) : undefined
                 })
             );
             subBillingResult = response.data;

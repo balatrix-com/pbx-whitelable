@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/auth.service';
-import api from '../../services/api';
 import { Loader2, Lock, ShieldCheck, ArrowRight, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 
 const ChangePasswordPage = () => {
@@ -35,25 +34,11 @@ const ChangePasswordPage = () => {
             await authService.updateProfile({ password });
             setPasswordChanged(true);
             
-            // Wait a bit then refresh user and check for onboarding needs
+            // Wait a bit then refresh user and navigate to dashboard
             setTimeout(async () => {
-                const userData = await refreshUser();
-                
-                // If Admin, check if TFN selection is needed
-                if (userData?.role === 'ADMIN') {
-                    try {
-                        const statusRes = await api.get('/onboarding/auth/status');
-                        if (statusRes.data.needsTfn) {
-                            navigate('/onboarding/select-tfn', { replace: true });
-                            return;
-                        }
-                    } catch (e) {
-                        console.error('Failed to check onboarding status', e);
-                    }
-                }
-                
+                await refreshUser();
                 navigate('/dashboard', { replace: true });
-            }, 2000);
+            }, 1500);
             
         } catch (err) {
             let errorMsg = 'Failed to update password';

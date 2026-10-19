@@ -63,6 +63,17 @@ export const subscriptionService = {
         return res.data;
     },
 
+    getRateCards: async () => {
+        try {
+            const res = await api.get('/plans/rate-cards').catch(() => api.get('/admin/rate-cards'));
+            const list = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+            return list;
+        } catch (err) {
+            console.error('Failed to fetch rate cards:', err);
+            return [];
+        }
+    },
+
     // ------------------------------------------------------------------------
     // 2. EXISTING BACKEND API: GET /api/wallet/subscription (Status: 200 OK)
     // ------------------------------------------------------------------------

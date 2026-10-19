@@ -18,6 +18,13 @@ export class PlansController {
         return this.plansService.findAll(user.id);
     }
 
+    @Get('rate-cards')
+    @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+    @UseGuards(RolesGuard)
+    async getRateCards() {
+        return this.plansService.getRateCards();
+    }
+
     @Post()
     @Roles(Role.ADMIN, Role.SUPER_ADMIN)
     @UseGuards(RolesGuard)

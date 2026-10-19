@@ -83,7 +83,7 @@ export class AdminController {
      * Rate Card Management (SUPER_ADMIN only)
      */
     @Get('rate-cards')
-    @Roles('SUPER_ADMIN')
+    @Roles('SUPER_ADMIN', 'ADMIN')
     getAllRateCards() {
         return this.adminService.getAllRateCards();
     }
