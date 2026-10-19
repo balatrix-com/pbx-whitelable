@@ -286,10 +286,9 @@ export class OnboardingService {
         // Call Sub-billing to get actual asset allowance (includes addons)
         const totalAllowedTfns = (await this.entitlements.allowance(tenantId)).tfns;
 
-        const needsTfn = totalAllowedTfns > tenant.tfns.length;
-
+        // Super admin assigns TFNs directly from switch; self-service TFN onboarding redirection is disabled
         return {
-            needsTfn,
+            needsTfn: false,
             maxTfns: totalAllowedTfns,
             currentTfns: tenant.tfns.length,
             planName: activeSub.plan.name
