@@ -262,7 +262,8 @@ export class AddonsService {
         const qty = Number(quantity);
         if (!Number.isSafeInteger(qty) || qty < 1 || qty > 100) throw new BadRequestException('Invalid add-on quantity');
 
-        const customerId = await this.walletService.getSubBillingCustomerId(tenantId);
+        const tenant = await this.walletService.assertActiveTenant(tenantId);
+        const customerId = tenant.subBillingCustomerId!;
 
         // 1. Try fetching official quote from Sub-Billing
         try {
@@ -343,7 +344,8 @@ export class AddonsService {
             );
         }
 
-        const customerId = await this.walletService.getSubBillingCustomerId(tenantId);
+        const tenant = await this.walletService.assertActiveTenant(tenantId);
+        const customerId = tenant.subBillingCustomerId!;
 
         // Execute purchase in Sub-Billing
         try {

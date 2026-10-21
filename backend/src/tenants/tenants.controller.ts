@@ -31,12 +31,14 @@ export class TenantsController {
         const page = query.page ? parseInt(query.page) : 1;
         const limit = query.limit ? parseInt(query.limit) : 100;
         const blocked = query.blocked === 'true' ? true : query.blocked === 'false' ? false : undefined;
+        const status = query.status ? query.status.toUpperCase() : undefined;
 
         return this.tenantsService.listTenants({
             page,
             limit,
             search: query.search,
-            blocked
+            blocked,
+            status
         });
     }
 

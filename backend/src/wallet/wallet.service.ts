@@ -40,6 +40,27 @@ export class WalletService {
         return tenant.subBillingCustomerId;
     }
 
+    async assertActiveTenant(tenantId: string) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { id: true, name: true, status: true, subBillingCustomerId: true }
+        });
+
+        if (!tenant) {
+            throw new NotFoundException(`Tenant ${tenantId} not found`);
+        }
+
+        if (tenant.status === 'ARCHIVED') {
+            throw new BadRequestException(`Cannot perform operation on deactivated/archived tenant (${tenant.name || tenantId})`);
+        }
+
+        if (!tenant.subBillingCustomerId) {
+            throw new BadRequestException('Tenant not linked to a billing system customer');
+        }
+
+        return tenant;
+    }
+
     async getBalance(tenantId: string) {
         const customerId = await this.getSubBillingCustomerId(tenantId);
 
@@ -110,7 +131,8 @@ export class WalletService {
     }
 
     async adjustBalance(tenantId: string, amount: number, type: TransactionType, description: string, referenceId?: string, tx?: Prisma.TransactionClient) {
-        const customerId = await this.getSubBillingCustomerId(tenantId);
+        const tenant = await this.assertActiveTenant(tenantId);
+        const customerId = tenant.subBillingCustomerId!;
         const signedAmount = type === 'DEBIT' ? -Math.abs(amount) : Math.abs(amount);
 
         try {
@@ -134,7 +156,8 @@ export class WalletService {
     async topUpWallet(tenantId: string, amount: number) {
         if (amount <= 0) throw new BadRequestException('Amount must be positive');
 
-        const customerId = await this.getSubBillingCustomerId(tenantId);
+        const tenant = await this.assertActiveTenant(tenantId);
+        const customerId = tenant.subBillingCustomerId!;
         const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
 
         try {
@@ -207,7 +230,8 @@ export class WalletService {
     }
 
     async toggleSubscriptionAutoRenew(tenantId: string, autoRenew: boolean) {
-        const customerId = await this.getSubBillingCustomerId(tenantId);
+        const tenant = await this.assertActiveTenant(tenantId);
+        const customerId = tenant.subBillingCustomerId!;
         try {
             // First get the subscription to find its ID
             const subRes = await firstValueFrom(
@@ -229,7 +253,8 @@ export class WalletService {
     }
 
     async switchSubscriptionPlan(tenantId: string, planId: string, immediate: boolean = false) {
-        const customerId = await this.getSubBillingCustomerId(tenantId);
+        const tenant = await this.assertActiveTenant(tenantId);
+        const customerId = tenant.subBillingCustomerId!;
         try {
             this.logger.log(`Switching subscription plan in sub-billing for customer ${customerId} (tenant ${tenantId}) to ${planId} (immediate: ${immediate})`);
 
@@ -340,7 +365,8 @@ export class WalletService {
     }
 
     async cancelScheduledPlanSwitch(tenantId: string) {
-        const customerId = await this.getSubBillingCustomerId(tenantId);
+        const tenant = await this.assertActiveTenant(tenantId);
+        const customerId = tenant.subBillingCustomerId!;
         try {
             this.logger.log(`Cancelling scheduled subscription plan switch in sub-billing for customer ${customerId} (tenant ${tenantId})`);
             const response = await firstValueFrom(
@@ -370,6 +396,7 @@ export class WalletService {
     }
 
     async updateAutoRechargeSettings(tenantId: string, enabled: boolean, threshold: number, amount: number) {
+        await this.assertActiveTenant(tenantId);
         // This could be implemented to call Sub Billing if it supports it, 
         // for now just returns success to avoid breaking frontend.
         return { success: true };
@@ -605,7 +632,8 @@ export class WalletService {
     }
 
     async updateCreditLimit(tenantId: string, creditLimit: number) {
-        const customerId = await this.getSubBillingCustomerId(tenantId);
+        const tenant = await this.assertActiveTenant(tenantId);
+        const customerId = tenant.subBillingCustomerId!;
         if (creditLimit < 0) {
             throw new BadRequestException('Credit limit cannot be negative');
         }
@@ -653,7 +681,8 @@ export class WalletService {
         country?: string;
         creditLimit?: number;
     }) {
-        const customerId = await this.getSubBillingCustomerId(tenantId);
+        const tenant = await this.assertActiveTenant(tenantId);
+        const customerId = tenant.subBillingCustomerId!;
 
         let mappedCountry = details.country ? details.country.toUpperCase() : undefined;
         if (mappedCountry) {

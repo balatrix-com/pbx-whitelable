@@ -7,6 +7,7 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { FreeSwitchSyncService } from '../freeswitch/freeswitch-sync.service';
 import { LookupRedisService } from '../redis/lookup-redis.module';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { of } from 'rxjs';
 
 describe('WalletService (switchSubscriptionPlan & Kamailio Sync)', () => {
@@ -151,6 +152,130 @@ describe('WalletService (switchSubscriptionPlan & Kamailio Sync)', () => {
                 {
                     customer_id: 'U1010'
                 }
+            );
+        });
+
+        it('should reject cancelScheduledPlanSwitch if tenant is ARCHIVED', async () => {
+            prisma.tenant.findUnique.mockResolvedValueOnce({
+                id: 'U1010',
+                name: 'Archived Tenant',
+                status: 'ARCHIVED',
+                subBillingCustomerId: 'U1010'
+            });
+
+            await expect(service.cancelScheduledPlanSwitch('U1010')).rejects.toThrow(BadRequestException);
+        });
+    });
+
+    describe('assertActiveTenant', () => {
+        it('should throw NotFoundException if tenant does not exist', async () => {
+            prisma.tenant.findUnique.mockResolvedValueOnce(null);
+            await expect(service.assertActiveTenant('NON_EXISTENT')).rejects.toThrow(NotFoundException);
+        });
+
+        it('should throw BadRequestException if tenant status is ARCHIVED', async () => {
+            prisma.tenant.findUnique.mockResolvedValueOnce({
+                id: 'ARCH_1',
+                name: 'Old Company',
+                status: 'ARCHIVED',
+                subBillingCustomerId: 'CUST_1'
+            });
+            await expect(service.assertActiveTenant('ARCH_1')).rejects.toThrow(
+                /Cannot perform operation on deactivated\/archived tenant/
+            );
+        });
+
+        it('should throw BadRequestException if tenant has no subBillingCustomerId', async () => {
+            prisma.tenant.findUnique.mockResolvedValueOnce({
+                id: 'ACTIVE_1',
+                name: 'New Company',
+                status: 'ACTIVE',
+                subBillingCustomerId: null
+            });
+            await expect(service.assertActiveTenant('ACTIVE_1')).rejects.toThrow(
+                /Tenant not linked to a billing system customer/
+            );
+        });
+
+        it('should return tenant record if active and linked', async () => {
+            const activeRecord = {
+                id: 'ACTIVE_1',
+                name: 'Healthy Company',
+                status: 'ACTIVE',
+                subBillingCustomerId: 'CUST_1'
+            };
+            prisma.tenant.findUnique.mockResolvedValueOnce(activeRecord);
+            const result = await service.assertActiveTenant('ACTIVE_1');
+            expect(result).toEqual(activeRecord);
+        });
+    });
+
+    describe('Wallet Operations on Archived Tenants', () => {
+        beforeEach(() => {
+            prisma.tenant.findUnique.mockResolvedValue({
+                id: 'ARCHIVED_TENANT',
+                name: 'Deactivated Org',
+                status: 'ARCHIVED',
+                subBillingCustomerId: 'CUST_ARCHIVED'
+            });
+        });
+
+        it('adjustBalance should throw BadRequestException for archived tenant', async () => {
+            await expect(
+                service.adjustBalance('ARCHIVED_TENANT', 100, 'CREDIT' as any, 'Manual adjustment')
+            ).rejects.toThrow(BadRequestException);
+            expect(httpService.post).not.toHaveBeenCalled();
+        });
+
+        it('topUpWallet should throw BadRequestException for archived tenant', async () => {
+            await expect(
+                service.topUpWallet('ARCHIVED_TENANT', 50)
+            ).rejects.toThrow(BadRequestException);
+            expect(httpService.post).not.toHaveBeenCalled();
+        });
+
+        it('updateCreditLimit should throw BadRequestException for archived tenant', async () => {
+            await expect(
+                service.updateCreditLimit('ARCHIVED_TENANT', 500)
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        it('switchSubscriptionPlan should throw BadRequestException for archived tenant', async () => {
+            await expect(
+                service.switchSubscriptionPlan('ARCHIVED_TENANT', 'tier_1_starter', false)
+            ).rejects.toThrow(BadRequestException);
+            expect(httpService.post).not.toHaveBeenCalled();
+        });
+
+        it('toggleSubscriptionAutoRenew should throw BadRequestException for archived tenant', async () => {
+            await expect(
+                service.toggleSubscriptionAutoRenew('ARCHIVED_TENANT', false)
+            ).rejects.toThrow(BadRequestException);
+        });
+    });
+
+    describe('Wallet Operations on Active Tenants', () => {
+        it('adjustBalance should successfully call sub-billing manual payment for active tenant', async () => {
+            prisma.tenant.findUnique.mockResolvedValueOnce({
+                id: 'U1010',
+                name: 'Active Tenant',
+                status: 'ACTIVE',
+                subBillingCustomerId: 'U1010'
+            });
+
+            httpService.post.mockReturnValueOnce(of({
+                data: { success: true, message: 'Payment recorded' }
+            }));
+
+            const res = await service.adjustBalance('U1010', 25, 'CREDIT' as any, 'Goodwill credit');
+            expect(res.success).toBe(true);
+            expect(httpService.post).toHaveBeenCalledWith(
+                'http://localhost:5005/api/payments/manual',
+                expect.objectContaining({
+                    customer_id: 'U1010',
+                    amount: 25,
+                    payment_type: 'pbx_admin_adjust',
+                })
             );
         });
     });
