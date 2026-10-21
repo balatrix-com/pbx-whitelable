@@ -51,6 +51,8 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
     }, [isSuperAdmin]);
 
     const effectiveTenantId = isSuperAdmin ? selectedTenantId : user?.tenantId;
+    const currentTenant = tenants.find(t => t.id === effectiveTenantId);
+    const isArchived = currentTenant?.status === 'ARCHIVED';
 
     // Primary Subscription
     const { 
@@ -237,7 +239,7 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                 )}
                                 {tenants.map((t) => (
                                     <option key={t.id} value={t.id} className="dark:bg-slate-800">
-                                        🏢 {t.name}
+                                        🏢 {t.name} {t.status === 'ARCHIVED' ? '(Deactivated)' : ''}
                                     </option>
                                 ))}
                             </select>
@@ -255,6 +257,16 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                     </button>
                 </div>
             </div>
+
+            {/* Deactivation Warning Banner */}
+            {isArchived && (
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 dark:bg-amber-950/40 dark:border-amber-800/60 text-amber-900 dark:text-amber-200 flex items-center gap-3 shadow-xs animate-in fade-in duration-200">
+                    <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <p className="text-sm font-semibold">
+                        This organization is deactivated. Subscriptions, recurring renewals, and add-on purchases are locked.
+                    </p>
+                </div>
+            )}
 
             {/* ========================================================================= */}
             {/* SECTION 2A: Primary Subscription Table                                    */}
@@ -308,15 +320,18 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                             <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-amber-200/60 dark:border-amber-800/40">
                                 <button
                                     type="button"
+                                    disabled={isArchived}
+                                    title={isArchived ? "Subscription changes disabled for deactivated tenants." : "Change Target Plan"}
                                     onClick={() => setPlanSwitchModalOpen(true)}
-                                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-gray-800 dark:text-slate-100 border border-amber-300/80 dark:border-slate-700 hover:bg-amber-50/70 dark:hover:bg-slate-700 hover:border-amber-400 transition shadow-sm active:scale-[0.98]"
+                                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-gray-800 dark:text-slate-100 border border-amber-300/80 dark:border-slate-700 hover:bg-amber-50/70 dark:hover:bg-slate-700 hover:border-amber-400 transition shadow-sm active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     <RefreshCw className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                                     <span>Change Target Plan</span>
                                 </button>
                                 <button
                                     type="button"
-                                    disabled={cancellingSchedule}
+                                    disabled={cancellingSchedule || isArchived}
+                                    title={isArchived ? "Operation disabled for deactivated tenants." : "Cancel Scheduled Switch"}
                                     onClick={handleCancelScheduledSwitch}
                                     className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border border-red-200/90 dark:border-red-900/60 hover:bg-red-100 dark:hover:bg-red-900/50 transition shadow-sm disabled:opacity-50 active:scale-[0.98]"
                                 >
@@ -353,7 +368,9 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                             <div className="mt-5 flex items-center justify-center gap-3">
                                 <button
                                     onClick={() => setPlanSwitchModalOpen(true)}
-                                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-primary-600 hover:bg-primary-700 transition shadow-md shadow-primary-600/20 active:scale-[0.98]"
+                                    disabled={isArchived}
+                                    title={isArchived ? "Subscription changes disabled for deactivated tenants." : "Assign Plan"}
+                                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-primary-600 hover:bg-primary-700 transition shadow-md shadow-primary-600/20 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     <Sparkles className="h-4 w-4" />
                                     Assign Plan / Subscribe
@@ -361,7 +378,9 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                 {onBrowsePlans && (
                                     <button
                                         onClick={onBrowsePlans}
-                                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-gray-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition shadow-xs"
+                                        disabled={isArchived}
+                                        title={isArchived ? "Subscription changes disabled for deactivated tenants." : "Browse Plans"}
+                                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-gray-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
                                     >
                                         Browse Plans
                                     </button>
@@ -461,13 +480,14 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                                     type="button"
                                                     role="switch"
                                                     aria-checked={!!subscription.auto_renew}
-                                                    disabled={togglingPlanAutoRenew}
+                                                    disabled={togglingPlanAutoRenew || isArchived}
+                                                    title={isArchived ? "Auto-renew disabled for deactivated tenants." : "Toggle Auto-Renew"}
                                                     onClick={handleTogglePlanAutoRenew}
                                                     className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
                                                         subscription.auto_renew 
                                                             ? 'bg-primary-600' 
                                                             : 'bg-gray-200 dark:bg-slate-700'
-                                                    } ${togglingPlanAutoRenew ? 'opacity-60 cursor-wait' : ''}`}
+                                                    } ${togglingPlanAutoRenew || isArchived ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 >
                                                     <span
                                                         aria-hidden="true"
@@ -490,8 +510,10 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                         <td className="px-6 py-5 whitespace-nowrap text-right">
                                             <button
                                                 type="button"
+                                                disabled={isArchived}
                                                 onClick={() => setPlanSwitchModalOpen(true)}
-                                                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black text-primary-600 dark:text-primary-400 bg-white dark:bg-slate-800 ring-1 ring-inset ring-primary-200 dark:ring-primary-800/40 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition shadow-xs active:scale-95"
+                                                title={isArchived ? "Subscription changes disabled for deactivated tenants." : "Change Plan"}
+                                                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black text-primary-600 dark:text-primary-400 bg-white dark:bg-slate-800 ring-1 ring-inset ring-primary-200 dark:ring-primary-800/40 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition shadow-xs active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                                             >
                                                 <ArrowUpDown className="h-3.5 w-3.5" />
                                                 <span>{subscription.target_plan_name ? 'Modify Scheduled Plan' : 'Upgrade / Downgrade Plan'}</span>
@@ -527,7 +549,9 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                     {onBrowseCatalog && (
                         <button
                             onClick={onBrowseCatalog}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-950/50 border border-primary-200/60 dark:border-primary-800/40 hover:bg-primary-100 transition shadow-xs"
+                            disabled={isArchived}
+                            title={isArchived ? "Add-on purchases disabled for deactivated tenants." : "Browse Add-on Catalog"}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-950/50 border border-primary-200/60 dark:border-primary-800/40 hover:bg-primary-100 transition shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             <Zap className="h-3.5 w-3.5" />
                             <span>Browse Add-on Catalog</span>
@@ -551,7 +575,9 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                             {onBrowseCatalog && (
                                 <button
                                     onClick={onBrowseCatalog}
-                                    className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-primary-600 hover:bg-primary-700 transition shadow-xs"
+                                    disabled={isArchived}
+                                    title={isArchived ? "Add-on purchases disabled for deactivated tenants." : "Get Extra Add-ons"}
+                                    className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-primary-600 hover:bg-primary-700 transition shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     Get Extra Add-ons
                                 </button>
@@ -646,22 +672,21 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                                     ) : (
                                                         <span className="text-xs text-gray-400">—</span>
                                                     )}
-                                                </td>
-
-                                                {/* Auto-Renew Toggle */}
+                                                                                               {/* Auto-Renew Toggle */}
                                                 <td className="px-6 py-4 whitespace-nowrap text-center">
                                                     <div className="inline-flex flex-col items-center gap-1">
                                                         <button
                                                             type="button"
                                                             role="switch"
                                                             aria-checked={!!addon.auto_renew}
-                                                            disabled={isToggling}
+                                                            disabled={isToggling || isArchived}
+                                                            title={isArchived ? "Auto-renew disabled for deactivated tenants." : "Toggle Add-on Auto-Renew"}
                                                             onClick={() => handleToggleAddonAutoRenew(addon)}
                                                             className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
                                                                 addon.auto_renew 
                                                                     ? 'bg-primary-600' 
                                                                     : 'bg-gray-200 dark:bg-slate-700'
-                                                            } ${isToggling ? 'opacity-60 cursor-wait' : ''}`}
+                                                             } ${isToggling || isArchived ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                         >
                                                             <span
                                                                 aria-hidden="true"
@@ -684,14 +709,15 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                                 <td className="px-6 py-4 whitespace-nowrap text-right">
                                                     <button
                                                         type="button"
+                                                        disabled={isArchived}
                                                         onClick={() => setAddonToCancel(addon)}
-                                                        title="Cancel Add-on"
-                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/40 transition"
+                                                        title={isArchived ? "Add-on operations disabled for deactivated tenants." : "Cancel Add-on"}
+                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/40 transition disabled:opacity-40 disabled:cursor-not-allowed"
                                                     >
                                                         <Trash2 className="h-3.5 w-3.5" />
                                                         <span>Cancel</span>
                                                     </button>
-                                                </td>
+                                                </td>     </td>
                                             </tr>
                                         );
                                     })}
@@ -708,6 +734,7 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                 onClose={() => setPlanSwitchModalOpen(false)}
                 currentPlan={subscription}
                 customerId={effectiveTenantId}
+                isArchived={isArchived}
                 onSuccess={handleRefreshAll}
             />
 

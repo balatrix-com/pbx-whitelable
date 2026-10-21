@@ -76,9 +76,16 @@ const SuperAdminUsers = () => {
         }
     };
 
+    const currentTenantObj = tenants.find(t => t.id === selectedTenant);
+    const isArchived = currentTenantObj?.status === 'ARCHIVED';
+
     const handleWalletUpdate = async (e) => {
         e.preventDefault();
         if (!selectedTenant) return;
+        if (isArchived) {
+            alert('Cannot update wallet: this organization is deactivated.');
+            return;
+        }
         try {
             await api.post('/wallet/internal-adjust', {
                 targetTenantId: selectedTenant,
@@ -254,7 +261,19 @@ const SuperAdminUsers = () => {
                                     )}
                                 >
                                     <div className="text-left overflow-hidden pr-2">
-                                        <p className="text-xs font-black truncate">{t.name}</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-xs font-black truncate">{t.name}</p>
+                                            {t.status === 'ARCHIVED' && (
+                                                <span className={clsx(
+                                                    "text-[9px] font-bold px-1.5 py-0.5 rounded",
+                                                    selectedTenant === t.id
+                                                        ? "bg-red-500/30 text-white border border-red-300/40"
+                                                        : "bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400"
+                                                )}>
+                                                    ARCHIVED
+                                                </span>
+                                            )}
+                                        </div>
                                         <p className={clsx("text-[10px] font-bold truncate uppercase", selectedTenant === t.id ? "text-primary-100" : "text-gray-400")}>{t.id}</p>
                                     </div>
                                     <ArrowRight size={14} className={clsx("transition-transform flex-shrink-0", selectedTenant === t.id ? "translate-x-0" : "-translate-x-2 opacity-0 group-hover:opacity-100 group-hover:translate-x-0")} />
@@ -310,9 +329,16 @@ const SuperAdminUsers = () => {
                                     </div>
                                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
                                         <div className="flex-1">
-                                            <h2 className="text-2xl font-black text-gray-900 tracking-tight">
-                                                {selectedTenant === 'null' ? 'Platform Authority' : (tenants.find(t => t.id === selectedTenant)?.name || 'Tenant')}
-                                            </h2>
+                                            <div className="flex items-center gap-3">
+                                                <h2 className="text-2xl font-black text-gray-900 tracking-tight">
+                                                    {selectedTenant === 'null' ? 'Platform Authority' : (currentTenantObj?.name || 'Tenant')}
+                                                </h2>
+                                                {isArchived && (
+                                                    <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-red-100 text-red-700 border border-red-200">
+                                                        DEACTIVATED / ARCHIVED
+                                                    </span>
+                                                )}
+                                            </div>
                                             <p className="text-sm text-gray-500 font-medium mt-1">
                                                 {selectedTenant === 'null' ? 'Managing global security and system-wide privileges.' : `Direct oversight of organization and associated staff accounts.`}
                                             </p>
@@ -321,7 +347,9 @@ const SuperAdminUsers = () => {
                                             {selectedTenant !== 'null' && (
                                                 <button
                                                     onClick={() => setShowWalletModal(true)}
-                                                    className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-5 py-3 rounded-2xl font-black text-sm shadow-sm ring-1 ring-emerald-600/10 hover:bg-emerald-100 transition-all active:scale-95"
+                                                    disabled={isArchived}
+                                                    title={isArchived ? "Wallet updates are disabled for deactivated tenants" : "Update Wallet"}
+                                                    className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-5 py-3 rounded-2xl font-black text-sm shadow-sm ring-1 ring-emerald-600/10 hover:bg-emerald-100 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-50"
                                                 >
                                                     <Wallet size={18} />
                                                     Wallet Update

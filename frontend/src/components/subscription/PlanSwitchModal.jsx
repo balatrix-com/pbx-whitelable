@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { subscriptionService } from '../../services/subscription.service';
 import { useToast } from '../../context/ToastContext';
 
-const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, onSuccess }) => {
+const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, isArchived, onSuccess }) => {
     const { addToast } = useToast();
     const queryClient = useQueryClient();
     const [submitting, setSubmitting] = useState(false);
@@ -60,6 +60,10 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, on
     const isSamePlan = currentPlan && selectedPlan && (selectedPlan.plan_id || selectedPlan.id) === currentPlanId;
 
     const handleConfirmSwitch = async () => {
+        if (isArchived) {
+            addToast('error', 'Cannot assign plan: Target tenant is deactivated/archived.');
+            return;
+        }
         if (!selectedPlan || isSamePlan) return;
         setSubmitting(true);
         setError(null);
@@ -301,6 +305,13 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, on
                             </div>
                         ) : null}
 
+                        {isArchived && (
+                            <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900/60 text-xs font-bold text-red-700 dark:text-red-300 flex items-center gap-2.5">
+                                <AlertCircle className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+                                <span>Cannot assign plan: Target tenant is deactivated/archived.</span>
+                            </div>
+                        )}
+
                         {error && (
                             <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 text-xs font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
                                 <AlertCircle className="h-4 w-4" />
@@ -323,7 +334,8 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, on
                         <button
                             type="button"
                             onClick={handleConfirmSwitch}
-                            disabled={submitting || !selectedPlan || isSamePlan}
+                            disabled={submitting || !selectedPlan || isSamePlan || isArchived}
+                            title={isArchived ? "Cannot assign plan: Target tenant is deactivated/archived." : undefined}
                             className="inline-flex justify-center items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-primary-700 transition-all focus:outline-none focus:ring-2 focus:ring-primary-500 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             {submitting ? (
@@ -331,6 +343,8 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, on
                                     <Loader2 className="h-4 w-4 animate-spin" />
                                     {currentPlan ? 'Scheduling Switch...' : 'Activating Plan...'}
                                 </>
+                            ) : isArchived ? (
+                                'Tenant Deactivated'
                             ) : !currentPlan ? (
                                 'Activate Plan'
                             ) : isSamePlan ? (
