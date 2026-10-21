@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
-import { X, CheckCircle2, Loader2, ShieldCheck, DollarSign, CreditCard, Users, Phone, Hash, Activity } from 'lucide-react';
+import { X, CheckCircle2, Loader2, ShieldCheck, DollarSign, CreditCard, Users, Phone, Hash, Activity, ChevronDown } from 'lucide-react';
 import { subscriptionService } from '../../services/subscription.service';
 import { useToast } from '../../context/ToastContext';
 
@@ -58,7 +58,7 @@ const PlanFormModal = ({ isOpen, onClose, onSuccess }) => {
         const { name, value, type } = e.target;
         setFormData(prev => ({
             ...prev,
-            [name]: type === 'number' ? parseFloat(value) || 0 : value
+            [name]: type === 'number' ? parseFloat(value) : value
         }));
     };
 
@@ -101,7 +101,7 @@ const PlanFormModal = ({ isOpen, onClose, onSuccess }) => {
 
             <div className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto">
                 <Dialog.Panel className="mx-auto max-w-2xl w-full rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl ring-1 ring-gray-900/10 dark:ring-slate-800 transition-all max-h-[90vh] overflow-y-auto">
-                    
+
                     {/* Header */}
                     <div className="flex justify-between items-center pb-4 border-b border-gray-100 dark:border-slate-800">
                         <div className="flex items-center gap-3">
@@ -127,7 +127,7 @@ const PlanFormModal = ({ isOpen, onClose, onSuccess }) => {
 
                     {/* Form Details */}
                     <form onSubmit={handleSubmit} className="py-4 space-y-4">
-                        
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-slate-300 mb-1">
@@ -213,37 +213,63 @@ const PlanFormModal = ({ isOpen, onClose, onSuccess }) => {
                                 />
                             </div>
 
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-slate-300 mb-1">
-                                    Rate Card *
-                                </label>
-                                <select
-                                    name="rate_card_id"
-                                    value={formData.rate_card_id}
-                                    onChange={handleChange}
-                                    required
-                                    disabled={loadingRateCards}
-                                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-sm font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
-                                >
-                                    {loadingRateCards ? (
-                                        <option value="">Loading rate cards...</option>
-                                    ) : rateCards.length === 0 ? (
-                                        <option value="">No rate cards available</option>
-                                    ) : (
-                                        <>
-                                            <option value="" disabled>Select Rate Card</option>
-                                            {rateCards.map((rc) => (
-                                                <option key={rc.ratecard_id} value={String(rc.ratecard_id)}>
-                                                    {rc.name} (Rate Card ID: {rc.ratecard_id}){rc.currency ? ` - ${rc.currency.toUpperCase()}` : ''}
-                                                </option>
-                                            ))}
-                                        </>
-                                    )}
-                                </select>
+                            <div className="col-span-1 sm:col-span-2 p-3.5 rounded-2xl bg-gradient-to-r from-primary-50/50 via-slate-50/60 to-transparent dark:from-primary-950/20 dark:via-slate-800/40 dark:to-transparent border border-primary-100/80 dark:border-primary-900/40 transition-all">
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="text-xs font-black uppercase tracking-wider text-gray-800 dark:text-slate-200 flex items-center gap-1.5">
+                                        <span>Rate Card</span>
+                                        <span className="text-rose-500">*</span>
+                                    </label>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 text-primary-600 dark:text-primary-400 border border-primary-200/60 dark:border-primary-800/60 shadow-2xs">
+                                        Billing Rates Engine
+                                    </span>
+                                </div>
+
+                                <div className="relative group">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-primary-600 dark:text-primary-400 z-10">
+                                        <div className="h-7 w-7 rounded-lg bg-primary-50 dark:bg-primary-950/60 border border-primary-200/50 dark:border-primary-800/50 flex items-center justify-center">
+                                            <CreditCard className="h-3.5 w-3.5" />
+                                        </div>
+                                    </div>
+                                    <select
+                                        name="rate_card_id"
+                                        value={formData.rate_card_id}
+                                        onChange={handleChange}
+                                        required
+                                        disabled={loadingRateCards}
+                                        className="w-full pl-12 pr-10 py-2.5 rounded-xl border border-gray-200/90 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold text-gray-900 dark:text-white shadow-xs group-hover:border-primary-400 dark:group-hover:border-primary-600 focus:ring-2 focus:ring-primary-500/25 focus:border-primary-500 focus:outline-none appearance-none transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                        style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
+                                    >
+                                        {loadingRateCards ? (
+                                            <option value="">Loading rate cards...</option>
+                                        ) : rateCards.length === 0 ? (
+                                            <option value="">No rate cards available</option>
+                                        ) : (
+                                            <>
+                                                <option value="" disabled className="text-gray-400">Select Rate Card</option>
+                                                {rateCards.map((rc) => (
+                                                    <option key={rc.ratecard_id} value={String(rc.ratecard_id)} className="bg-white dark:bg-slate-900 py-1.5 text-gray-900 dark:text-white font-medium">
+                                                        {rc.name} (ID: {rc.ratecard_id}){rc.currency ? ` • ${rc.currency.toUpperCase()}` : ''}
+                                                    </option>
+                                                ))}
+                                            </>
+                                        )}
+                                    </select>
+                                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400 dark:text-slate-400 group-hover:text-primary-600 transition-colors z-10">
+                                        {loadingRateCards ? (
+                                            <Loader2 className="h-4 w-4 animate-spin text-primary-500" />
+                                        ) : (
+                                            <ChevronDown className="h-4 w-4 stroke-[2.5]" />
+                                        )}
+                                    </div>
+                                </div>
+
                                 {formData.rate_card_id && (
-                                    <p className="text-[11px] font-medium text-gray-500 dark:text-slate-400 mt-1">
-                                        Selected ID to store: <span className="font-mono font-bold text-primary-600 dark:text-primary-400">{formData.rate_card_id}</span>
-                                    </p>
+                                    <div className="mt-2 flex items-center justify-between text-[11px] text-gray-500 dark:text-slate-400">
+                                        <span>Selected Rate Card ID</span>
+                                        <span className="font-mono font-bold text-primary-600 dark:text-primary-400 bg-white dark:bg-slate-900 px-2 py-0.5 rounded-md border border-primary-200/60 dark:border-primary-800/60 shadow-2xs">
+                                            #{formData.rate_card_id}
+                                        </span>
+                                    </div>
                                 )}
                             </div>
 

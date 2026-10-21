@@ -252,40 +252,49 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, on
                         )}                        {/* Step 2: Next Billing Cycle Information (only if already has an active plan) */}
                         {currentPlan ? (
                             <div className="space-y-2.5">
-                                <label className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-slate-300 block">
-                                    2. Effective Timing: Next Billing Cycle
+                                <label className="text-xs font-black uppercase tracking-wider text-gray-800 dark:text-slate-200 flex items-center justify-between">
+                                    <span>2. Effective Timing: Next Billing Cycle</span>
+                                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-300/80 dark:border-amber-800">
+                                        Scheduled Switch
+                                    </span>
                                 </label>
 
-                                <div className="p-4 rounded-xl border border-primary-200/90 dark:border-primary-900/50 bg-primary-50/50 dark:bg-primary-950/20 space-y-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-9 w-9 rounded-xl bg-primary-100 dark:bg-primary-900/60 text-primary-600 dark:text-primary-300 flex items-center justify-center shrink-0">
-                                            <Calendar className="h-5 w-5" />
+                                <div className="relative overflow-hidden p-4 rounded-2xl border-2 border-primary-300 dark:border-primary-700/80 bg-gradient-to-br from-primary-50/90 via-primary-50/40 to-white dark:from-primary-950/40 dark:via-slate-900/80 dark:to-slate-900 space-y-3.5 shadow-sm">
+                                    <div className="flex items-center gap-3.5">
+                                        <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-primary-500/25 ring-4 ring-primary-100 dark:ring-primary-950">
+                                            <Calendar className="h-5 w-5 stroke-[2.3]" />
                                         </div>
                                         <div className="min-w-0">
-                                            <span className="text-xs font-bold text-gray-900 dark:text-white block">
-                                                Scheduled for Next Billing Cycle Rollover
+                                            <span className="text-sm font-extrabold text-gray-900 dark:text-white block">
+                                                Takes Effect on Next Billing Cycle Rollover
                                             </span>
-                                            <p className="text-[11px] text-primary-700 dark:text-primary-300 font-semibold flex items-center gap-1.5 mt-0.5">
-                                                <Clock className="h-3 w-3 inline" />
-                                                Takes effect on: {currentPlan?.next_billing 
-                                                    ? new Date(currentPlan.next_billing).toLocaleDateString(undefined, {
-                                                        year: 'numeric',
-                                                        month: 'short',
-                                                        day: 'numeric'
-                                                    }) 
-                                                    : 'Upcoming renewal date'}
-                                            </p>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                <Clock className="h-3.5 w-3.5 text-primary-600 dark:text-primary-400 shrink-0" />
+                                                <span className="text-xs font-bold text-primary-700 dark:text-primary-300">
+                                                    Effective Date: {currentPlan?.next_billing 
+                                                        ? new Date(currentPlan.next_billing).toLocaleDateString(undefined, {
+                                                            year: 'numeric',
+                                                            month: 'short',
+                                                            day: 'numeric'
+                                                        }) 
+                                                        : 'Upcoming renewal date'}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <div className="pt-2.5 border-t border-primary-100 dark:border-primary-900/40 space-y-1.5 text-[11px] text-gray-600 dark:text-slate-400">
-                                        <div className="flex items-start gap-2">
-                                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                                            <span><strong>No charge today:</strong> Your wallet will be charged ${targetPrice.toFixed(2)}/mo automatically on your renewal date.</span>
+                                    <div className="pt-3 border-t border-primary-200/60 dark:border-primary-900/50 space-y-2 text-xs text-gray-700 dark:text-slate-300">
+                                        <div className="flex items-start gap-2.5">
+                                            <div className="h-4 w-4 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                            </div>
+                                            <span><strong>Zero charge today:</strong> Your subscription will renew into this new plan for <strong className="font-mono text-gray-900 dark:text-white">${targetPrice.toFixed(2)}/mo</strong> on your next cycle date.</span>
                                         </div>
-                                        <div className="flex items-start gap-2">
-                                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                                            <span><strong>Benefits preserved:</strong> Your current extension limits and remaining free minutes remain active until renewal.</span>
+                                        <div className="flex items-start gap-2.5">
+                                            <div className="h-4 w-4 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                            </div>
+                                            <span><strong>Zero downtime or loss:</strong> Your current extension limits and remaining allocated free minutes stay active until rollover.</span>
                                         </div>
                                     </div>
                                 </div>

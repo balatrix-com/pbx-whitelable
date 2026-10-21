@@ -345,7 +345,19 @@ const InteractiveBuilderCore = ({ ivrName, resources, initialMenu, onChange }) =
       style: { stroke: 'var(--color-edge-line, #64748b)', strokeWidth: 2 },
       markerEnd: { type: MarkerType.ArrowClosed, width: 15, height: 15, color: '#64748b' },
     };
-    setEdges((eds) => addEdge(newEdge, eds));
+
+    // An IVR tree block can only have ONE parent.
+    // Disconnect any existing incoming edge to the target node so it switches to the new parent.
+    const currentEdges = edgesRef.current || edges;
+    const currentNodes = nodesRef.current || nodes;
+    const filteredEdges = currentEdges.filter(e => e.target !== pendingConnection.target);
+    const updatedEdges = addEdge(newEdge, filteredEdges);
+
+    // Re-layout nodes according to new hierarchy
+    const laidOutNodes = layoutNodes(currentNodes, updatedEdges);
+
+    setNodes(laidOutNodes);
+    setEdges(updatedEdges);
     setPendingConnection(null);
   };
 

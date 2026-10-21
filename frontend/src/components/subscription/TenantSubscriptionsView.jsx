@@ -273,57 +273,66 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
 
                 {/* Scheduled Switch Pending Alert Banner */}
                 {subscription?.target_plan_name && (
-                    <div className="p-4 rounded-2xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-800/60 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-200">
-                        <div className="flex items-center gap-3.5">
-                            <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
-                                <Clock className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-black uppercase tracking-wider text-amber-900 dark:text-amber-200">
-                                        Scheduled Plan Switch Pending
-                                    </span>
-                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-200/80 dark:bg-amber-900/80 text-amber-950 dark:text-amber-100">
-                                        Next Billing Cycle
-                                    </span>
-                                </div>
-                                <p className="text-xs text-amber-900/90 dark:text-amber-200/90 mt-0.5 font-medium">
-                                    Switching to <strong>{subscription.target_plan_name}</strong> (${Number(subscription.target_plan_amount || 0).toFixed(2)}/mo) on{' '}
-                                    <strong>{new Date(subscription.scheduled_switch_at || subscription.next_billing).toLocaleDateString(undefined, {
-                                        year: 'numeric',
-                                        month: 'short',
-                                        day: 'numeric'
-                                    })}</strong>. Current plan limits and free minutes remain active until rollover.
-                                </p>
-                            </div>
-                        </div>
+                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent dark:from-amber-500/15 dark:via-amber-950/30 dark:to-transparent border-2 border-amber-400/80 dark:border-amber-500/50 p-5 shadow-lg shadow-amber-500/5 backdrop-blur-xs transition-all animate-in fade-in slide-in-from-top-2 duration-300">
+                        {/* Left visual accent bar */}
+                        <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-amber-500 to-amber-600 dark:from-amber-400 dark:to-amber-500" />
 
-                        <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                            <button
-                                type="button"
-                                onClick={() => setPlanSwitchModalOpen(true)}
-                                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition shadow-xs"
-                            >
-                                Change Target Plan
-                            </button>
-                            <button
-                                type="button"
-                                disabled={cancellingSchedule}
-                                onClick={handleCancelScheduledSwitch}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/50 transition shadow-xs disabled:opacity-50"
-                            >
-                                {cancellingSchedule ? (
-                                    <>
-                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                        <span>Cancelling...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <X className="h-3.5 w-3.5" />
-                                        <span>Cancel Switch</span>
-                                    </>
-                                )}
-                            </button>
+                        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                            <div className="flex items-start sm:items-center gap-4">
+                                <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/25 ring-4 ring-amber-100 dark:ring-amber-950/60">
+                                    <Clock className="h-6 w-6 stroke-[2.3] animate-pulse" />
+                                </div>
+                                <div className="space-y-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-xs font-black uppercase tracking-wider text-amber-950 dark:text-amber-200">
+                                            Scheduled Plan Switch Active
+                                        </span>
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-500 text-white shadow-xs">
+                                            <Calendar className="h-3 w-3" />
+                                            Effective {new Date(subscription.scheduled_switch_at || subscription.next_billing).toLocaleDateString(undefined, {
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: 'numeric'
+                                            })}
+                                        </span>
+                                        <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wide bg-amber-200/90 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800">
+                                            Next Billing Rollover
+                                        </span>
+                                    </div>
+                                    <p className="text-xs sm:text-sm text-gray-700 dark:text-slate-300 font-medium leading-relaxed">
+                                        Switching to <span className="font-extrabold text-gray-900 dark:text-white bg-amber-100/80 dark:bg-amber-950/70 px-2 py-0.5 rounded-md border border-amber-300/80 dark:border-amber-800/80 text-amber-900 dark:text-amber-300">{subscription.target_plan_name}</span> at <span className="font-mono font-bold text-gray-900 dark:text-white">${Number(subscription.target_plan_amount || 0).toFixed(2)}/mo</span>. Current limits & allocated minutes stay active until rollover.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-amber-200/60 dark:border-amber-800/40">
+                                <button
+                                    type="button"
+                                    onClick={() => setPlanSwitchModalOpen(true)}
+                                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-gray-800 dark:text-slate-100 border border-amber-300/80 dark:border-slate-700 hover:bg-amber-50/70 dark:hover:bg-slate-700 hover:border-amber-400 transition shadow-sm active:scale-[0.98]"
+                                >
+                                    <RefreshCw className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                                    <span>Change Target Plan</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={cancellingSchedule}
+                                    onClick={handleCancelScheduledSwitch}
+                                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border border-red-200/90 dark:border-red-900/60 hover:bg-red-100 dark:hover:bg-red-900/50 transition shadow-sm disabled:opacity-50 active:scale-[0.98]"
+                                >
+                                    {cancellingSchedule ? (
+                                        <>
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                            <span>Cancelling...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <X className="h-3.5 w-3.5" />
+                                            <span>Cancel Switch</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
