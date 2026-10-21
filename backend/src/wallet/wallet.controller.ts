@@ -55,12 +55,22 @@ export class WalletController {
         @GetUser() user: User,
         @Body('targetTenantId') targetTenantId: string,
         @Body('planId') planId: string,
-        @Body('immediate') immediate: boolean
+        @Body('immediate') immediate?: boolean
     ) {
         const tenantId = (user.role === Role.SUPER_ADMIN && targetTenantId) ? targetTenantId : user.tenantId;
         if (!tenantId) throw new BadRequestException('Tenant ID is required');
         if (!planId) throw new BadRequestException('Plan ID is required');
-        return this.walletService.switchSubscriptionPlan(tenantId, planId, immediate ?? true);
+        return this.walletService.switchSubscriptionPlan(tenantId, planId, immediate ?? false);
+    }
+
+    @Post('subscription/cancel-switch')
+    cancelScheduledSwitch(
+        @GetUser() user: User,
+        @Body('targetTenantId') targetTenantId?: string
+    ) {
+        const tenantId = (user.role === Role.SUPER_ADMIN && targetTenantId) ? targetTenantId : user.tenantId;
+        if (!tenantId) throw new BadRequestException('Tenant ID is required');
+        return this.walletService.cancelScheduledPlanSwitch(tenantId);
     }
 
     @Patch('subscription/auto-renew')

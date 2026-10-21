@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
-import { X, RefreshCw, Loader2, ArrowRight, ShieldCheck, Zap, AlertCircle, CheckCircle2, ChevronRight } from 'lucide-react';
+import { X, RefreshCw, Loader2, ArrowRight, ShieldCheck, Zap, AlertCircle, CheckCircle2, ChevronRight, Calendar, Clock } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { subscriptionService } from '../../services/subscription.service';
 import { useToast } from '../../context/ToastContext';
@@ -8,7 +8,6 @@ import { useToast } from '../../context/ToastContext';
 const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, onSuccess }) => {
     const { addToast } = useToast();
     const queryClient = useQueryClient();
-    const [immediate, setImmediate] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
 
@@ -66,12 +65,18 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, on
         setError(null);
         try {
             const targetPlanId = selectedPlan.plan_id || selectedPlan.id;
+            // Existing subscription switches strictly apply on next billing cycle (immediate: false)
+            // Brand new / planless tenant initial activation applies immediately (immediate: true)
+            const isInitialActivation = !currentPlan;
             const res = await subscriptionService.switchPlan(
                 customerId,
                 targetPlanId,
-                currentPlan ? immediate : true
+                isInitialActivation
             );
-            addToast('success', res?.message || `Successfully activated ${selectedPlan.name}!`);
+            const defaultMsg = isInitialActivation
+                ? `Successfully activated ${selectedPlan.name}!`
+                : `Successfully scheduled plan switch to ${selectedPlan.name} for the next billing cycle!`;
+            addToast('success', res?.message || defaultMsg);
             queryClient.invalidateQueries({ queryKey: ['subscription'] });
             queryClient.invalidateQueries({ queryKey: ['wallet'] });
             if (onSuccess) {
@@ -244,59 +249,45 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, on
                                     </div>
                                 )}
                             </div>
-                        )}
-
-                        {/* Step 3: Timing Options Toggle (only if already has an active plan) */}
+                        )}                        {/* Step 2: Next Billing Cycle Information (only if already has an active plan) */}
                         {currentPlan ? (
-                            <div className="space-y-3">
+                            <div className="space-y-2.5">
                                 <label className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-slate-300 block">
-                                    2. When should the plan switch take effect?
+                                    2. Effective Timing: Next Billing Cycle
                                 </label>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {/* Option 1: Switch Immediately */}
-                                    <button
-                                        type="button"
-                                        onClick={() => setImmediate(true)}
-                                        className={`p-3.5 rounded-xl border text-left transition-all ${
-                                            immediate 
-                                                ? 'bg-primary-50/60 dark:bg-primary-950/40 border-primary-500 ring-2 ring-primary-500/20' 
-                                                : 'bg-white dark:bg-slate-800/40 border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600'
-                                        }`}
-                                    >
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                                                <Zap className="h-3.5 w-3.5 text-primary-600" />
-                                                Immediate (Prorated)
-                                            </span>
-                                            {immediate && <div className="h-2 w-2 rounded-full bg-primary-600"></div>}
+                                <div className="p-4 rounded-xl border border-primary-200/90 dark:border-primary-900/50 bg-primary-50/50 dark:bg-primary-950/20 space-y-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-9 w-9 rounded-xl bg-primary-100 dark:bg-primary-900/60 text-primary-600 dark:text-primary-300 flex items-center justify-center shrink-0">
+                                            <Calendar className="h-5 w-5" />
                                         </div>
-                                        <p className="text-[11px] font-medium text-gray-500 dark:text-slate-400 leading-tight">
-                                            Applies instantly. Proration is calculated and debited from your wallet now.
-                                        </p>
-                                    </button>
+                                        <div className="min-w-0">
+                                            <span className="text-xs font-bold text-gray-900 dark:text-white block">
+                                                Scheduled for Next Billing Cycle Rollover
+                                            </span>
+                                            <p className="text-[11px] text-primary-700 dark:text-primary-300 font-semibold flex items-center gap-1.5 mt-0.5">
+                                                <Clock className="h-3 w-3 inline" />
+                                                Takes effect on: {currentPlan?.next_billing 
+                                                    ? new Date(currentPlan.next_billing).toLocaleDateString(undefined, {
+                                                        year: 'numeric',
+                                                        month: 'short',
+                                                        day: 'numeric'
+                                                    }) 
+                                                    : 'Upcoming renewal date'}
+                                            </p>
+                                        </div>
+                                    </div>
 
-                                    {/* Option 2: Switch at Renewal */}
-                                    <button
-                                        type="button"
-                                        onClick={() => setImmediate(false)}
-                                        className={`p-3.5 rounded-xl border text-left transition-all ${
-                                            !immediate 
-                                                ? 'bg-primary-50/60 dark:bg-primary-950/40 border-primary-500 ring-2 ring-primary-500/20' 
-                                                : 'bg-white dark:bg-slate-800/40 border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600'
-                                        }`}
-                                    >
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                                                <ShieldCheck className="h-3.5 w-3.5 text-indigo-500" />
-                                                Next Billing Cycle
-                                            </span>
-                                            {!immediate && <div className="h-2 w-2 rounded-full bg-primary-600"></div>}
+                                    <div className="pt-2.5 border-t border-primary-100 dark:border-primary-900/40 space-y-1.5 text-[11px] text-gray-600 dark:text-slate-400">
+                                        <div className="flex items-start gap-2">
+                                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                                            <span><strong>No charge today:</strong> Your wallet will be charged ${targetPrice.toFixed(2)}/mo automatically on your renewal date.</span>
                                         </div>
-                                        <p className="text-[11px] font-medium text-gray-500 dark:text-slate-400 leading-tight">
-                                            Schedules switch for the next renewal date with no immediate charge.
-                                        </p>
-                                    </button>
+                                        <div className="flex items-start gap-2">
+                                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                                            <span><strong>Benefits preserved:</strong> Your current extension limits and remaining free minutes remain active until renewal.</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         ) : null}
@@ -329,14 +320,14 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, on
                             {submitting ? (
                                 <>
                                     <Loader2 className="h-4 w-4 animate-spin" />
-                                    {currentPlan ? 'Switching Plan...' : 'Activating Plan...'}
+                                    {currentPlan ? 'Scheduling Switch...' : 'Activating Plan...'}
                                 </>
                             ) : !currentPlan ? (
                                 'Activate Plan'
                             ) : isSamePlan ? (
                                 'Current Plan'
                             ) : (
-                                `Confirm ${isUpgrade ? 'Upgrade' : 'Switch'}`
+                                `Schedule ${isUpgrade ? 'Upgrade' : 'Switch'}`
                             )}
                         </button>
                     </div>

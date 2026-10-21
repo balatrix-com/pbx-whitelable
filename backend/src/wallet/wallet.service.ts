@@ -228,19 +228,35 @@ export class WalletService {
         }
     }
 
-    async switchSubscriptionPlan(tenantId: string, planId: string, immediate: boolean = true) {
+    async switchSubscriptionPlan(tenantId: string, planId: string, immediate: boolean = false) {
         const customerId = await this.getSubBillingCustomerId(tenantId);
         try {
-            this.logger.log(`Switching subscription plan in sub-billing for customer ${customerId} (tenant ${tenantId}) to ${planId}`);
+            this.logger.log(`Switching subscription plan in sub-billing for customer ${customerId} (tenant ${tenantId}) to ${planId} (immediate: ${immediate})`);
+
+            const existingSub = await this.prisma.subscription.findFirst({
+                where: { tenantId }
+            });
+
+            // When existing subscription is present and immediate is false, schedule for next billing cycle
+            const isScheduled = !!existingSub && !immediate;
+
             const response = await firstValueFrom(
                 this.httpService.post(`${this.subBillingUrl}/subscriptions/switch-plan`, {
                     customer_id: customerId,
                     target_plan_id: planId,
-                    execute_on_expiration: !immediate,
+                    execute_on_expiration: isScheduled,
                     override_balance_check: true
                 })
             );
 
+            // SCHEDULED SWITCH FOR NEXT BILLING CYCLE:
+            // Do NOT overwrite local active plan or free minutes. Active plan remains untouched until renewal.
+            if (isScheduled) {
+                this.logger.log(`Plan switch to ${planId} scheduled for next billing cycle for customer ${customerId} (tenant ${tenantId}). Current active plan preserved.`);
+                return response.data;
+            }
+
+            // IMMEDIATE SWITCH OR INITIAL ACTIVATION (Planless tenant)
             const endDate = new Date();
             endDate.setFullYear(endDate.getFullYear() + 1);
 
@@ -290,10 +306,6 @@ export class WalletService {
                 allowedExtensions = localPlan?.maxExtensions || 5;
             }
 
-            const existingSub = await this.prisma.subscription.findFirst({
-                where: { tenantId }
-            });
-
             if (existingSub) {
                 await this.prisma.subscription.update({
                     where: { id: existingSub.id },
@@ -319,14 +331,28 @@ export class WalletService {
                 });
             }
 
-            // Extension provisioning is now strictly handled by Sub-Billing Webhooks (ExtensionsService)
-            // to prevent Dual-Provisioning Race Conditions.
-
             return response.data;
         } catch (error) {
             const errorMsg = error.response?.data?.message || error.message;
             this.logger.error(`Failed to switch subscription plan for tenant ${tenantId}: ${errorMsg}`);
             throw new BadRequestException(`Failed to switch subscription plan: ${errorMsg}`);
+        }
+    }
+
+    async cancelScheduledPlanSwitch(tenantId: string) {
+        const customerId = await this.getSubBillingCustomerId(tenantId);
+        try {
+            this.logger.log(`Cancelling scheduled subscription plan switch in sub-billing for customer ${customerId} (tenant ${tenantId})`);
+            const response = await firstValueFrom(
+                this.httpService.post(`${this.subBillingUrl}/subscriptions/cancel-switch`, {
+                    customer_id: customerId
+                })
+            );
+            return response.data;
+        } catch (error) {
+            const errorMsg = error.response?.data?.message || error.message;
+            this.logger.error(`Failed to cancel scheduled plan switch for tenant ${tenantId}: ${errorMsg}`);
+            throw new BadRequestException(`Failed to cancel scheduled plan switch: ${errorMsg}`);
         }
     }
 

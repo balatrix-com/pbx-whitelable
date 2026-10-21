@@ -27,6 +27,7 @@ describe('WalletService (switchSubscriptionPlan & Kamailio Sync)', () => {
             subscription: {
                 findFirst: jest.fn().mockResolvedValue(null),
                 create: jest.fn().mockResolvedValue({ id: 'sub-local-1' }),
+                update: jest.fn().mockResolvedValue({ id: 'sub-updated-1' }),
             },
             extension: {
                 count: jest.fn().mockResolvedValue(0),
@@ -92,31 +93,64 @@ describe('WalletService (switchSubscriptionPlan & Kamailio Sync)', () => {
     });
 
     describe('switchSubscriptionPlan', () => {
-        it('should call sub-billing switch-plan with override_balance_check: true and update local subscription', async () => {
-            const res = await service.switchSubscriptionPlan('U1010', 'tier_1_starter', true);
+        it('should call sub-billing switch-plan with execute_on_expiration: true and NOT update local Prisma when tenant already has active subscription', async () => {
+            prisma.subscription.findFirst.mockResolvedValueOnce({
+                id: 'existing-sub-id',
+                planId: 'old-plan-id',
+                status: 'ACTIVE'
+            });
+
+            const res = await service.switchSubscriptionPlan('U1010', 'tier_1_starter', false);
 
             expect(res.success).toBe(true);
 
-            // Sub-billing switch-plan call
+            // Sub-billing switch-plan call with execute_on_expiration: true
             expect(httpService.post).toHaveBeenCalledWith(
                 'http://localhost:5005/api/subscriptions/switch-plan',
                 expect.objectContaining({
                     customer_id: 'U1010',
                     target_plan_id: 'tier_1_starter',
-                    execute_on_expiration: false,
+                    execute_on_expiration: true,
                     override_balance_check: true,
                 })
             );
 
-            // Prisma subscription was created or updated
+            // Local Prisma subscription was NOT updated prematurely
+            expect(prisma.subscription.update).not.toHaveBeenCalled();
+        });
+
+        it('should activate immediately for planless tenant (initial activation)', async () => {
+            prisma.subscription.findFirst.mockResolvedValueOnce(null);
+
+            const res = await service.switchSubscriptionPlan('U1010', 'tier_1_starter', true);
+
+            expect(res.success).toBe(true);
+
             expect(prisma.subscription.create).toHaveBeenCalledWith(
                 expect.objectContaining({
                     data: expect.objectContaining({
                         tenantId: 'U1010',
-                        subBillingSubscriptionId: 'sub-uuid-1',
                         status: 'ACTIVE',
                     })
                 })
+            );
+        });
+    });
+
+    describe('cancelScheduledPlanSwitch', () => {
+        it('should call sub-billing cancel-switch with customer_id', async () => {
+            httpService.post.mockReturnValueOnce(of({
+                data: { success: true, message: 'Scheduled plan switch cancelled' }
+            }));
+
+            const res = await service.cancelScheduledPlanSwitch('U1010');
+
+            expect(res.success).toBe(true);
+            expect(httpService.post).toHaveBeenCalledWith(
+                'http://localhost:5005/api/subscriptions/cancel-switch',
+                {
+                    customer_id: 'U1010'
+                }
             );
         });
     });

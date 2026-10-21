@@ -14,7 +14,8 @@ import {
     Clock,
     Zap,
     Building2,
-    ChevronDown
+    ChevronDown,
+    X
 } from 'lucide-react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -68,6 +69,9 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
     // Plan Switch Modal
     const [planSwitchModalOpen, setPlanSwitchModalOpen] = useState(false);
 
+    // Cancel Scheduled Switch State
+    const [cancellingSchedule, setCancellingSchedule] = useState(false);
+
     // Cancel Addon Modal State
     const [addonToCancel, setAddonToCancel] = useState(null);
     const [cancellingAddon, setCancellingAddon] = useState(false);
@@ -101,6 +105,26 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
         refetchSubscription();
         if (subscriptionId) {
             fetchSubscriptionAddons(subscriptionId);
+        }
+    };
+
+    // Cancel Scheduled Plan Switch
+    const handleCancelScheduledSwitch = async () => {
+        if (cancellingSchedule) return;
+        if (!window.confirm('Are you sure you want to cancel the scheduled plan switch? Your current plan will remain active and renew normally.')) {
+            return;
+        }
+        setCancellingSchedule(true);
+        try {
+            const res = await subscriptionService.cancelScheduledSwitch(effectiveTenantId);
+            addToast('success', res?.message || 'Scheduled plan switch cancelled successfully.');
+            handleRefreshAll();
+        } catch (err) {
+            console.error('Failed to cancel scheduled plan switch:', err);
+            const msg = err.response?.data?.message || err.normalized?.message || 'Failed to cancel scheduled plan switch';
+            addToast('error', msg);
+        } finally {
+            setCancellingSchedule(false);
         }
     };
 
@@ -247,6 +271,63 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                     </div>
                 </div>
 
+                {/* Scheduled Switch Pending Alert Banner */}
+                {subscription?.target_plan_name && (
+                    <div className="p-4 rounded-2xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-800/60 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-200">
+                        <div className="flex items-center gap-3.5">
+                            <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+                                <Clock className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-black uppercase tracking-wider text-amber-900 dark:text-amber-200">
+                                        Scheduled Plan Switch Pending
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-200/80 dark:bg-amber-900/80 text-amber-950 dark:text-amber-100">
+                                        Next Billing Cycle
+                                    </span>
+                                </div>
+                                <p className="text-xs text-amber-900/90 dark:text-amber-200/90 mt-0.5 font-medium">
+                                    Switching to <strong>{subscription.target_plan_name}</strong> (${Number(subscription.target_plan_amount || 0).toFixed(2)}/mo) on{' '}
+                                    <strong>{new Date(subscription.scheduled_switch_at || subscription.next_billing).toLocaleDateString(undefined, {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric'
+                                    })}</strong>. Current plan limits and free minutes remain active until rollover.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => setPlanSwitchModalOpen(true)}
+                                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition shadow-xs"
+                            >
+                                Change Target Plan
+                            </button>
+                            <button
+                                type="button"
+                                disabled={cancellingSchedule}
+                                onClick={handleCancelScheduledSwitch}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/50 transition shadow-xs disabled:opacity-50"
+                            >
+                                {cancellingSchedule ? (
+                                    <>
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        <span>Cancelling...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <X className="h-3.5 w-3.5" />
+                                        <span>Cancel Switch</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-200/80 dark:border-slate-800 overflow-hidden">
                     {subLoading ? (
                         <div className="flex items-center justify-center py-12 gap-3 text-sm text-gray-500 dark:text-slate-400 font-medium">
@@ -300,8 +381,16 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                                     <Package className="h-5 w-5" />
                                                 </div>
                                                 <div>
-                                                    <div className="text-sm font-extrabold text-gray-900 dark:text-white">
-                                                        {subscription.plan_name || subscription.name || 'Standard Plan'}
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-sm font-extrabold text-gray-900 dark:text-white">
+                                                            {subscription.plan_name || subscription.name || 'Standard Plan'}
+                                                        </span>
+                                                        {subscription.target_plan_name && (
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                                                                <Clock className="h-2.5 w-2.5" />
+                                                                Switch to {subscription.target_plan_name} queued
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <div className="text-[11px] font-mono text-gray-400 dark:text-slate-500">
                                                         ID: {subscription.plan_id || subscription.id || 'primary'}
@@ -396,7 +485,7 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black text-primary-600 dark:text-primary-400 bg-white dark:bg-slate-800 ring-1 ring-inset ring-primary-200 dark:ring-primary-800/40 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition shadow-xs active:scale-95"
                                             >
                                                 <ArrowUpDown className="h-3.5 w-3.5" />
-                                                <span>Upgrade / Downgrade Plan</span>
+                                                <span>{subscription.target_plan_name ? 'Modify Scheduled Plan' : 'Upgrade / Downgrade Plan'}</span>
                                             </button>
                                         </td>
                                     </tr>

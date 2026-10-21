@@ -135,11 +135,18 @@ export const subscriptionService = {
     // ------------------------------------------------------------------------
     // 6. PLAN SWITCH (Real backend API: POST /api/wallet/subscription)
     // ------------------------------------------------------------------------
-    switchPlan: async (customerId, newPlanId, immediate = true) => {
+    switchPlan: async (customerId, newPlanId, immediate = false) => {
         const res = await api.post('/wallet/subscription', {
             targetTenantId: customerId,
             planId: newPlanId,
             immediate
+        });
+        return res.data;
+    },
+
+    cancelScheduledSwitch: async (customerId) => {
+        const res = await api.post('/wallet/subscription/cancel-switch', {
+            targetTenantId: customerId
         });
         return res.data;
     }
