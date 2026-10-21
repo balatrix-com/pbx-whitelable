@@ -28,6 +28,7 @@ export class TenantsService {
         limit?: number;
         search?: string;
         blocked?: boolean;
+        status?: string;
     }) {
         const page = query.page || 1;
         const limit = query.limit || 20;
@@ -42,6 +43,9 @@ export class TenantsService {
         }
         if (query.blocked !== undefined) {
             where.serviceBlocked = query.blocked;
+        }
+        if (query.status) {
+            where.status = query.status;
         }
 
         const [data, total, realTimeBalances] = await Promise.all([

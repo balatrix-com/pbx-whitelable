@@ -26,6 +26,7 @@ describe('AddonsService (Dynamic Catalog & Purchase)', () => {
         };
 
         walletService = {
+            assertActiveTenant: jest.fn().mockResolvedValue({ id: 'tenant-1', status: 'ACTIVE', subBillingCustomerId: 'U1010' }),
             getSubBillingCustomerId: jest.fn().mockResolvedValue('U1010'),
             getBalance: jest.fn().mockResolvedValue({ balance: 100.0, creditLimit: 50.0 }),
             adjustBalance: jest.fn().mockResolvedValue({ success: true }),
@@ -122,7 +123,8 @@ describe('AddonsService (Dynamic Catalog & Purchase)', () => {
                     customer_id: 'U1010',
                     addon_id: 'addon_3_extension',
                     quantity: 1
-                })
+                }),
+                expect.anything()
             );
             expect(res.success).toBe(true);
         });
@@ -131,6 +133,16 @@ describe('AddonsService (Dynamic Catalog & Purchase)', () => {
             walletService.getBalance.mockResolvedValueOnce({ balance: 0, creditLimit: 0 });
 
             await expect(service.purchaseAddon('tenant-1', 'addon_3_extension', 10))
+                .rejects
+                .toThrow(BadRequestException);
+        });
+
+        it('should throw BadRequestException when purchasing addon for an archived tenant', async () => {
+            walletService.assertActiveTenant.mockRejectedValueOnce(
+                new BadRequestException('Cannot perform operation on deactivated/archived tenant')
+            );
+
+            await expect(service.purchaseAddon('tenant-1', 'addon_3_extension', 1))
                 .rejects
                 .toThrow(BadRequestException);
         });
