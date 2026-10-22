@@ -15,4 +15,8 @@ export class UpdatePermissionsDto {
     @IsOptional()
     @IsString()
     name?: string;
+
+    @IsOptional()
+    @IsBoolean()
+    flushExtension?: boolean;
 }

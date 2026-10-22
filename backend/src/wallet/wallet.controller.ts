@@ -43,8 +43,25 @@ export class WalletController {
     @Get('subscription')
     getSubscription(
         @GetUser() user: User,
-        @Query('tenantId') queryTenantId?: string
+        @Query('tenantId') queryTenantId?: string,
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+        @Query('search') search?: string,
+        @Query('status') status?: string,
+        @Query('hasSubscription') hasSubscription?: string
     ) {
+        if (queryTenantId === 'all') {
+            if (user.role !== Role.SUPER_ADMIN) {
+                throw new ForbiddenException('Only SuperAdmin can view all subscriptions');
+            }
+            return this.walletService.getAllSubscriptions({
+                page: page ? parseInt(page, 10) : undefined,
+                limit: limit ? parseInt(limit, 10) : undefined,
+                search,
+                status,
+                hasSubscription: hasSubscription !== undefined ? hasSubscription === 'true' : undefined
+            });
+        }
         const tenantId = (user.role === Role.SUPER_ADMIN && queryTenantId) ? queryTenantId : user.tenantId;
         if (!tenantId) return null;
         return this.walletService.getSubscription(tenantId);
@@ -118,6 +135,24 @@ export class WalletController {
     @Roles(Role.SUPER_ADMIN)
     getAllBalances() {
         return this.walletService.getAllBalances();
+    }
+
+    @Get('all-subscriptions')
+    @Roles(Role.SUPER_ADMIN)
+    getAllSubscriptions(
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+        @Query('search') search?: string,
+        @Query('status') status?: string,
+        @Query('hasSubscription') hasSubscription?: string
+    ) {
+        return this.walletService.getAllSubscriptions({
+            page: page ? parseInt(page, 10) : undefined,
+            limit: limit ? parseInt(limit, 10) : undefined,
+            search,
+            status,
+            hasSubscription: hasSubscription !== undefined ? hasSubscription === 'true' : undefined
+        });
     }
 
     @Get('assets')

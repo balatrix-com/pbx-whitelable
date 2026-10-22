@@ -305,14 +305,20 @@ export class UsersService {
         const apiUrl = subBilling?.apiUrl || process.env.SUB_BILLING_API_URL || 'http://localhost:5005/api';
         const endpoint = `${apiUrl}/pbx/sync-assets/${subscription.subBillingSubscriptionId}`;
 
-        await lastValueFrom(
-            this.httpService.post(
-                endpoint,
-                { monitoring },
-                { headers: { 'x-pbx-customer-id': tenant.subBillingCustomerId } }
-            )
-        );
-        this.logger.log(`Synced monitoring extension(s) for tenant ${tenantId} to sub-billing`);
+        try {
+            await lastValueFrom(
+                this.httpService.post(
+                    endpoint,
+                    { monitoring },
+                    { headers: { 'x-pbx-customer-id': tenant.subBillingCustomerId } }
+                )
+            );
+            this.logger.log(`Synced monitoring extension(s) for tenant ${tenantId} to sub-billing`);
+        } catch (err: any) {
+            const subBillingError = err.response?.data?.error || err.response?.data?.message || err.message;
+            this.logger.error(`Failed to sync monitoring assets with Sub-Billing for tenant ${tenantId}: ${subBillingError}`);
+            throw new BadRequestException(`Sub-Billing monitoring sync failed: ${subBillingError}`);
+        }
     }
 
     private async unassignMonitoringFromSubBilling(tenantId: string, extensionNumbers: string[]) {
@@ -333,17 +339,22 @@ export class UsersService {
         const apiUrl = subBilling?.apiUrl || process.env.SUB_BILLING_API_URL || 'http://localhost:5005/api';
         const endpoint = `${apiUrl}/pbx/unassign-assets`;
 
-        await lastValueFrom(
-            this.httpService.post(
-                endpoint,
-                {
-                    subscriptionId: subscription.subBillingSubscriptionId,
-                    monitoring: extensionNumbers
-                },
-                { headers: { 'x-pbx-customer-id': tenant.subBillingCustomerId } }
-            )
-        );
-        this.logger.log(`Unassigned monitoring extension(s) ${extensionNumbers.join(', ')} for tenant ${tenantId} in sub-billing`);
+        try {
+            await lastValueFrom(
+                this.httpService.post(
+                    endpoint,
+                    {
+                        subscriptionId: subscription.subBillingSubscriptionId,
+                        monitoring: extensionNumbers
+                    },
+                    { headers: { 'x-pbx-customer-id': tenant.subBillingCustomerId } }
+                )
+            );
+            this.logger.log(`Unassigned monitoring extension(s) ${extensionNumbers.join(', ')} for tenant ${tenantId} in sub-billing`);
+        } catch (err: any) {
+            const subBillingError = err.response?.data?.error || err.response?.data?.message || err.message;
+            this.logger.warn(`Failed to unassign monitoring extension in Sub-Billing for tenant ${tenantId}: ${subBillingError}`);
+        }
     }
 
     async updatePermissions(
@@ -352,7 +363,8 @@ export class UsersService {
         monitoringEnabled: boolean,
         monitoringExtension?: string,
         monitoringSecret?: string,
-        name?: string
+        name?: string,
+        flushExtension?: boolean
     ) {
         const canManage = await this.canManageUser(actorId, targetUserId);
         if (!canManage) {
@@ -365,38 +377,60 @@ export class UsersService {
         if (!targetUser) throw new NotFoundException('User not found');
 
         const oldMonitoringExt = targetUser.monitoringExtension;
+        const oldMonitoringSecret = targetUser.monitoringSecret;
+        const shouldFlush = flushExtension === true || monitoringExtension === null;
 
-        // Validate extension uniqueness if provided
-        if (monitoringEnabled && monitoringExtension) {
-            const existing = await this.prisma.user.findFirst({
-                where: {
-                    monitoringExtension,
-                    id: { not: targetUserId }
-                }
-            });
-            if (existing) {
-                throw new BadRequestException(`Extension ${monitoringExtension} is already assigned to another user`);
-            }
+        let effectiveExt = monitoringExtension;
+        let effectiveSecret = monitoringSecret;
 
-            // Prevent collision with standard extensions
-            const existingExtension = await this.prisma.extension.findFirst({
-                where: {
-                    extensionNumber: monitoringExtension
+        if (monitoringEnabled) {
+            if (!effectiveExt) {
+                // If caller didn't pass a new extension, re-activate existing saved credentials
+                if (oldMonitoringExt && oldMonitoringSecret) {
+                    effectiveExt = oldMonitoringExt;
+                    effectiveSecret = oldMonitoringSecret;
+                } else {
+                    throw new BadRequestException('Monitoring extension and SIP secret are required for initial setup');
                 }
-            });
-            if (existingExtension) {
-                throw new BadRequestException(`Extension ${monitoringExtension} is already in use as a standard extension`);
+            } else {
+                // New extension provided: check uniqueness
+                const existing = await this.prisma.user.findFirst({
+                    where: {
+                        monitoringExtension: effectiveExt,
+                        id: { not: targetUserId }
+                    }
+                });
+                if (existing) {
+                    throw new BadRequestException(`Extension ${effectiveExt} is already assigned to another user`);
+                }
+
+                // Prevent collision with standard extensions
+                const existingExtension = await this.prisma.extension.findFirst({
+                    where: {
+                        extensionNumber: effectiveExt
+                    }
+                });
+                if (existingExtension) {
+                    throw new BadRequestException(`Extension ${effectiveExt} is already in use as a standard extension`);
+                }
+
+                if (!effectiveSecret && !oldMonitoringSecret) {
+                    throw new BadRequestException('SIP secret is required for monitoring extension');
+                }
+                if (!effectiveSecret) {
+                    effectiveSecret = oldMonitoringSecret!;
+                }
             }
         }
 
         // Sync with Sub-Billing
         if (targetUser.tenantId) {
-            if (monitoringEnabled && monitoringExtension) {
-                if (oldMonitoringExt && oldMonitoringExt !== monitoringExtension) {
+            if (monitoringEnabled && effectiveExt) {
+                if (oldMonitoringExt && oldMonitoringExt !== effectiveExt) {
                     await this.unassignMonitoringFromSubBilling(targetUser.tenantId, [oldMonitoringExt]);
                 }
                 await this.syncMonitoringToSubBilling(targetUser.tenantId, [{
-                    extensionNumber: monitoringExtension,
+                    extensionNumber: effectiveExt,
                     userName: name || targetUser.name || undefined,
                     userEmail: targetUser.email
                 }]);
@@ -410,8 +444,8 @@ export class UsersService {
             where: { id: targetUserId },
             data: {
                 monitoringEnabled,
-                monitoringExtension: monitoringExtension === undefined ? undefined : monitoringExtension,
-                monitoringSecret: monitoringSecret === undefined ? undefined : monitoringSecret,
+                monitoringExtension: shouldFlush ? null : (effectiveExt !== undefined ? effectiveExt : undefined),
+                monitoringSecret: shouldFlush ? null : (effectiveSecret !== undefined ? effectiveSecret : undefined),
                 name: name === undefined ? undefined : name,
             }
         });
@@ -424,7 +458,7 @@ export class UsersService {
                 }
                 await this.kamailioService.syncSubscriber(updatedUser.monitoringExtension, updatedUser.monitoringSecret);
             } else if (!monitoringEnabled && oldMonitoringExt) {
-                // If monitoring is disabled, remove the SIP account
+                // If monitoring is disabled, remove the SIP account so softphone cannot register
                 await this.kamailioService.deleteSubscriber(oldMonitoringExt);
             }
         } catch (error) {
