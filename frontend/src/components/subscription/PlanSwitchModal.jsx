@@ -104,7 +104,7 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, is
 
             <div className="fixed inset-0 flex items-center justify-center p-4">
                 <Dialog.Panel className="mx-auto max-w-xl w-full rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl ring-1 ring-gray-900/10 dark:ring-slate-800 transition-all max-h-[90vh] overflow-y-auto">
-                    
+
                     {/* Header */}
                     <div className="flex justify-between items-center pb-4 border-b border-gray-100 dark:border-slate-800">
                         <div className="flex items-center gap-3">
@@ -116,8 +116,8 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, is
                                     {currentPlan ? 'Change Subscription Plan' : 'Assign / Activate Subscription Plan'}
                                 </Dialog.Title>
                                 <p className="text-xs font-medium text-gray-500 dark:text-slate-400">
-                                    {currentPlan 
-                                        ? 'Upgrade or downgrade your active PBX billing tier' 
+                                    {currentPlan
+                                        ? 'Upgrade or downgrade your active PBX billing tier'
                                         : 'Select an initial billing plan to activate PBX features for this tenant'}
                                 </p>
                             </div>
@@ -154,20 +154,18 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, is
                                             <div
                                                 key={pId}
                                                 onClick={() => !isCurrent && setSelectedPlan(p)}
-                                                className={`p-3 rounded-xl border text-left transition-all flex items-center justify-between cursor-pointer ${
-                                                    isCurrent 
+                                                className={`p-3 rounded-xl border text-left transition-all flex items-center justify-between cursor-pointer ${isCurrent
                                                         ? 'bg-gray-50/70 dark:bg-slate-800/30 border-gray-200 dark:border-slate-800 opacity-60 cursor-not-allowed'
-                                                        : isSelected 
+                                                        : isSelected
                                                             ? 'bg-primary-50/70 dark:bg-primary-950/40 border-primary-500 ring-2 ring-primary-500/20'
                                                             : 'bg-white dark:bg-slate-800/50 border-gray-200/80 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600'
-                                                }`}
+                                                    }`}
                                             >
                                                 <div className="flex items-center gap-3 min-w-0">
-                                                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center font-bold text-xs ${
-                                                        isSelected 
-                                                            ? 'bg-primary-600 text-white' 
+                                                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center font-bold text-xs ${isSelected
+                                                            ? 'bg-primary-600 text-white'
                                                             : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300'
-                                                    }`}>
+                                                        }`}>
                                                         <ShieldCheck className="h-4 w-4" />
                                                     </div>
                                                     <div className="min-w-0">
@@ -253,7 +251,9 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, is
                                     </div>
                                 )}
                             </div>
-                        )}                        {/* Step 2: Next Billing Cycle Information (only if already has an active plan) */}
+                        )}
+
+                        {/* Step 2: Next Billing Cycle Information (only if already has an active plan) */}
                         {currentPlan ? (
                             <div className="space-y-2.5">
                                 <label className="text-xs font-black uppercase tracking-wider text-gray-800 dark:text-slate-200 flex items-center justify-between">
@@ -275,12 +275,12 @@ const PlanSwitchModal = ({ isOpen, onClose, currentPlan, newPlan, customerId, is
                                             <div className="flex items-center gap-1.5 mt-0.5">
                                                 <Clock className="h-3.5 w-3.5 text-primary-600 dark:text-primary-400 shrink-0" />
                                                 <span className="text-xs font-bold text-primary-700 dark:text-primary-300">
-                                                    Effective Date: {currentPlan?.next_billing 
+                                                    Effective Date: {currentPlan?.next_billing
                                                         ? new Date(currentPlan.next_billing).toLocaleDateString(undefined, {
                                                             year: 'numeric',
                                                             month: 'short',
                                                             day: 'numeric'
-                                                        }) 
+                                                        })
                                                         : 'Upcoming renewal date'}
                                                 </span>
                                             </div>

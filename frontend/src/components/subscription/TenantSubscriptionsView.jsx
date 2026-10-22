@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Package, 
-    CreditCard, 
-    Calendar, 
-    RefreshCw, 
-    ArrowUpDown, 
-    CheckCircle2, 
-    AlertCircle, 
-    Loader2, 
-    Sparkles, 
-    Layers, 
+import {
+    Package,
+    CreditCard,
+    Calendar,
+    RefreshCw,
+    ArrowUpDown,
+    CheckCircle2,
+    AlertCircle,
+    Loader2,
+    Sparkles,
+    Layers,
     Trash2,
     Clock,
     Zap,
@@ -55,11 +55,11 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
     const isArchived = currentTenant?.status === 'ARCHIVED';
 
     // Primary Subscription
-    const { 
-        data: subscription, 
-        isLoading: subLoading, 
-        isFetching: subFetching, 
-        refetch: refetchSubscription 
+    const {
+        data: subscription,
+        isLoading: subLoading,
+        isFetching: subFetching,
+        refetch: refetchSubscription
     } = useSubscriptionQuery(effectiveTenantId);
 
     // Add-on Subscriptions State
@@ -397,7 +397,7 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                         <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Limits & Resources</th>
                                         <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Expiry / Renewal Date</th>
                                         <th className="px-6 py-4 text-center text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Auto-Renew</th>
-                                        <th className="px-6 py-4 text-right text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Actions</th>
+                                        <th className="px-6 py-4 text-center text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
@@ -462,7 +462,7 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                                     {getDaysRemaining(subscription.next_billing) !== null && (
                                                         <div className="text-[11px] font-medium text-gray-500 dark:text-slate-400 flex items-center gap-1">
                                                             <Clock className="h-3 w-3 text-amber-500" />
-                                                            {getDaysRemaining(subscription.next_billing) > 0 
+                                                            {getDaysRemaining(subscription.next_billing) > 0
                                                                 ? `${getDaysRemaining(subscription.next_billing)} days remaining`
                                                                 : 'Renews today'}
                                                         </div>
@@ -483,24 +483,21 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                                     disabled={togglingPlanAutoRenew || isArchived}
                                                     title={isArchived ? "Auto-renew disabled for deactivated tenants." : "Toggle Auto-Renew"}
                                                     onClick={handleTogglePlanAutoRenew}
-                                                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
-                                                        subscription.auto_renew 
-                                                            ? 'bg-primary-600' 
+                                                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${subscription.auto_renew
+                                                            ? 'bg-primary-600'
                                                             : 'bg-gray-200 dark:bg-slate-700'
-                                                    } ${togglingPlanAutoRenew || isArchived ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                        } ${togglingPlanAutoRenew || isArchived ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 >
                                                     <span
                                                         aria-hidden="true"
-                                                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                                                            subscription.auto_renew ? 'translate-x-5' : 'translate-x-0'
-                                                        }`}
+                                                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${subscription.auto_renew ? 'translate-x-5' : 'translate-x-0'
+                                                            }`}
                                                     />
                                                 </button>
-                                                <span className={`text-[10px] font-bold ${
-                                                    subscription.auto_renew 
-                                                        ? 'text-primary-600 dark:text-primary-400' 
+                                                <span className={`text-[10px] font-bold ${subscription.auto_renew
+                                                        ? 'text-primary-600 dark:text-primary-400'
                                                         : 'text-gray-400 dark:text-slate-500'
-                                                }`}>
+                                                    }`}>
                                                     {subscription.auto_renew ? 'ON' : 'OFF'}
                                                 </span>
                                             </div>
@@ -593,7 +590,7 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                         <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Start Date</th>
                                         <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Expiry Date</th>
                                         <th className="px-6 py-4 text-center text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Auto-Renew</th>
-                                        <th className="px-6 py-4 text-right text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Actions</th>
+                                        <th className="px-6 py-4 text-center text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
@@ -663,7 +660,7 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                                             {daysRemaining !== null && (
                                                                 <div className="text-[11px] font-medium text-gray-500 dark:text-slate-400 flex items-center gap-1">
                                                                     <Clock className="h-3 w-3 text-amber-500" />
-                                                                    {daysRemaining > 0 
+                                                                    {daysRemaining > 0
                                                                         ? `${daysRemaining} days left`
                                                                         : 'Expired'}
                                                                 </div>
@@ -672,9 +669,11 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                                     ) : (
                                                         <span className="text-xs text-gray-400">—</span>
                                                     )}
-                                                                                               {/* Auto-Renew Toggle */}
-                                                <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                    <div className="inline-flex flex-col items-center gap-1">
+                                                </td>
+
+                                                {/* Auto-Renew Toggle */}
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex w-full flex-col items-center justify-center gap-1">
                                                         <button
                                                             type="button"
                                                             role="switch"
@@ -682,42 +681,41 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                                             disabled={isToggling || isArchived}
                                                             title={isArchived ? "Auto-renew disabled for deactivated tenants." : "Toggle Add-on Auto-Renew"}
                                                             onClick={() => handleToggleAddonAutoRenew(addon)}
-                                                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
-                                                                addon.auto_renew 
-                                                                    ? 'bg-primary-600' 
+                                                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${addon.auto_renew
+                                                                    ? 'bg-primary-600'
                                                                     : 'bg-gray-200 dark:bg-slate-700'
-                                                             } ${isToggling || isArchived ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                } ${isToggling || isArchived ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                         >
                                                             <span
                                                                 aria-hidden="true"
-                                                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                                                                    addon.auto_renew ? 'translate-x-5' : 'translate-x-0'
-                                                                }`}
+                                                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${addon.auto_renew ? 'translate-x-5' : 'translate-x-0'
+                                                                    }`}
                                                             />
                                                         </button>
-                                                        <span className={`text-[10px] font-bold ${
-                                                            addon.auto_renew 
-                                                                ? 'text-primary-600 dark:text-primary-400' 
+                                                        <span className={`text-[10px] font-bold ${addon.auto_renew
+                                                                ? 'text-primary-600 dark:text-primary-400'
                                                                 : 'text-gray-400 dark:text-slate-500'
-                                                        }`}>
+                                                            }`}>
                                                             {addon.auto_renew ? 'ON' : 'OFF'}
                                                         </span>
                                                     </div>
                                                 </td>
 
                                                 {/* Actions */}
-                                                <td className="px-6 py-4 whitespace-nowrap text-right">
-                                                    <button
-                                                        type="button"
-                                                        disabled={isArchived}
-                                                        onClick={() => setAddonToCancel(addon)}
-                                                        title={isArchived ? "Add-on operations disabled for deactivated tenants." : "Cancel Add-on"}
-                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/40 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                                                    >
-                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                        <span>Cancel</span>
-                                                    </button>
-                                                </td>     </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex w-full items-center justify-center">
+                                                        <button
+                                                            type="button"
+                                                            disabled={isArchived}
+                                                            onClick={() => setAddonToCancel(addon)}
+                                                            title={isArchived ? "Add-on operations disabled for deactivated tenants." : "Cancel Add-on"}
+                                                            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/40 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                            <span>Cancel</span>
+                                                        </button>
+                                                    </div>
+                                                </td>
                                             </tr>
                                         );
                                     })}
