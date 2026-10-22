@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import api from '../../services/api';
-import { Building2, Users, Shield, Eye, Ban, CheckCircle, AlertTriangle, ChevronRight, Briefcase, Wallet, CreditCard, Trash2, Key, Search, RefreshCw, UserCheck, ShieldCheck, Mail, ArrowRight } from 'lucide-react';
+import { Building2, Users, Shield, Eye, Ban, CheckCircle, AlertTriangle, ChevronRight, Briefcase, Wallet, CreditCard, Trash2, Key, Search, RefreshCw, UserCheck, ShieldCheck, Mail, ArrowRight, RotateCcw } from 'lucide-react';
 import ActivityModal from '../../components/admin/ActivityModal';
 import MonitoringExtensionModal from '../../components/admin/MonitoringExtensionModal';
 import Pagination from '../../components/common/Pagination';
@@ -9,6 +10,7 @@ import { clsx } from 'clsx';
 
 const SuperAdminUsers = () => {
     const { user, isSuperAdmin, impersonateUser } = useAuth();
+    const { addToast } = useToast();
     const [tenants, setTenants] = useState([]);
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -150,32 +152,76 @@ const SuperAdminUsers = () => {
     };
 
     const handleToggleMonitoring = async (userId, currentValue) => {
+        const targetUser = users.find(u => u.id === userId);
         if (!currentValue) {
+            // 1. Check if user ALREADY has a monitoring extension configured
+            if (targetUser?.monitoringExtension) {
+                try {
+                    // Re-activate existing extension directly — DO NOT OPEN SETUP MODAL
+                    await api.patch(`/users/${userId}/permissions`, {
+                        monitoringEnabled: true
+                    });
+                    addToast('success', `Monitoring re-activated for extension ${targetUser.monitoringExtension}`);
+                    if (selectedTenant) fetchUsersForTenant(selectedTenant);
+                    return;
+                } catch (error) {
+                    console.error('Failed to re-activate monitoring:', error);
+                    addToast('error', 'Failed to re-activate monitoring: ' + (error.response?.data?.message || error.message));
+                    return;
+                }
+            }
+            // 2. First-time setup: user has no extension yet
             setMonitoringTarget(userId);
             setShowMonitoringModal(true);
         } else {
+            // Toggle OFF: preserves extension credentials in backend for quick re-enabling
             try {
-                await api.patch(`/users/${userId}/permissions`, { monitoringEnabled: false });
+                await api.patch(`/users/${userId}/permissions`, {
+                    monitoringEnabled: false
+                });
+                addToast('info', 'Monitoring disabled');
                 if (selectedTenant) fetchUsersForTenant(selectedTenant);
             } catch (error) {
                 console.error('Failed to disable monitoring:', error);
+                addToast('error', 'Failed to disable monitoring: ' + (error.response?.data?.message || error.message));
             }
         }
     };
 
-    const handleEnableMonitoring = async ({ monitoringExtension, monitoringSecret }) => {
-        if (!monitoringTarget) return;
+    const handleResetMonitoringExtension = async (userId, userEmail) => {
+        if (!window.confirm(`Reset monitoring extension for ${userEmail}? This will wipe the saved extension and require fresh setup on next activation.`)) {
+            return;
+        }
         try {
-            await api.patch(`/users/${monitoringTarget}/permissions`, {
+            await api.patch(`/users/${userId}/permissions`, {
+                monitoringEnabled: false,
+                flushExtension: true
+            });
+            addToast('info', 'Monitoring extension reset successfully');
+            if (selectedTenant) fetchUsersForTenant(selectedTenant);
+        } catch (error) {
+            console.error('Failed to reset extension:', error);
+            addToast('error', 'Failed to reset extension: ' + (error.response?.data?.message || error.message));
+        }
+    };
+
+    const handleEnableMonitoring = async ({ monitoringExtension, monitoringSecret, name, userId }) => {
+        const targetId = userId || monitoringTarget;
+        if (!targetId) return;
+        try {
+            await api.patch(`/users/${targetId}/permissions`, {
                 monitoringEnabled: true,
                 monitoringExtension,
-                monitoringSecret
+                monitoringSecret,
+                name
             });
+            addToast('success', `Monitoring enabled for extension ${monitoringExtension}`);
             setShowMonitoringModal(false);
             setMonitoringTarget(null);
             if (selectedTenant) fetchUsersForTenant(selectedTenant);
         } catch (error) {
             console.error('Failed to enable monitoring:', error);
+            addToast('error', 'Failed to enable monitoring: ' + (error.response?.data?.message || error.message));
         }
     };
 
@@ -391,6 +437,7 @@ const SuperAdminUsers = () => {
                                                         onDelete={handleDeleteUser}
                                                         onToggleMonitoring={handleToggleMonitoring}
                                                         onResetPassword={handleResetPassword}
+                                                        onResetMonitoringExtension={handleResetMonitoringExtension}
                                                     />
                                                 ))}
                                             </div>
@@ -414,6 +461,7 @@ const SuperAdminUsers = () => {
                                                         onDelete={handleDeleteUser}
                                                         onToggleMonitoring={handleToggleMonitoring}
                                                         onResetPassword={handleResetPassword}
+                                                        onResetMonitoringExtension={handleResetMonitoringExtension}
                                                     />
                                                 ))}
                                             </div>
@@ -513,13 +561,15 @@ const SuperAdminUsers = () => {
                     }}
                     onSubmit={handleEnableMonitoring}
                     tenantId={selectedTenant}
+                    initialUserId={monitoringTarget}
+                    users={users}
                 />
             )}
         </div>
     );
 };
 
-const AdminCard = ({ admin, supportUsers, expanded, onToggle, onSuspend, onImpersonate, onViewActivity, onDelete, onToggleMonitoring, onResetPassword }) => {
+const AdminCard = ({ admin, supportUsers, expanded, onToggle, onSuspend, onImpersonate, onViewActivity, onDelete, onToggleMonitoring, onResetPassword, onResetMonitoringExtension }) => {
     return (
         <div className={clsx(
             "bg-white rounded-3xl shadow-sm ring-1 transition-all duration-300 overflow-hidden",
@@ -544,13 +594,15 @@ const AdminCard = ({ admin, supportUsers, expanded, onToggle, onSuspend, onImper
                             <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-primary-100 text-primary-700 text-[10px] font-black uppercase tracking-widest shadow-sm">
                                 {admin.role}
                             </span>
+                            {admin.monitoringExtension && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200">
+                                    Ext: {admin.monitoringExtension}
+                                </span>
+                            )}
                         </div>
                         <div className="flex items-center gap-4 mt-1">
                             <span className="text-sm font-medium text-gray-400 flex items-center gap-1.5">
                                 <Mail size={14} /> {admin.email}
-                            </span>
-                            <span className="text-sm font-bold text-primary-600 flex items-center gap-1.5">
-                                <Users size={14} /> {supportUsers.length} Staff
                             </span>
                         </div>
                     </div>
@@ -559,7 +611,7 @@ const AdminCard = ({ admin, supportUsers, expanded, onToggle, onSuspend, onImper
             </div>
 
             <div className={clsx(
-                "px-6 py-4 border-t border-gray-100 flex flex-wrap gap-2 transition-all",
+                "px-6 py-4 border-t border-gray-100 flex flex-wrap items-center gap-2 transition-all",
                 expanded ? "bg-white" : "bg-gray-50/30"
             )}>
                 <button
@@ -584,6 +636,33 @@ const AdminCard = ({ admin, supportUsers, expanded, onToggle, onSuspend, onImper
                 >
                     <Key size={14} /> Reset
                 </button>
+
+                {/* Call Monitoring toggle & Reset for Admin */}
+                <div 
+                    onClick={(e) => e.stopPropagation()} 
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-xl ring-1 ring-gray-200"
+                >
+                    <div 
+                        onClick={() => onToggleMonitoring(admin.id, admin.monitoringEnabled)}
+                        className={clsx("relative inline-flex h-4 w-8 rounded-full transition-colors cursor-pointer", admin.monitoringEnabled ? "bg-primary-600" : "bg-gray-300")}
+                    >
+                        <span className={clsx("inline-block h-3 w-3 transform rounded-full bg-white transition-transform duration-200 mt-0.5 ml-0.5", admin.monitoringEnabled ? "translate-x-4" : "translate-x-0")} />
+                    </div>
+                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest hidden sm:inline">
+                        {admin.monitoringEnabled ? 'Monitor' : 'Monitor'}
+                    </span>
+                </div>
+
+                {admin.monitoringExtension && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onResetMonitoringExtension(admin.id, admin.name || admin.email); }}
+                        className="p-2 bg-white text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl ring-1 ring-gray-200 transition-all active:scale-95"
+                        title="Reset Monitoring Extension"
+                    >
+                        <RotateCcw size={14} />
+                    </button>
+                )}
+
                 <button
                     onClick={(e) => { e.stopPropagation(); onViewActivity(); }}
                     className="p-2 bg-white text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl ring-1 ring-gray-200 transition-all active:scale-95"
@@ -615,6 +694,7 @@ const AdminCard = ({ admin, supportUsers, expanded, onToggle, onSuspend, onImper
                                 onDelete={onDelete}
                                 onToggleMonitoring={onToggleMonitoring}
                                 onResetPassword={onResetPassword}
+                                onResetMonitoringExtension={onResetMonitoringExtension}
                             />
                         ))}
                     </div>
@@ -624,7 +704,7 @@ const AdminCard = ({ admin, supportUsers, expanded, onToggle, onSuspend, onImper
     );
 };
 
-const UserCard = ({ user, onSuspend, onViewActivity, onDelete, onToggleMonitoring, onResetPassword }) => {
+const UserCard = ({ user, onSuspend, onViewActivity, onDelete, onToggleMonitoring, onResetPassword, onResetMonitoringExtension }) => {
     return (
         <div className="bg-gray-50/50 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 ring-1 ring-gray-100 group transition-all hover:bg-white hover:ring-primary-200 hover:shadow-sm">
             <div className="flex items-center gap-4 w-full">
@@ -633,7 +713,14 @@ const UserCard = ({ user, onSuspend, onViewActivity, onDelete, onToggleMonitorin
                 </div>
                 <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-gray-900 truncate">{user.name || user.email}</p>
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-tight">{user.role}</p>
+                    <div className="flex items-center gap-2">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-tight">{user.role}</p>
+                        {user.monitoringExtension && (
+                            <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                                Ext: {user.monitoringExtension}
+                            </span>
+                        )}
+                    </div>
                 </div>
                 <div className="flex items-center gap-3">
                     <StatusBadge status={user.status} />
@@ -650,6 +737,15 @@ const UserCard = ({ user, onSuspend, onViewActivity, onDelete, onToggleMonitorin
             </div>
             
             <div className="flex items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 border-gray-100 pt-3 sm:pt-0">
+                {user.monitoringExtension && onResetMonitoringExtension && (
+                    <button
+                        onClick={() => onResetMonitoringExtension(user.id, user.name || user.email)}
+                        title="Reset Monitoring Extension"
+                        className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                    >
+                        <RotateCcw size={16} />
+                    </button>
+                )}
                 <button
                     onClick={() => onSuspend(user.id, user.status)}
                     className={clsx(

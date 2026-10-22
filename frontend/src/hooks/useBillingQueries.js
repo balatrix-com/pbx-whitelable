@@ -15,12 +15,12 @@ export const useWalletQuery = (targetTenantId) => {
     });
 };
 
-export const useSubscriptionQuery = (targetTenantId) => {
+export const useSubscriptionQuery = (targetTenantId, params) => {
     const { user } = useAuth();
     const effectiveTenantId = targetTenantId || user?.tenantId;
     return useQuery({
-        queryKey: ['subscription', effectiveTenantId],
-        queryFn: () => walletService.getSubscription(effectiveTenantId),
+        queryKey: ['subscription', effectiveTenantId, params || {}],
+        queryFn: () => walletService.getSubscription(effectiveTenantId, params || {}),
         enabled: !!effectiveTenantId,
     });
 };

@@ -10,6 +10,7 @@ import Pagination from '../../components/common/Pagination';
 
 const UserManagement = () => {
     const { user, isSuperAdmin, isAdmin } = useAuth();
+    const { addToast } = useToast();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showInviteModal, setShowInviteModal] = useState(false);
@@ -87,38 +88,80 @@ const UserManagement = () => {
 
     const handleToggleMonitoring = async (userId, currentValue) => {
         if (userId === user.id) {
-            alert('You cannot modify your own account');
+            addToast('error', 'You cannot modify your own account');
             return;
         }
 
+        const targetUser = users.find(u => u.id === userId);
         if (!currentValue) {
+            // 1. Check if user ALREADY has a monitoring extension configured
+            if (targetUser?.monitoringExtension) {
+                try {
+                    // Re-activate existing extension directly — DO NOT OPEN SETUP MODAL
+                    await api.patch(`/users/${userId}/permissions`, {
+                        monitoringEnabled: true
+                    });
+                    addToast('success', `Monitoring re-activated for extension ${targetUser.monitoringExtension}`);
+                    fetchUsers();
+                    return;
+                } catch (error) {
+                    console.error('Failed to re-activate monitoring:', error);
+                    addToast('error', 'Failed to re-activate monitoring: ' + (error.response?.data?.message || error.message));
+                    return;
+                }
+            }
+            // 2. First-time setup: user has no extension yet
             setMonitoringTarget(userId);
             setShowMonitoringModal(true);
         } else {
+            // Toggle OFF: preserves extension credentials in backend for quick re-enabling
             try {
-                await api.patch(`/users/${userId}/permissions`, { monitoringEnabled: false });
+                await api.patch(`/users/${userId}/permissions`, {
+                    monitoringEnabled: false
+                });
+                addToast('info', 'Monitoring disabled');
                 fetchUsers();
             } catch (error) {
                 console.error('Failed to disable monitoring:', error);
+                addToast('error', 'Failed to disable monitoring: ' + (error.response?.data?.message || error.message));
             }
         }
     };
 
-    const handleEnableMonitoring = async ({ monitoringExtension, monitoringSecret, name }) => {
-        if (!monitoringTarget) return;
+    const handleResetMonitoringExtension = async (userId, userEmail) => {
+        if (!window.confirm(`Reset monitoring extension for ${userEmail}? This will wipe the saved extension and require fresh setup on next activation.`)) {
+            return;
+        }
         try {
-            await api.patch(`/users/${monitoringTarget}/permissions`, {
+            await api.patch(`/users/${userId}/permissions`, {
+                monitoringEnabled: false,
+                flushExtension: true
+            });
+            addToast('info', 'Monitoring extension reset successfully');
+            fetchUsers();
+        } catch (error) {
+            console.error('Failed to reset extension:', error);
+            addToast('error', 'Failed to reset extension: ' + (error.response?.data?.message || error.message));
+        }
+    };
+
+    const handleEnableMonitoring = async ({ monitoringExtension, monitoringSecret, name, userId }) => {
+        const targetId = userId || monitoringTarget;
+        if (!targetId) return;
+        try {
+            await api.patch(`/users/${targetId}/permissions`, {
                 monitoringEnabled: true,
                 monitoringExtension,
                 monitoringSecret,
                 name
             });
+            addToast('success', `Monitoring enabled for extension ${monitoringExtension}`);
             setShowMonitoringModal(false);
             setMonitoringTarget(null);
             fetchUsers();
         } catch (error) {
             console.error('Failed to enable monitoring:', error);
-            alert('Failed to enable monitoring: ' + (error.response?.data?.message || error.message));
+            addToast('error', 'Failed to enable monitoring: ' + (error.response?.data?.message || error.message));
         }
     };
 
@@ -236,6 +279,7 @@ const UserManagement = () => {
                                         currentUserId={user.id}
                                         onUpdateStatus={handleUpdateStatus}
                                         onToggleMonitoring={handleToggleMonitoring}
+                                        onResetMonitoringExtension={handleResetMonitoringExtension}
                                         onViewActivity={handleViewActivity}
                                         onRefresh={fetchUsers}
                                         isSuperAdmin={isSuperAdmin}
@@ -280,14 +324,16 @@ const UserManagement = () => {
                         setMonitoringTarget(null);
                     }}
                     onSubmit={handleEnableMonitoring}
+                    initialUserId={monitoringTarget}
                     initialName={users.find(u => u.id === monitoringTarget)?.name || ''}
+                    users={users}
                 />
             )}
         </div>
     );
 };
 
-const UserRow = ({ user, currentUserId, onUpdateStatus, onToggleMonitoring, onViewActivity, onRefresh, isSuperAdmin }) => {
+const UserRow = ({ user, currentUserId, onUpdateStatus, onToggleMonitoring, onResetMonitoringExtension, onViewActivity, onRefresh, isSuperAdmin }) => {
     const isSelf = user.id === currentUserId;
     const { addToast } = useToast();
     const [copied, setCopied] = useState(false);
@@ -394,25 +440,44 @@ const UserRow = ({ user, currentUserId, onUpdateStatus, onToggleMonitoring, onVi
                 </span>
             </td>
             <td className="hidden xl:table-cell px-6 py-5 whitespace-nowrap text-center">
-                <button
-                    onClick={() => onToggleMonitoring(user.id, user.monitoringEnabled)}
-                    disabled={isSelf || !isSuperAdmin}
-                    className={clsx(
-                        "relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-all duration-300 ease-in-out focus:outline-none ring-offset-2",
-                        user.monitoringEnabled ? 'bg-primary-600 ring-primary-600' : 'bg-gray-200 ring-gray-100',
-                        (isSelf || !isSuperAdmin) && 'opacity-30 cursor-not-allowed'
-                    )}
-                >
-                    <span
+                <div className="flex items-center justify-center gap-2">
+                    <button
+                        onClick={() => onToggleMonitoring(user.id, user.monitoringEnabled)}
+                        disabled={isSelf || !isSuperAdmin}
+                        title={user.monitoringEnabled ? "Monitoring Active" : "Monitoring Inactive"}
                         className={clsx(
-                            "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition duration-300 ease-in-out",
-                            user.monitoringEnabled ? 'translate-x-5' : 'translate-x-0'
+                            "relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-all duration-300 ease-in-out focus:outline-none ring-offset-2",
+                            user.monitoringEnabled ? 'bg-primary-600 ring-primary-600' : 'bg-gray-200 ring-gray-100',
+                            (isSelf || !isSuperAdmin) && 'opacity-30 cursor-not-allowed'
                         )}
-                    />
-                </button>
+                    >
+                        <span
+                            className={clsx(
+                                "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition duration-300 ease-in-out",
+                                user.monitoringEnabled ? 'translate-x-5' : 'translate-x-0'
+                            )}
+                        />
+                    </button>
+                    {user.monitoringExtension && (
+                        <span className="text-[10px] font-bold text-primary-700 bg-primary-50 border border-primary-200 px-1.5 py-0.5 rounded">
+                            Ext: {user.monitoringExtension}
+                        </span>
+                    )}
+                </div>
             </td>
             <td className="px-6 py-5 whitespace-nowrap text-right">
                 <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0">
+                    {user.monitoringExtension && isSuperAdmin && !isSelf && (
+                        <button
+                            type="button"
+                            className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                            onClick={() => onResetMonitoringExtension(user.id, user.name || user.email)}
+                            title="Reset Monitoring Extension"
+                        >
+                            <RotateCw size={18} />
+                        </button>
+                    )}
+
                     {user.status === 'INVITED' && (
                         <>
                             <button

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     Package,
     CreditCard,
@@ -15,7 +15,10 @@ import {
     Zap,
     Building2,
     ChevronDown,
-    X
+    X,
+    Search,
+    ChevronRight,
+    Users
 } from 'lucide-react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -41,7 +44,7 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                     const list = res.data?.data || (Array.isArray(res.data) ? res.data : []);
                     setTenants(list);
                     if (list.length > 0 && !selectedTenantId) {
-                        setSelectedTenantId(list[0].id);
+                        setSelectedTenantId('all');
                     }
                 })
                 .catch(err => {
@@ -50,17 +53,26 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
         }
     }, [isSuperAdmin]);
 
+    const isAllTenants = isSuperAdmin && selectedTenantId === 'all';
     const effectiveTenantId = isSuperAdmin ? selectedTenantId : user?.tenantId;
-    const currentTenant = tenants.find(t => t.id === effectiveTenantId);
-    const isArchived = currentTenant?.status === 'ARCHIVED';
+    const currentTenant = isAllTenants ? null : tenants.find(t => t.id === effectiveTenantId);
+    const isArchived = isAllTenants ? false : currentTenant?.status === 'ARCHIVED';
 
-    // Primary Subscription
+    // Target tenant for modal actions (used when opening PlanSwitchModal from all-tenants view)
+    const [modalTargetTenant, setModalTargetTenant] = useState(null);
+
+    // Filters for All Tenants view
+    const [allSearchQuery, setAllSearchQuery] = useState('');
+    const [allStatusFilter, setAllStatusFilter] = useState('ALL');
+    const [allPlanFilter, setAllPlanFilter] = useState('ALL');
+
+    // Primary Subscription query
     const {
         data: subscription,
         isLoading: subLoading,
         isFetching: subFetching,
         refetch: refetchSubscription
-    } = useSubscriptionQuery(effectiveTenantId);
+    } = useSubscriptionQuery(effectiveTenantId, isAllTenants ? { limit: 100 } : {});
 
     // Add-on Subscriptions State
     const [addons, setAddons] = useState([]);
@@ -78,16 +90,16 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
     const [addonToCancel, setAddonToCancel] = useState(null);
     const [cancellingAddon, setCancellingAddon] = useState(false);
 
-    const subscriptionId = subscription?.id || subscription?.subscription_id;
+    const subscriptionId = isAllTenants ? null : (subscription?.id || subscription?.subscription_id);
 
-    // Fetch active add-ons when subscription is available
+    // Fetch active add-ons when subscription is available (only for single tenant)
     useEffect(() => {
-        if (subscriptionId) {
+        if (!isAllTenants && subscriptionId) {
             fetchSubscriptionAddons(subscriptionId);
         } else {
             setAddons([]);
         }
-    }, [subscriptionId]);
+    }, [isAllTenants, subscriptionId]);
 
     const fetchSubscriptionAddons = async (subId) => {
         setAddonsLoading(true);
@@ -105,7 +117,7 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
 
     const handleRefreshAll = () => {
         refetchSubscription();
-        if (subscriptionId) {
+        if (!isAllTenants && subscriptionId) {
             fetchSubscriptionAddons(subscriptionId);
         }
     };
@@ -210,8 +222,51 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
         return diffDays;
     };
 
+    // All Tenants data and filtering
+    const rawAllTenantsList = useMemo(() => {
+        if (!isAllTenants) return [];
+        if (Array.isArray(subscription?.data)) return subscription.data;
+        if (Array.isArray(subscription)) return subscription;
+        return [];
+    }, [isAllTenants, subscription]);
+
+    const filteredAllTenants = useMemo(() => {
+        if (!isAllTenants) return [];
+        return rawAllTenantsList.filter(item => {
+            // Status filter
+            if (allStatusFilter !== 'ALL' && item.tenantStatus?.toUpperCase() !== allStatusFilter) {
+                return false;
+            }
+            // Plan filter
+            if (allPlanFilter === 'SUBSCRIBED' && !item.hasSubscription) return false;
+            if (allPlanFilter === 'NO_PLAN' && item.hasSubscription) return false;
+
+            // Search query
+            if (allSearchQuery.trim()) {
+                const q = allSearchQuery.toLowerCase();
+                const matchesName = (item.tenantName || '').toLowerCase().includes(q);
+                const matchesCode = (item.customerCode || '').toLowerCase().includes(q);
+                const matchesEmail = (item.adminEmail || '').toLowerCase().includes(q);
+                const matchesPlan = (item.subscription?.plan_name || '').toLowerCase().includes(q);
+                const matchesCustId = (item.subBillingCustomerId || '').toLowerCase().includes(q);
+                return matchesName || matchesCode || matchesEmail || matchesPlan || matchesCustId;
+            }
+
+            return true;
+        });
+    }, [isAllTenants, rawAllTenantsList, allStatusFilter, allPlanFilter, allSearchQuery]);
+
+    // KPI counts for All Tenants
+    const allStats = useMemo(() => {
+        const total = rawAllTenantsList.length;
+        const subscribed = rawAllTenantsList.filter(t => t.hasSubscription).length;
+        const noPlan = total - subscribed;
+        const archived = rawAllTenantsList.filter(t => t.tenantStatus === 'ARCHIVED').length;
+        return { total, subscribed, noPlan, archived };
+    }, [rawAllTenantsList]);
+
     return (
-        <div className="space-y-10 animate-in fade-in duration-300">
+        <div className="space-y-8 animate-in fade-in duration-300">
 
             {/* Top Toolbar / Refresh Status */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
@@ -237,6 +292,9 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                 {tenants.length === 0 && (
                                     <option value="">No Tenants</option>
                                 )}
+                                <option value="all" className="dark:bg-slate-800 font-bold">
+                                    🏢 All Tenants
+                                </option>
                                 {tenants.map((t) => (
                                     <option key={t.id} value={t.id} className="dark:bg-slate-800">
                                         🏢 {t.name} {t.status === 'ARCHIVED' ? '(Deactivated)' : ''}
@@ -258,21 +316,348 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                 </div>
             </div>
 
-            {/* Deactivation Warning Banner */}
-            {isArchived && (
-                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 dark:bg-amber-950/40 dark:border-amber-800/60 text-amber-900 dark:text-amber-200 flex items-center gap-3 shadow-xs animate-in fade-in duration-200">
-                    <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
-                    <p className="text-sm font-semibold">
-                        This organization is deactivated. Subscriptions, recurring renewals, and add-on purchases are locked.
-                    </p>
-                </div>
-            )}
+            {/* ========================================================================= */}
+            {/* VIEW A: All Tenants Subscriptions Overview (when selectedTenantId === 'all') */}
+            {/* ========================================================================= */}
+            {isAllTenants ? (
+                <div className="space-y-6">
+                    {/* KPI Stat Cards */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-gray-200/80 dark:border-slate-800 shadow-xs flex items-center gap-3.5">
+                            <div className="h-11 w-11 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                                <Building2 className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <div className="text-xl font-extrabold text-gray-900 dark:text-white">
+                                    {allStats.total}
+                                </div>
+                                <div className="text-[11px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
+                                    Total Tenants
+                                </div>
+                            </div>
+                        </div>
 
-            {/* ========================================================================= */}
-            {/* SECTION 2A: Primary Subscription Table                                    */}
-            {/* ========================================================================= */}
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-gray-200/80 dark:border-slate-800 shadow-xs flex items-center gap-3.5">
+                            <div className="h-11 w-11 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                <CheckCircle2 className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <div className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">
+                                    {allStats.subscribed}
+                                </div>
+                                <div className="text-[11px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
+                                    Active Subscriptions
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-gray-200/80 dark:border-slate-800 shadow-xs flex items-center gap-3.5">
+                            <div className="h-11 w-11 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                                <AlertCircle className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <div className="text-xl font-extrabold text-amber-600 dark:text-amber-400">
+                                    {allStats.noPlan}
+                                </div>
+                                <div className="text-[11px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
+                                    No Active Plan
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-gray-200/80 dark:border-slate-800 shadow-xs flex items-center gap-3.5">
+                            <div className="h-11 w-11 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                                <Layers className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <div className="text-xl font-extrabold text-gray-900 dark:text-white">
+                                    {allStats.archived}
+                                </div>
+                                <div className="text-[11px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
+                                    Deactivated Orgs
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Search & Filters */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-gray-200/80 dark:border-slate-800 shadow-xs">
+                        <div className="relative flex-1 max-w-md">
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Search by tenant name, code, email, or plan..."
+                                value={allSearchQuery}
+                                onChange={(e) => setAllSearchQuery(e.target.value)}
+                                className="w-full pl-9 pr-8 py-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800 text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 transition"
+                            />
+                            {allSearchQuery && (
+                                <button
+                                    type="button"
+                                    onClick={() => setAllSearchQuery('')}
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                    <X className="h-3.5 w-3.5" />
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <select
+                                value={allStatusFilter}
+                                onChange={(e) => setAllStatusFilter(e.target.value)}
+                                className="px-3 py-2 rounded-xl text-xs font-bold bg-gray-50/50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer"
+                            >
+                                <option value="ALL">All Statuses</option>
+                                <option value="ACTIVE">Active Only</option>
+                                <option value="ARCHIVED">Deactivated Only</option>
+                            </select>
+
+                            <select
+                                value={allPlanFilter}
+                                onChange={(e) => setAllPlanFilter(e.target.value)}
+                                className="px-3 py-2 rounded-xl text-xs font-bold bg-gray-50/50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer"
+                            >
+                                <option value="ALL">All Plan Types</option>
+                                <option value="SUBSCRIBED">Subscribed Only</option>
+                                <option value="NO_PLAN">No Active Plan</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* All Tenants Table */}
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-200/80 dark:border-slate-800 overflow-hidden">
+                        {subLoading ? (
+                            <div className="flex items-center justify-center py-16 gap-3 text-sm text-gray-500 dark:text-slate-400 font-medium">
+                                <Loader2 className="h-5 w-5 animate-spin text-primary-600" />
+                                <span>Loading all tenant subscriptions...</span>
+                            </div>
+                        ) : filteredAllTenants.length === 0 ? (
+                            <div className="py-16 px-6 text-center">
+                                <Building2 className="h-10 w-10 text-gray-300 dark:text-slate-600 mx-auto mb-3" />
+                                <h4 className="text-sm font-bold text-gray-900 dark:text-white">No Tenants Found</h4>
+                                <p className="text-xs text-gray-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
+                                    No organizations match your current search or filter criteria.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="w-full overflow-hidden">
+                                <table className="w-full divide-y divide-gray-100 dark:divide-slate-800 text-left">
+                                    <thead className="bg-gray-50/70 dark:bg-slate-800/50">
+                                        <tr>
+                                            <th className="px-4 py-3.5 text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Organization / Tenant</th>
+                                            <th className="px-4 py-3.5 text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Current Plan</th>
+                                            <th className="px-4 py-3.5 text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Limits & Add-ons</th>
+                                            <th className="px-4 py-3.5 text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Renewal / Expiry</th>
+                                            <th className="px-4 py-3.5 text-center text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Auto-Renew</th>
+                                            <th className="px-4 py-3.5 text-right text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Wallet</th>
+                                            <th className="px-4 py-3.5 text-right text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                                        {filteredAllTenants.map((t) => {
+                                            const isOrgArchived = t.tenantStatus === 'ARCHIVED';
+                                            const sub = t.subscription;
+                                            const daysLeft = sub?.next_billing ? getDaysRemaining(sub.next_billing) : null;
+
+                                            return (
+                                                <tr key={t.tenantId} className="hover:bg-gray-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                                    {/* Organization */}
+                                                    <td className="px-4 py-3.5">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="h-10 w-10 rounded-xl bg-primary-50 dark:bg-primary-950/60 border border-primary-200/60 dark:border-primary-800/40 flex items-center justify-center text-primary-600 dark:text-primary-400 font-extrabold text-sm shrink-0">
+                                                                {t.tenantName ? t.tenantName.substring(0, 2).toUpperCase() : 'PB'}
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <div className="text-sm font-extrabold text-gray-900 dark:text-white truncate" title={t.tenantName}>
+                                                                    {t.tenantName}
+                                                                </div>
+                                                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                                                    {t.customerCode && (
+                                                                        <span className="text-xs font-mono text-gray-500 dark:text-slate-400">
+                                                                            Code: {t.customerCode}
+                                                                        </span>
+                                                                    )}
+                                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider border ${
+                                                                        isOrgArchived
+                                                                            ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/40'
+                                                                            : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/40'
+                                                                    }`}>
+                                                                        {isOrgArchived ? 'Deactivated' : 'Active'}
+                                                                    </span>
+                                                                    {t.adminEmail && (
+                                                                        <span className="text-xs text-gray-400 dark:text-slate-500 truncate" title={t.adminEmail}>
+                                                                            • {t.adminEmail}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+
+                                                    {/* Current Plan */}
+                                                    <td className="px-4 py-3.5">
+                                                        {t.hasSubscription && sub ? (
+                                                            <div className="space-y-1">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-sm font-extrabold text-gray-900 dark:text-white truncate" title={sub.plan_name}>
+                                                                        {sub.plan_name || 'Assigned Plan'}
+                                                                    </span>
+                                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                                                                        {sub.status || 'ACTIVE'}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="text-xs font-mono font-bold text-gray-500 dark:text-slate-400">
+                                                                    ${Number(sub.amount || 0).toFixed(2)} / mo
+                                                                </div>
+                                                                {sub.target_plan_name && (
+                                                                    <div className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-400">
+                                                                        <Clock className="h-2.5 w-2.5 shrink-0" />
+                                                                        <span>Switch: {sub.target_plan_name}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold text-gray-500 dark:text-slate-400 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+                                                                <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                                                                No Active Plan
+                                                            </span>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Limits & Add-ons */}
+                                                    <td className="px-4 py-3.5">
+                                                        {t.hasSubscription && sub ? (
+                                                            <div className="space-y-1.5">
+                                                                <div className="flex items-center gap-1.5 text-xs font-mono text-gray-700 dark:text-slate-300">
+                                                                    <span className="px-2 py-0.5 rounded bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+                                                                        {sub.limits?.extensions ?? 0} Ext
+                                                                    </span>
+                                                                    <span className="px-2 py-0.5 rounded bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+                                                                        {sub.limits?.free_mins ?? 0} Mins
+                                                                    </span>
+                                                                </div>
+                                                                {sub.active_addons_count > 0 && (
+                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/60">
+                                                                        <Layers className="h-3 w-3" />
+                                                                        {sub.active_addons_count} {sub.active_addons_count === 1 ? 'Add-on' : 'Add-ons'}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-xs text-gray-400">—</span>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Renewal / Expiry */}
+                                                    <td className="px-4 py-3.5">
+                                                        {sub?.next_billing ? (
+                                                            <div className="space-y-0.5">
+                                                                <div className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+                                                                    <Calendar className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                                                                    <span>
+                                                                        {new Date(sub.next_billing).toLocaleDateString(undefined, {
+                                                                            month: 'short',
+                                                                            day: 'numeric',
+                                                                            year: 'numeric'
+                                                                        })}
+                                                                    </span>
+                                                                </div>
+                                                                {daysLeft !== null && (
+                                                                    <div className="text-xs font-medium text-gray-500 dark:text-slate-400 flex items-center gap-1">
+                                                                        <Clock className="h-3 w-3 text-amber-500 shrink-0" />
+                                                                        <span>{daysLeft > 0 ? `${daysLeft}d left` : 'Renews today'}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-xs text-gray-400">—</span>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Auto-Renew */}
+                                                    <td className="px-4 py-3.5 text-center">
+                                                        {t.hasSubscription && sub ? (
+                                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                                                                sub.auto_renew
+                                                                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
+                                                                    : 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400 border border-gray-200 dark:border-slate-700'
+                                                            }`}>
+                                                                {sub.auto_renew ? 'ON' : 'OFF'}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-xs text-gray-400">—</span>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Wallet */}
+                                                    <td className="px-4 py-3.5 text-right font-mono">
+                                                        <div className="text-sm font-extrabold text-gray-900 dark:text-white">
+                                                            ${Number(t.wallet?.balance || 0).toFixed(2)}
+                                                        </div>
+                                                        {t.wallet?.freeMins > 0 && (
+                                                            <div className="text-xs text-gray-400 dark:text-slate-500">
+                                                                {t.wallet.freeMins} free mins
+                                                            </div>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Actions: Change / Assign stacked on top of Manage */}
+                                                    <td className="px-4 py-3.5 text-right">
+                                                        <div className="flex flex-col items-end gap-1.5 ml-auto w-fit">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setModalTargetTenant(t);
+                                                                    setPlanSwitchModalOpen(true);
+                                                                }}
+                                                                disabled={isOrgArchived}
+                                                                title={isOrgArchived ? "Subscription changes disabled for deactivated tenants." : (t.hasSubscription ? "Change Plan" : "Assign Plan")}
+                                                                className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-800 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-800/60 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                                                            >
+                                                                <Sparkles className="h-3 w-3" />
+                                                                <span>{t.hasSubscription ? 'Change' : 'Assign'}</span>
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setSelectedTenantId(t.tenantId)}
+                                                                title="View detailed tenant subscriptions and add-ons"
+                                                                className="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-primary-600 text-white hover:bg-primary-700 transition shadow-xs active:scale-95"
+                                                            >
+                                                                <span>Manage</span>
+                                                                <ChevronRight className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            ) : (
+                /* ========================================================================= */
+                /* VIEW B: Single Tenant View (when a specific tenant is selected)            */
+                /* ========================================================================= */
+                <>
+                    {/* Deactivation Warning Banner */}
+                    {isArchived && (
+                        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 dark:bg-amber-950/40 dark:border-amber-800/60 text-amber-900 dark:text-amber-200 flex items-center gap-3 shadow-xs animate-in fade-in duration-200">
+                            <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                            <p className="text-sm font-semibold">
+                                This organization is deactivated. Subscriptions, recurring renewals, and add-on purchases are locked.
+                            </p>
+                        </div>
+                    )}
+                    {/* ========================================================================= */}
+                    {/* SECTION 2A: Primary Subscription Table                                    */}
+                    {/* ========================================================================= */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <div className="p-1.5 rounded-lg bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400">
                             <Sparkles className="h-4 w-4" />
@@ -725,15 +1110,23 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                     )}
                 </div>
             </div>
+            </>
+            )}
 
             {/* Plan Switch Modal */}
             <PlanSwitchModal
                 isOpen={planSwitchModalOpen}
-                onClose={() => setPlanSwitchModalOpen(false)}
-                currentPlan={subscription}
-                customerId={effectiveTenantId}
-                isArchived={isArchived}
-                onSuccess={handleRefreshAll}
+                onClose={() => {
+                    setPlanSwitchModalOpen(false);
+                    setModalTargetTenant(null);
+                }}
+                currentPlan={modalTargetTenant ? modalTargetTenant.subscription : subscription}
+                customerId={modalTargetTenant ? modalTargetTenant.tenantId : effectiveTenantId}
+                isArchived={modalTargetTenant ? modalTargetTenant.tenantStatus === 'ARCHIVED' : isArchived}
+                onSuccess={() => {
+                    handleRefreshAll();
+                    setModalTargetTenant(null);
+                }}
             />
 
             {/* Cancel Add-on Confirmation Modal */}

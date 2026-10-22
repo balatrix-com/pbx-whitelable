@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Wallet, Phone, Users, Info, Building2, Plus, Trash2, Loader, CreditCard, RefreshCw, User, LogIn, Sliders, ShieldAlert, Clock, Server, Mic, Zap, Loader2, Radio, HardDrive, Activity, Package, Palette, Edit3, Save, Check, CheckCircle2, Globe, MapPin, Mail, Lock, Eye, EyeOff, Search, Pencil } from 'lucide-react';
+import { X, Wallet, Phone, Users, Info, Building2, Plus, Trash2, Loader, CreditCard, RefreshCw, User, LogIn, Sliders, ShieldAlert, Clock, Server, Mic, Zap, Loader2, Radio, HardDrive, Activity, Package, Palette, Edit3, Save, Check, CheckCircle2, Globe, MapPin, Mail, Lock, Eye, EyeOff, Search, Pencil, RotateCcw, Copy, ShieldCheck } from 'lucide-react';
 import api from '../../../services/api';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
@@ -975,9 +975,9 @@ const ExtensionsTab = ({ tenant, onUpdate }) => {
 
             setExtensions(extRes.data);
 
-            // Filter users for monitoring extensions
+            // Filter users for monitoring extensions - show all with extension assigned regardless of status
             const users = usersRes.data.data || [];
-            const monitoring = users.filter(u => u.monitoringEnabled && u.monitoringExtension);
+            const monitoring = users.filter(u => u.monitoringExtension);
             setMonitoringUsers(monitoring);
         } catch (err) {
             console.error('Failed to fetch extensions', err);
@@ -1026,16 +1026,27 @@ const ExtensionsTab = ({ tenant, onUpdate }) => {
         }
     };
 
+    const handleToggleMonitoringStatus = async (user, enable) => {
+        try {
+            await api.patch(`/users/${user.id}/permissions`, {
+                monitoringEnabled: enable
+            });
+            fetchExtensions();
+        } catch (err) {
+            console.error('Failed to update monitoring status:', err);
+            alert('Failed to update monitoring status: ' + (err.response?.data?.message || err.message));
+        }
+    };
+
     const handleDisableMonitoring = async (user) => {
-        if (!window.confirm(`Are you sure you want to disable monitoring for ${user.name || user.email}?`)) {
+        if (!window.confirm(`Are you sure you want to completely remove and reset the monitoring extension for ${user.name || user.email}?`)) {
             return;
         }
 
         try {
             await api.patch(`/users/${user.id}/permissions`, {
                 monitoringEnabled: false,
-                monitoringExtension: null, // Clear these too nicely
-                monitoringSecret: null
+                flushExtension: true
             });
             fetchExtensions();
         } catch (err) {
@@ -1141,10 +1152,38 @@ const ExtensionsTab = ({ tenant, onUpdate }) => {
                                                 <div className="flex items-center gap-2 mb-1">
                                                     <span className="font-mono font-extrabold text-sm text-blue-900">{user.monitoringExtension}</span>
                                                     <span className="text-sm font-bold text-blue-800">{user.name || 'Unnamed'}</span>
+                                                    {user.monitoringEnabled ? (
+                                                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                            Active
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                                                            Disabled / Paused
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <p className="text-xs font-medium text-blue-600/80">{user.email}</p>
                                             </div>
                                             <div className="flex items-center gap-2">
+                                                {user.monitoringEnabled ? (
+                                                    <button
+                                                        onClick={() => handleToggleMonitoringStatus(user, false)}
+                                                        className="inline-flex justify-center items-center rounded-lg bg-white px-2.5 py-1.5 text-xs font-bold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-200 hover:bg-gray-50 transition-all active:scale-[0.98] focus:outline-none"
+                                                        title="Pause Monitoring"
+                                                    >
+                                                        Pause
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => handleToggleMonitoringStatus(user, true)}
+                                                        className="inline-flex justify-center items-center rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 shadow-sm ring-1 ring-inset ring-emerald-200 hover:bg-emerald-100 transition-all active:scale-[0.98] focus:outline-none"
+                                                        title="Enable Monitoring"
+                                                    >
+                                                        Enable
+                                                    </button>
+                                                )}
                                                 <button
                                                     onClick={() => handleEditMonitoring(user)}
                                                     className="inline-flex justify-center items-center rounded-lg bg-white px-2.5 py-1.5 text-xs font-bold text-blue-700 shadow-sm ring-1 ring-inset ring-blue-200 hover:bg-blue-50 transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1154,7 +1193,7 @@ const ExtensionsTab = ({ tenant, onUpdate }) => {
                                                 <button
                                                     onClick={() => handleDisableMonitoring(user)}
                                                     className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors focus:outline-none"
-                                                    title="Disable Monitoring"
+                                                    title="Reset / Remove Extension"
                                                 >
                                                     <Trash2 size={16} />
                                                 </button>
@@ -1672,6 +1711,7 @@ const RecordingRateCardModal = ({ onClose, onConfirm, customerId }) => {
 };
 
 const FeaturesTab = ({ tenant, onUpdate }) => {
+    const { addToast } = useToast();
     const [features, setFeatures] = useState(tenant.tenantFeatures || {
         ivrEnabled: true,
         ivrLimit: 10,
@@ -1683,27 +1723,52 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
         didForwardLimit: 10,
     });
     const [updatingFeature, setUpdatingFeature] = useState(null);
-    const [adminUser, setAdminUser] = useState(null);
-    const [userMonitoringEnabled, setUserMonitoringEnabled] = useState(false);
+    const [tenantUsers, setTenantUsers] = useState([]);
+    const [selectedUserId, setSelectedUserId] = useState('');
+    const [usersLoading, setUsersLoading] = useState(true);
     const [showMonitoringModal, setShowMonitoringModal] = useState(false);
     const [showRecordingModal, setShowRecordingModal] = useState(false);
+    const [showSecret, setShowSecret] = useState(false);
+    const [copiedField, setCopiedField] = useState(null);
 
-    // Fetch tenant admin user to know user-level monitoring status
+    // Fetch tenant candidate users (filter for ADMIN and SUPPORT)
     useEffect(() => {
-        fetchAdminUser();
+        fetchTenantUsers();
     }, [tenant.id]);
 
-    const fetchAdminUser = async () => {
+    const fetchTenantUsers = async () => {
         try {
-            const res = await api.get(`/users?tenantId=${tenant.id}`);
-            const usersList = res.data?.data || [];
-            // Find tenant admin (or first user)
-            const targetAdmin = usersList.find(u => u.role === 'ADMIN') || usersList[0] || null;
-            setAdminUser(targetAdmin);
-            setUserMonitoringEnabled(targetAdmin?.monitoringEnabled || false);
+            setUsersLoading(true);
+            const res = await api.get(`/users?tenantId=${tenant.id}&limit=100`);
+            const usersList = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+            // Filter for ADMIN and SUPPORT as requested
+            const candidates = usersList.filter(u => u.role === 'ADMIN' || u.role === 'SUPPORT');
+            const eligibleUsers = candidates.length > 0 ? candidates : usersList;
+            setTenantUsers(eligibleUsers);
+
+            setSelectedUserId(prevId => {
+                if (prevId && eligibleUsers.some(u => u.id === prevId)) return prevId;
+                const activeMonitoringUser = eligibleUsers.find(u => u.monitoringEnabled);
+                if (activeMonitoringUser) return activeMonitoringUser.id;
+                const firstAdmin = eligibleUsers.find(u => u.role === 'ADMIN');
+                return firstAdmin ? firstAdmin.id : (eligibleUsers[0]?.id || '');
+            });
         } catch (err) {
-            console.error('Failed to fetch admin user for monitoring toggle:', err);
+            console.error('Failed to fetch users for monitoring toggle:', err);
+        } finally {
+            setUsersLoading(false);
         }
+    };
+
+    const selectedUser = tenantUsers.find(u => u.id === selectedUserId) || tenantUsers[0] || null;
+    const userMonitoringEnabled = !!selectedUser?.monitoringEnabled;
+
+    const copyToClipboard = (text, fieldName) => {
+        if (!text) return;
+        navigator.clipboard.writeText(text);
+        setCopiedField(fieldName);
+        setTimeout(() => setCopiedField(null), 2000);
+        addToast('success', `${fieldName} copied to clipboard`);
     };
 
     // Keep state in sync if tenant prop updates
@@ -1713,45 +1778,88 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
         }
     }, [tenant.tenantFeatures]);
 
-    const handleToggle = async (key) => {
-        if (key === 'monitoringEnabled') {
-            if (!adminUser) {
-                alert('No admin user found for this tenant to configure monitoring permissions.');
-                return;
-            }
+    const handleToggleMonitoring = async (targetUser, newEnabledState) => {
+        if (!targetUser) {
+            alert('No user selected for Call Monitoring configuration.');
+            return;
+        }
 
-            if (!userMonitoringEnabled) {
-                // Opening modal to collect monitoring extension and secret
-                setShowMonitoringModal(true);
-            } else {
-                // Turn OFF via user permissions API
+        if (newEnabledState === true) {
+            // 1. Check if user ALREADY has a monitoring extension configured
+            if (targetUser.monitoringExtension) {
                 setUpdatingFeature('monitoringEnabled');
                 try {
-                    await api.patch(`/users/${adminUser.id}/permissions`, {
-                        monitoringEnabled: false
+                    // Re-activate existing extension directly — DO NOT OPEN SETUP MODAL
+                    await api.patch(`/users/${targetUser.id}/permissions`, {
+                        monitoringEnabled: true
                     });
-                    setUserMonitoringEnabled(false);
-                    await fetchAdminUser();
+                    addToast('success', `Monitoring re-activated for extension ${targetUser.monitoringExtension}`);
+                    await fetchTenantUsers();
                     onUpdate();
                 } catch (err) {
-                    console.error('Failed to disable monitoring:', err);
-                    alert('Failed to disable monitoring: ' + (err.response?.data?.message || err.message));
+                    console.error('Failed to re-activate monitoring:', err);
+                    addToast('error', 'Failed to re-activate monitoring: ' + (err.response?.data?.message || err.message));
                 } finally {
                     setUpdatingFeature(null);
                 }
+                return;
             }
+            // 2. First-time setup: user has no extension yet
+            // Open modal to input extension/password
+            setShowMonitoringModal(true);
+        } else {
+            // Toggle OFF: preserves extension credentials in backend for quick re-enabling
+            setUpdatingFeature('monitoringEnabled');
+            try {
+                await api.patch(`/users/${targetUser.id}/permissions`, {
+                    monitoringEnabled: false
+                });
+                addToast('info', 'Monitoring disabled');
+                await fetchTenantUsers();
+                onUpdate();
+            } catch (err) {
+                console.error('Failed to disable monitoring:', err);
+                addToast('error', 'Failed to disable monitoring: ' + (err.response?.data?.message || err.message));
+            } finally {
+                setUpdatingFeature(null);
+            }
+        }
+    };
+
+    const handleResetExtension = async (targetUser) => {
+        if (!targetUser) return;
+        if (!window.confirm(`Reset monitoring extension for ${targetUser.name || targetUser.email}? This will wipe the saved extension and require fresh setup next time.`)) {
+            return;
+        }
+
+        setUpdatingFeature('monitoringEnabled');
+        try {
+            await api.patch(`/users/${targetUser.id}/permissions`, {
+                monitoringEnabled: false,
+                flushExtension: true
+            });
+            addToast('info', 'Monitoring extension reset successfully');
+            await fetchTenantUsers();
+            onUpdate();
+        } catch (err) {
+            console.error('Failed to reset extension:', err);
+            addToast('error', 'Failed to reset extension: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setUpdatingFeature(null);
+        }
+    };
+
+    const handleToggle = async (key) => {
+        if (key === 'monitoringEnabled') {
+            await handleToggleMonitoring(selectedUser, !userMonitoringEnabled);
             return;
         }
 
         if (key === 'recordingAllowed') {
             const currentlyAllowed = !!features.recordingAllowed;
             if (!currentlyAllowed) {
-                // Intercept: Do not send PATCH request immediately.
-                // Open modal containing dropdown of recording rate cards.
                 setShowRecordingModal(true);
             } else {
-                // Toggling from true to false (turning OFF):
-                // Send PATCH request directly without prompting for a rate card
                 setUpdatingFeature('recordingAllowed');
                 try {
                     await api.patch(`/tenants/${tenant.id}/features`, {
@@ -1811,23 +1919,24 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
         }
     };
 
-    const handleEnableMonitoring = async ({ monitoringExtension, monitoringSecret, name }) => {
-        if (!adminUser) return;
+    const handleEnableMonitoring = async ({ monitoringExtension, monitoringSecret, name, userId }) => {
+        const targetId = userId || selectedUser?.id;
+        if (!targetId) return;
         setUpdatingFeature('monitoringEnabled');
         try {
-            await api.patch(`/users/${adminUser.id}/permissions`, {
+            await api.patch(`/users/${targetId}/permissions`, {
                 monitoringEnabled: true,
                 monitoringExtension,
                 monitoringSecret,
                 name
             });
-            setUserMonitoringEnabled(true);
+            addToast('success', `Monitoring enabled for extension ${monitoringExtension}`);
             setShowMonitoringModal(false);
-            await fetchAdminUser();
+            await fetchTenantUsers();
             onUpdate();
         } catch (err) {
             console.error('Failed to enable monitoring:', err);
-            alert('Failed to enable monitoring: ' + (err.response?.data?.message || err.message));
+            addToast('error', 'Failed to enable monitoring: ' + (err.response?.data?.message || err.message));
         } finally {
             setUpdatingFeature(null);
         }
@@ -1865,7 +1974,7 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
         {
             key: 'monitoringEnabled',
             title: 'Call Monitoring',
-            description: 'Allows administrators to view real-time calls and listen-in to active calls.',
+            description: 'Allows administrators and support agents to view real-time calls and listen-in to active calls.',
             icon: ShieldAlert,
             color: 'text-blue-600 bg-blue-50 border-blue-100',
         },
@@ -1915,7 +2024,198 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
             <div className="grid grid-cols-1 gap-4">
                 {FEATURE_ITEMS.map((item) => {
                     const Icon = item.icon;
-                    const isEnabled = item.key === 'monitoringEnabled' ? userMonitoringEnabled : features[item.key];
+
+                    // Custom Rich UI for Call Monitoring
+                    if (item.key === 'monitoringEnabled') {
+                        const isUpdating = updatingFeature === 'monitoringEnabled';
+                        const isEnabled = userMonitoringEnabled;
+
+                        return (
+                            <div
+                                key={item.key}
+                                className={`p-5 rounded-2xl border transition-all flex flex-col gap-4 hover:shadow-sm ${isEnabled
+                                    ? 'bg-white border-blue-200 ring-1 ring-blue-50'
+                                    : 'bg-gray-50/50 border-gray-200'
+                                    }`}
+                            >
+                                {/* Header row */}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div className="flex items-start gap-4">
+                                        <div className={`p-3 rounded-xl border shrink-0 ${item.color}`}>
+                                            <Icon className="h-6 w-6" />
+                                        </div>
+                                        <div className="text-left">
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="font-extrabold text-gray-900 text-sm tracking-tight">{item.title}</h4>
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}`}>
+                                                    {isEnabled ? 'Active' : 'Disabled'}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs font-medium text-gray-500 mt-1 leading-relaxed max-w-xl">{item.description}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-3 shrink-0 justify-end">
+                                        {selectedUser?.monitoringExtension && (
+                                            <button
+                                                type="button"
+                                                onClick={() => !isUpdating && handleResetExtension(selectedUser)}
+                                                disabled={isUpdating}
+                                                title="Reset extension and wipe credentials"
+                                                className="text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-all disabled:opacity-50"
+                                            >
+                                                <RotateCcw className="w-3.5 h-3.5" />
+                                                <span>Change Extension / Reset</span>
+                                            </button>
+                                        )}
+
+                                        <button
+                                            type="button"
+                                            onClick={() => !isUpdating && handleToggleMonitoring(selectedUser, !isEnabled)}
+                                            disabled={isUpdating || !selectedUser}
+                                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 ${isEnabled ? 'bg-primary-600' : 'bg-gray-300'
+                                                }`}
+                                        >
+                                            <span
+                                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out flex items-center justify-center ${isEnabled ? 'translate-x-5' : 'translate-x-0'
+                                                    }`}
+                                            >
+                                                {isUpdating && <Loader className="animate-spin h-3 w-3 text-primary-600" />}
+                                            </span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Target User Selector Dropdown */}
+                                <div className="bg-gray-50/80 rounded-xl p-3 border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2">
+                                        <User className="w-4 h-4 text-gray-500" />
+                                        <label htmlFor="target-user-select" className="text-xs font-bold text-gray-700 whitespace-nowrap">
+                                            Target User (Admin / Support):
+                                        </label>
+                                    </div>
+                                    <div className="flex-1 max-w-md">
+                                        {usersLoading ? (
+                                            <div className="text-xs text-gray-400 flex items-center gap-1.5 py-1">
+                                                <Loader className="w-3 h-3 animate-spin" /> Loading agents...
+                                            </div>
+                                        ) : tenantUsers.length === 0 ? (
+                                            <span className="text-xs text-amber-600 font-medium">No Admin or Support agents found for this tenant</span>
+                                        ) : (
+                                            <select
+                                                id="target-user-select"
+                                                value={selectedUserId}
+                                                onChange={(e) => setSelectedUserId(e.target.value)}
+                                                disabled={isUpdating}
+                                                className="w-full text-xs font-semibold text-gray-800 bg-white border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm"
+                                            >
+                                                {tenantUsers.map((u) => {
+                                                    const extText = u.monitoringExtension
+                                                        ? `Ext: ${u.monitoringExtension} (${u.monitoringEnabled ? 'Active' : 'Inactive'})`
+                                                        : 'No Extension';
+                                                    const roleLabel = u.role ? ` (${u.role.charAt(0).toUpperCase() + u.role.slice(1).toLowerCase()})` : '';
+                                                    return (
+                                                        <option key={u.id} value={u.id}>
+                                                            {u.name || u.email}{roleLabel} - {extText}
+                                                        </option>
+                                                    );
+                                                })}
+                                            </select>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Softphone Registration Credentials or Setup Notice */}
+                                {selectedUser && (
+                                    <div className="mt-1">
+                                        {selectedUser.monitoringExtension ? (
+                                            <div className="bg-blue-50/50 rounded-xl p-3 border border-blue-100 space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
+                                                        <ShieldCheck className="w-4 h-4 text-blue-600" /> Softphone Registration Credentials
+                                                    </span>
+                                                    <span className="text-[10px] font-bold text-blue-600">
+                                                        {selectedUser.name || selectedUser.email}
+                                                    </span>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                                                    <div className="bg-white p-2 rounded-lg border border-blue-100 flex items-center justify-between">
+                                                        <div>
+                                                            <div className="text-[10px] font-bold text-gray-400 uppercase">Monitoring Extension</div>
+                                                            <div className="font-extrabold text-gray-900">{selectedUser.monitoringExtension}</div>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => copyToClipboard(selectedUser.monitoringExtension, 'Extension')}
+                                                            className="text-gray-400 hover:text-blue-600 p-1 rounded"
+                                                            title="Copy Extension"
+                                                        >
+                                                            {copiedField === 'Extension' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="bg-white p-2 rounded-lg border border-blue-100 flex items-center justify-between">
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="text-[10px] font-bold text-gray-400 uppercase">SIP Password</div>
+                                                            <div className="font-extrabold text-gray-900 truncate">
+                                                                {showSecret ? (selectedUser.monitoringSecret || '••••••••') : '••••••••••••'}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 ml-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setShowSecret(prev => !prev)}
+                                                                className="text-gray-400 hover:text-blue-600 p-1 rounded"
+                                                                title={showSecret ? "Hide password" : "Show password"}
+                                                            >
+                                                                {showSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                                            </button>
+                                                            {selectedUser.monitoringSecret && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => copyToClipboard(selectedUser.monitoringSecret, 'SIP Password')}
+                                                                    className="text-gray-400 hover:text-blue-600 p-1 rounded"
+                                                                    title="Copy Password"
+                                                                >
+                                                                    {copiedField === 'SIP Password' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="bg-white p-2 rounded-lg border border-blue-100 flex items-center justify-between">
+                                                        <div>
+                                                            <div className="text-[10px] font-bold text-gray-400 uppercase">Softphone Status</div>
+                                                            <div className="font-extrabold text-gray-900 flex items-center gap-1.5">
+                                                                <span className={`w-2 h-2 rounded-full ${selectedUser.monitoringEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
+                                                                {selectedUser.monitoringEnabled ? 'Entitled & Ready' : 'Disabled'}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="bg-amber-50/60 rounded-xl p-3 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                                                <div className="text-amber-800 font-medium">
+                                                    No monitoring extension assigned yet to <strong>{selectedUser.name || selectedUser.email}</strong>. Toggling Call Monitoring ON will prompt initial setup.
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowMonitoringModal(true)}
+                                                    className="text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-3 py-1.5 rounded-lg flex items-center gap-1.5 shrink-0 transition-colors"
+                                                >
+                                                    <Plus className="w-3.5 h-3.5" /> Setup Extension
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    }
+
+                    const isEnabled = features[item.key];
                     const isUpdating = updatingFeature === item.key || updatingFeature === item.limitKey;
                     const limitVal = features[item.limitKey] ?? 10;
 
@@ -1991,12 +2291,13 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
                 })}
             </div>
 
-            {showMonitoringModal && adminUser && (
+            {showMonitoringModal && selectedUser && (
                 <MonitoringExtensionModal
                     onClose={() => setShowMonitoringModal(false)}
                     onSubmit={handleEnableMonitoring}
                     tenantId={tenant.id}
-                    initialUserId={adminUser.id}
+                    initialUserId={selectedUser.id}
+                    users={tenantUsers}
                 />
             )}
 

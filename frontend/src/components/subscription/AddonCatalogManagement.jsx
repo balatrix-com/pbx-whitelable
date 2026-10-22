@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Package, 
-    Plus, 
-    Trash2, 
-    Search, 
-    RefreshCw, 
-    Loader2, 
-    Users, 
-    Phone, 
-    Hash, 
-    ShieldCheck, 
-    AlertCircle, 
+import {
+    Package,
+    Plus,
+    Trash2,
+    Search,
+    RefreshCw,
+    Loader2,
+    Users,
+    Phone,
+    Hash,
+    ShieldCheck,
+    AlertCircle,
     DollarSign,
     Layers,
     SlidersHorizontal
@@ -56,8 +56,8 @@ const AddonCatalogManagement = () => {
 
     // Modals state
     const [isCreateOpen, setIsCreateOpen] = useState(false);
-    const [deactivatingAddon, setDeactivatingAddon] = useState(null);
-    const [deactivateLoading, setDeactivateLoading] = useState(false);
+    const [deletingAddon, setDeletingAddon] = useState(null);
+    const [deleteLoading, setDeleteLoading] = useState(false);
 
     useEffect(() => {
         loadCatalog();
@@ -78,20 +78,20 @@ const AddonCatalogManagement = () => {
         }
     };
 
-    const handleConfirmDeactivate = async () => {
-        if (!deactivatingAddon) return;
-        setDeactivateLoading(true);
+    const handleConfirmDelete = async () => {
+        if (!deletingAddon) return;
+        setDeleteLoading(true);
         try {
-            const res = await addonsService.deleteAddonCatalogItem(deactivatingAddon.addon_id);
-            addToast('success', res?.message || `Add-on "${deactivatingAddon.name}" deactivated successfully`);
-            setDeactivatingAddon(null);
+            const res = await addonsService.deleteAddonCatalogItem(deletingAddon.addon_id);
+            addToast('success', res?.message || `Add-on "${deletingAddon.name}" deleted successfully`);
+            setDeletingAddon(null);
             loadCatalog();
         } catch (err) {
-            console.error('Failed to deactivate add-on:', err);
-            const msg = err.response?.data?.message || err.normalized?.message || err.message || 'Cannot deactivate add-on';
+            console.error('Failed to delete add-on:', err);
+            const msg = err.response?.data?.message || err.normalized?.message || err.message || 'Cannot delete add-on';
             addToast('error', msg);
         } finally {
-            setDeactivateLoading(false);
+            setDeleteLoading(false);
         }
     };
 
@@ -100,7 +100,7 @@ const AddonCatalogManagement = () => {
         // Filter out inactive items if any are returned
         if (item.is_active === false) return false;
 
-        const matchesQuery = 
+        const matchesQuery =
             (item.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
             (item.addon_id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
             (item.resource_type || '').toLowerCase().includes(searchQuery.toLowerCase());
@@ -112,7 +112,7 @@ const AddonCatalogManagement = () => {
 
     return (
         <div className="space-y-6">
-            
+
             {/* Action Bar & Filters */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex flex-1 items-center gap-3">
@@ -216,7 +216,7 @@ const AddonCatalogManagement = () => {
                                     const ResourceIcon = resourceConfig.icon;
 
                                     return (
-                                        <tr 
+                                        <tr
                                             key={item.addon_id || item.id}
                                             className="hover:bg-gray-50/60 dark:hover:bg-slate-800/50 transition-colors"
                                         >
@@ -247,11 +247,10 @@ const AddonCatalogManagement = () => {
 
                                             {/* Bundle Units */}
                                             <td className="py-4 px-6">
-                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold ${
-                                                    item.units_count > 1
-                                                        ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/60'
-                                                        : 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 border border-gray-200 dark:border-slate-700'
-                                                }`}>
+                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold ${item.units_count > 1
+                                                    ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/60'
+                                                    : 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 border border-gray-200 dark:border-slate-700'
+                                                    }`}>
                                                     {item.units_count > 1 ? `${item.units_count} Units / Pack` : 'Single Unit'}
                                                 </span>
                                             </td>
@@ -283,12 +282,12 @@ const AddonCatalogManagement = () => {
                                                 {canManageAddons ? (
                                                     <button
                                                         type="button"
-                                                        onClick={() => setDeactivatingAddon(item)}
-                                                        title="Deactivate Add-on"
+                                                        onClick={() => setDeletingAddon(item)}
+                                                        title="Delete Add-on"
                                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-950/70 border border-rose-200 dark:border-rose-900/40 transition-colors"
                                                     >
                                                         <Trash2 className="h-3.5 w-3.5" />
-                                                        <span>Deactivate</span>
+                                                        <span>Delete</span>
                                                     </button>
                                                 ) : (
                                                     <span className="text-xs text-gray-400">—</span>
@@ -310,17 +309,17 @@ const AddonCatalogManagement = () => {
                 onSuccess={loadCatalog}
             />
 
-            {/* Deactivate Addon Confirmation Modal */}
+            {/* Delete Addon Confirmation Modal */}
             <ConfirmActionModal
-                isOpen={!!deactivatingAddon}
-                onClose={() => setDeactivatingAddon(null)}
-                onConfirm={handleConfirmDeactivate}
-                title="Deactivate Add-on"
-                message={`Deactivate add-on "${deactivatingAddon?.name}"? It will no longer be available for purchase.`}
-                confirmText="Deactivate"
+                isOpen={!!deletingAddon}
+                onClose={() => setDeletingAddon(null)}
+                onConfirm={handleConfirmDelete}
+                title="Delete Add-on"
+                message={`Delete add-on "${deletingAddon?.name}"? It will no longer be available for purchase.`}
+                confirmText="Delete"
                 cancelText="Cancel"
                 isDanger={true}
-                loading={deactivateLoading}
+                loading={deleteLoading}
             />
 
         </div>

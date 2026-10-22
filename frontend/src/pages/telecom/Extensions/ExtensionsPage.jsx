@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Edit2, Trash2, Key, Users } from 'lucide-react';
 import api from '../../../services/api';
 import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../../context/ToastContext';
 import MonitoringExtensionModal from '../../../components/admin/MonitoringExtensionModal';
 
 function ExtensionsPage() {
@@ -18,6 +19,7 @@ function ExtensionsPage() {
     const [selectedMonitoringUser, setSelectedMonitoringUser] = useState(null);
 
     const { role, user: currentUser } = useAuth(); // Assuming currentUser has tenantId
+    const { addToast } = useToast();
     const canManageExtensions = role === 'SUPER_ADMIN';
 
     useEffect(() => {
@@ -34,7 +36,8 @@ function ExtensionsPage() {
                 try {
                     const usersRes = await api.get('/users?limit=100');
                     const users = usersRes.data.data || [];
-                    const monitoring = users.filter(u => u.monitoringEnabled && u.monitoringExtension);
+                    // Show all users who have an extension assigned, regardless of whether it's ON or OFF
+                    const monitoring = users.filter(u => u.monitoringExtension);
                     setMonitoringUsers(monitoring);
                 } catch (userErr) {
                     console.error('Failed to fetch users for monitoring', userErr);
@@ -69,28 +72,46 @@ function ExtensionsPage() {
             });
             setShowMonitoringModal(false);
             setSelectedMonitoringUser(null);
+            addToast('success', `Monitoring updated for extension ${monitoringExtension}`);
             fetchData(); // Refresh
         } catch (err) {
             console.error("Failed to update monitoring user", err);
-            alert("Failed to update: " + (err.response?.data?.message || err.message));
+            addToast('error', "Failed to update: " + (err.response?.data?.message || err.message));
+        }
+    };
+
+    const handleToggleMonitoringStatus = async (user, enable) => {
+        try {
+            await api.patch(`/users/${user.id}/permissions`, {
+                monitoringEnabled: enable
+            });
+            if (enable) {
+                addToast('success', `Monitoring enabled for extension ${user.monitoringExtension}`);
+            } else {
+                addToast('info', `Monitoring paused for extension ${user.monitoringExtension}`);
+            }
+            fetchData();
+        } catch (err) {
+            console.error('Failed to update monitoring status:', err);
+            addToast('error', err.response?.data?.message || 'Failed to update monitoring status');
         }
     };
 
     const handleDisableMonitoring = async (user) => {
-        if (!window.confirm(`Are you sure you want to disable monitoring for ${user.name || user.email}?`)) {
+        if (!window.confirm(`Are you sure you want to completely remove and reset the monitoring extension for ${user.name || user.email}? Next activation will require configuring a new extension.`)) {
             return;
         }
 
         try {
             await api.patch(`/users/${user.id}/permissions`, {
                 monitoringEnabled: false,
-                monitoringExtension: null,
-                monitoringSecret: null
+                flushExtension: true
             });
+            addToast('info', 'Monitoring extension removed');
             fetchData();
         } catch (err) {
             console.error('Failed to disable monitoring:', err);
-            alert(err.response?.data?.message || 'Failed to disable monitoring');
+            addToast('error', err.response?.data?.message || 'Failed to disable monitoring');
         }
     };
 
@@ -258,6 +279,7 @@ function ExtensionsPage() {
                                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-widest border-b border-gray-100">User Name</th>
                                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-widest border-b border-gray-100">User Email</th>
                                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-widest border-b border-gray-100">SIP Password</th>
+                                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-widest border-b border-gray-100">Status</th>
                                         <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-widest border-b border-gray-100 whitespace-nowrap">Actions</th>
                                     </tr>
                                 </thead>
@@ -277,11 +299,42 @@ function ExtensionsPage() {
                                                     {user.monitoringSecret ? '••••••' : 'Not Set'}
                                                 </div>
                                             </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {user.monitoringEnabled ? (
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                        Active
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                                                        Disabled / Paused
+                                                    </span>
+                                                )}
+                                            </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
-                                                <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="flex items-center justify-end space-x-2">
+                                                    {user.monitoringEnabled ? (
+                                                        <button
+                                                            className="px-2.5 py-1 text-xs font-semibold text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-md transition-colors"
+                                                            onClick={() => handleToggleMonitoringStatus(user, false)}
+                                                            title="Disable / Pause Monitoring"
+                                                        >
+                                                            Pause
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            className="px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition-colors"
+                                                            onClick={() => handleToggleMonitoringStatus(user, true)}
+                                                            title="Enable / Reactivate Extension"
+                                                        >
+                                                            Enable
+                                                        </button>
+                                                    )}
                                                     <button
                                                         className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-md transition-colors focus:outline-none"
                                                         onClick={() => handleEditMonitoring(user)}
+                                                        title="Edit Credentials"
                                                     >
                                                         <Edit2 className="h-4 w-4" />
                                                     </button>
@@ -289,6 +342,7 @@ function ExtensionsPage() {
                                                         <button
                                                             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors focus:outline-none"
                                                             onClick={() => handleDisableMonitoring(user)}
+                                                            title="Reset / Remove Extension"
                                                         >
                                                             <Trash2 className="h-4 w-4" />
                                                         </button>

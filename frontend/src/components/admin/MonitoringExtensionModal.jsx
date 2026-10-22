@@ -25,10 +25,13 @@ const MonitoringExtensionModal = ({
     // Fetch users if not passed via props (runs once on mount or when tenantId changes)
     React.useEffect(() => {
         if (users && users.length > 0) {
-            setUserList(users);
-            if (!selectedUserId && users[0]) {
-                setSelectedUserId(users[0].id);
-                if (!name) setName(users[0].name || users[0].email);
+            const candidates = users.filter(u => u.role === 'ADMIN' || u.role === 'SUPPORT');
+            const list = candidates.length > 0 ? candidates : users;
+            setUserList(list);
+            if (!selectedUserId && list[0]) {
+                const target = list.find(u => u.id === initialUserId) || list[0];
+                setSelectedUserId(target.id);
+                if (!name) setName(target.name || target.email);
             }
             return;
         }
@@ -40,9 +43,11 @@ const MonitoringExtensionModal = ({
                 const res = await api.get('/users', { params });
                 if (!isMounted) return;
                 const fetched = res.data?.data || (Array.isArray(res.data) ? res.data : []);
-                setUserList(fetched);
-                if (!selectedUserId && fetched.length > 0) {
-                    const first = fetched.find(u => u.id === initialUserId) || fetched[0];
+                const candidates = fetched.filter(u => u.role === 'ADMIN' || u.role === 'SUPPORT');
+                const list = candidates.length > 0 ? candidates : fetched;
+                setUserList(list);
+                if (!selectedUserId && list.length > 0) {
+                    const first = list.find(u => u.id === initialUserId) || list[0];
                     setSelectedUserId(first.id);
                     if (!name) setName(first.name || first.email);
                 }
@@ -53,7 +58,7 @@ const MonitoringExtensionModal = ({
 
         fetchUsers();
         return () => { isMounted = false; };
-    }, [tenantId]);
+    }, [tenantId, users, initialUserId]);
 
     // Fetch next available extension
     React.useEffect(() => {
@@ -138,10 +143,13 @@ const MonitoringExtensionModal = ({
                             <option value="" disabled>Select a user...</option>
                             {userList.map(user => {
                                 const tenantName = user.tenant?.name ? ` [${user.tenant.name}]` : '';
-                                const role = user.role ? ` (${user.role})` : '';
+                                const role = user.role ? ` (${user.role.charAt(0).toUpperCase() + user.role.slice(1).toLowerCase()})` : '';
+                                const ext = user.monitoringExtension 
+                                    ? ` - Ext: ${user.monitoringExtension} (${user.monitoringEnabled ? 'Active' : 'Inactive'})` 
+                                    : ' - No Extension';
                                 return (
                                     <option key={user.id} value={user.id}>
-                                        {user.name || user.email}{role}{tenantName}
+                                        {user.name || user.email}{role}{ext}{tenantName}
                                     </option>
                                 );
                             })}

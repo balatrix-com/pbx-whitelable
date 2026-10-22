@@ -77,11 +77,12 @@ export const subscriptionService = {
     // ------------------------------------------------------------------------
     // 2. EXISTING BACKEND API: GET /api/wallet/subscription (Status: 200 OK)
     // ------------------------------------------------------------------------
-    getSubscription: async (tenantId) => {
+    getSubscription: async (tenantId, params = {}) => {
         try {
             const res = await api.get('/wallet/subscription', {
                 params: {
-                    tenantId
+                    ...(tenantId ? { tenantId } : {}),
+                    ...params
                 }
             });
 
@@ -89,6 +90,21 @@ export const subscriptionService = {
         } catch (e) {
             console.warn('GET /wallet/subscription endpoint error:', e);
             return null;
+        }
+    },
+
+    getAllSubscriptions: async (params = {}) => {
+        try {
+            const res = await api.get('/wallet/subscription', {
+                params: {
+                    tenantId: 'all',
+                    ...params
+                }
+            });
+            return res.data;
+        } catch (e) {
+            console.warn('GET /wallet/subscription?tenantId=all endpoint error:', e);
+            return { data: [], pagination: { page: 1, limit: 50, total: 0, totalPages: 1 } };
         }
     },
 
