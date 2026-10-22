@@ -62,41 +62,56 @@ export class WalletController {
                 hasSubscription: hasSubscription !== undefined ? hasSubscription === 'true' : undefined
             });
         }
+        if (user.role !== Role.SUPER_ADMIN && queryTenantId && queryTenantId !== user.tenantId) {
+            throw new ForbiddenException('Access denied: cannot view subscription for other tenants');
+        }
         const tenantId = (user.role === Role.SUPER_ADMIN && queryTenantId) ? queryTenantId : user.tenantId;
         if (!tenantId) return null;
         return this.walletService.getSubscription(tenantId);
     }
 
     @Post('subscription')
+    @Roles(Role.SUPER_ADMIN)
     switchSubscription(
         @GetUser() user: User,
         @Body('targetTenantId') targetTenantId: string,
         @Body('planId') planId: string,
         @Body('immediate') immediate?: boolean
     ) {
-        const tenantId = (user.role === Role.SUPER_ADMIN && targetTenantId) ? targetTenantId : user.tenantId;
+        if (user.role !== Role.SUPER_ADMIN) {
+            throw new ForbiddenException('Only SuperAdmin can modify subscriptions or assign plans');
+        }
+        const tenantId = targetTenantId || user.tenantId;
         if (!tenantId) throw new BadRequestException('Tenant ID is required');
         if (!planId) throw new BadRequestException('Plan ID is required');
         return this.walletService.switchSubscriptionPlan(tenantId, planId, immediate ?? false);
     }
 
     @Post('subscription/cancel-switch')
+    @Roles(Role.SUPER_ADMIN)
     cancelScheduledSwitch(
         @GetUser() user: User,
         @Body('targetTenantId') targetTenantId?: string
     ) {
-        const tenantId = (user.role === Role.SUPER_ADMIN && targetTenantId) ? targetTenantId : user.tenantId;
+        if (user.role !== Role.SUPER_ADMIN) {
+            throw new ForbiddenException('Only SuperAdmin can cancel scheduled plan switches');
+        }
+        const tenantId = targetTenantId || user.tenantId;
         if (!tenantId) throw new BadRequestException('Tenant ID is required');
         return this.walletService.cancelScheduledPlanSwitch(tenantId);
     }
 
     @Patch('subscription/auto-renew')
+    @Roles(Role.SUPER_ADMIN)
     toggleAutoRenew(
         @GetUser() user: User,
         @Body('targetTenantId') targetTenantId: string,
         @Body('auto_renew') autoRenew: boolean
     ) {
-        const tenantId = (user.role === Role.SUPER_ADMIN && targetTenantId) ? targetTenantId : user.tenantId;
+        if (user.role !== Role.SUPER_ADMIN) {
+            throw new ForbiddenException('Only SuperAdmin can modify subscription auto-renew settings');
+        }
+        const tenantId = targetTenantId || user.tenantId;
         if (!tenantId) throw new BadRequestException('Tenant ID is required');
         if (typeof autoRenew !== 'boolean') throw new BadRequestException('auto_renew boolean is required');
         return this.walletService.toggleSubscriptionAutoRenew(tenantId, autoRenew);

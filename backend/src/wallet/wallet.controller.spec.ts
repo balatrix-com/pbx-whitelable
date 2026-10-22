@@ -15,6 +15,8 @@ describe('WalletController', () => {
       getBalance: jest.fn().mockResolvedValue({ balance: 100 }),
       getAllSubscriptions: jest.fn().mockResolvedValue({ data: [], pagination: { page: 1, limit: 50, total: 0, totalPages: 1 } }),
       getSubscription: jest.fn().mockResolvedValue({ id: 'sub-1' }),
+      cancelScheduledPlanSwitch: jest.fn().mockResolvedValue({ success: true }),
+      toggleSubscriptionAutoRenew: jest.fn().mockResolvedValue({ success: true }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -110,5 +112,46 @@ describe('WalletController', () => {
       expect(mockWalletService.getSubscription).toHaveBeenCalledWith('T1');
       expect(res).toEqual({ id: 'sub-1' });
     });
+
+    it('should throw ForbiddenException if regular tenant tries to view another tenant subscription', async () => {
+      const regularAdmin = { id: 'u1', email: 'user@tenant.com', role: Role.ADMIN, tenantId: 'T1' } as any;
+      expect(() => controller.getSubscription(regularAdmin, 'T2')).toThrow('Access denied: cannot view subscription for other tenants');
+    });
+  });
+
+  describe('Security: Mutation Restrictions for Regular Tenants', () => {
+    const regularAdmin = { id: 'u1', email: 'user@tenant.com', role: Role.ADMIN, tenantId: 'T1' } as any;
+    const superAdminUser = { id: 'sa1', email: 'sa@balatrix.com', role: Role.SUPER_ADMIN, tenantId: null } as any;
+
+    it('should reject switchSubscription from regular tenant with ForbiddenException', async () => {
+      expect(() => controller.switchSubscription(regularAdmin, 'T1', 'plan_pro', false))
+        .toThrow('Only SuperAdmin can modify subscriptions or assign plans');
+    });
+
+    it('should allow switchSubscription from SUPER_ADMIN', async () => {
+      await controller.switchSubscription(superAdminUser, 'T1', 'plan_pro', false);
+      expect(mockWalletService.switchSubscriptionPlan).toHaveBeenCalledWith('T1', 'plan_pro', false);
+    });
+
+    it('should reject cancelScheduledSwitch from regular tenant with ForbiddenException', async () => {
+      expect(() => controller.cancelScheduledSwitch(regularAdmin, 'T1'))
+        .toThrow('Only SuperAdmin can cancel scheduled plan switches');
+    });
+
+    it('should allow cancelScheduledSwitch from SUPER_ADMIN', async () => {
+      await controller.cancelScheduledSwitch(superAdminUser, 'T1');
+      expect(mockWalletService.cancelScheduledPlanSwitch).toHaveBeenCalledWith('T1');
+    });
+
+    it('should reject toggleAutoRenew from regular tenant with ForbiddenException', async () => {
+      expect(() => controller.toggleAutoRenew(regularAdmin, 'T1', true))
+        .toThrow('Only SuperAdmin can modify subscription auto-renew settings');
+    });
+
+    it('should allow toggleAutoRenew from SUPER_ADMIN', async () => {
+      await controller.toggleAutoRenew(superAdminUser, 'T1', false);
+      expect(mockWalletService.toggleSubscriptionAutoRenew).toHaveBeenCalledWith('T1', false);
+    });
   });
 });
+
