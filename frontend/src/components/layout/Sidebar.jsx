@@ -101,6 +101,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 items = [
                     { name: 'Dashboard', href: '/dashboard', icon: LayoutGrid },
                     { name: 'Wallet', href: '/wallet', icon: Wallet },
+                    { name: 'Subscriptions', href: '/subscriptions', icon: CreditCard },
                     { name: 'Phone Numbers', href: '/telecom/phone-numbers', icon: Phone },
                     {
                         name: 'Extensions',

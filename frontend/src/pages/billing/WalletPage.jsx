@@ -84,61 +84,68 @@ const WalletPage = () => {
                     <p className="text-gray-500 dark:text-slate-400 mt-1 font-medium text-sm md:text-base">Manage your account balance and payment methods</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
+                    <button
+                        onClick={() => navigate('/subscriptions')}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-bold text-gray-700 dark:text-slate-200 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 transition-all focus:outline-none w-full sm:w-auto"
+                    >
+                        <CreditCard size={18} className="text-indigo-500" />
+                        Subscriptions & Add-ons
+                    </button>
+                    <button
+                        onClick={() => navigate('/wallet/cards')}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-bold text-gray-700 dark:text-slate-200 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 transition-all focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+                        disabled={isReadOnly}
+                        title={isReadOnly ? "Restricted for Support users" : ""}
+                    >
+                        <CreditCard size={18} className="text-gray-500 dark:text-slate-400" />
+                        Manage Cards
+                    </button>
                     {!isAdmin && (
-                        <>
-                            <button
-                                onClick={() => navigate('/subscriptions')}
-                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-bold text-gray-700 dark:text-slate-200 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 transition-all focus:outline-none w-full sm:w-auto"
-                            >
-                                <CreditCard size={18} className="text-indigo-500" />
-                                Subscriptions & Add-ons
-                            </button>
-                            <button
-                                onClick={() => navigate('/wallet/cards')}
-                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-bold text-gray-700 dark:text-slate-200 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 transition-all focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
-                                disabled={isReadOnly}
-                                title={isReadOnly ? "Restricted for Support users" : ""}
-                            >
-                                <CreditCard size={18} className="text-gray-500 dark:text-slate-400" />
-                                Manage Cards
-                            </button>
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                                <div className="relative flex-1 sm:flex-initial">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400 font-bold">$</span>
-                                    <input
-                                        type="number"
-                                        value={rechargeAmount}
-                                        onChange={(e) => setRechargeAmount(e.target.value)}
-                                        min="1"
-                                        step="1"
-                                        className="w-full sm:w-24 pl-7 pr-3 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm font-bold text-gray-900 dark:text-white bg-white dark:bg-slate-900"
-                                        placeholder="50.00"
-                                    />
-                                </div>
-                                <button
-                                    onClick={() => handleAddFunds(rechargeAmount)}
-                                    disabled={addingFunds || isReadOnly || !rechargeAmount || rechargeAmount <= 0}
-                                    title={isReadOnly ? "Restricted for Support users" : ""}
-                                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-primary-700 transition-all focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                                >
-                                    {addingFunds ? <RotateCw size={18} className="animate-spin" /> : <RotateCw size={18} />}
-                                    Add Funds
-                                </button>
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <div className="relative flex-1 sm:flex-initial">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400 font-bold">$</span>
+                                <input
+                                    type="number"
+                                    value={rechargeAmount}
+                                    onChange={(e) => setRechargeAmount(e.target.value)}
+                                    min="1"
+                                    step="1"
+                                    className="w-full sm:w-24 pl-7 pr-3 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm font-bold text-gray-900 dark:text-white bg-white dark:bg-slate-900"
+                                    placeholder="50.00"
+                                />
                             </div>
-                        </>
+                            <button
+                                onClick={() => handleAddFunds(rechargeAmount)}
+                                disabled={addingFunds || isReadOnly || !rechargeAmount || rechargeAmount <= 0}
+                                title={isReadOnly ? "Restricted for Support users" : ""}
+                                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-primary-700 transition-all focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                            >
+                                {addingFunds ? <RotateCw size={18} className="animate-spin" /> : <RotateCw size={18} />}
+                                Add Funds
+                            </button>
+                        </div>
                     )}
                 </div>
             </header>
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 {/* Subscription Card */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden relative group hover:shadow-md transition-all duration-300">
+                <div 
+                    onClick={() => navigate('/subscriptions')}
+                    className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden relative group hover:shadow-md transition-all duration-300 cursor-pointer hover:border-primary-300 dark:hover:border-primary-700"
+                    title="Click to view subscription details & history"
+                >
                     <div className="p-5 relative z-10">
-                        <div className="flex items-center gap-2.5 mb-2">
-                            <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 dark:bg-blue-950/60 dark:text-blue-400 ring-1 ring-blue-500/10 dark:ring-blue-400/20 flex items-center justify-center">
-                                <RefreshCw className="h-4 w-4 stroke-[2.2]" />
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-1.5 rounded-lg text-blue-500 bg-blue-50 dark:bg-blue-950/60 dark:text-blue-400 ring-1 ring-blue-500/10 dark:ring-blue-400/20 flex items-center justify-center">
+                                    <RefreshCw className="h-4 w-4 stroke-[2.2]" />
+                                </div>
+                                <dt className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Active Plan</dt>
                             </div>
-                            <dt className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Active Plan</dt>
+                            <span className="text-[10px] font-bold text-primary-600 dark:text-primary-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                View History →
+                            </span>
                         </div>
                         <dd className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-2 truncate">
                             {subscription?.plan_name || 'No Active Plan'}
