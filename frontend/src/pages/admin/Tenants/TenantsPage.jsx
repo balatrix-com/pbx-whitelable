@@ -242,14 +242,15 @@ const TenantsPage = () => {
                                                     Configure
                                                 </button>
                                                 <button
+                                                    disabled={tenant.status === 'ARCHIVED'}
                                                     onClick={() => handleToggleBlock(tenant.id, tenant.serviceBlocked)}
                                                     className={clsx(
-                                                        "p-2 rounded-xl transition-all",
+                                                        "p-2 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed",
                                                         tenant.serviceBlocked 
                                                             ? "text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40" 
                                                             : "text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40"
                                                     )}
-                                                    title={tenant.serviceBlocked ? "Unblock" : "Block"}
+                                                    title={tenant.status === 'ARCHIVED' ? "Cannot block/unblock a deactivated tenant" : tenant.serviceBlocked ? "Unblock" : "Block"}
                                                 >
                                                     {tenant.serviceBlocked ? <CheckCircle2 size={18} /> : <Ban size={18} />}
                                                 </button>
