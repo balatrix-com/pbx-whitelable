@@ -62,7 +62,7 @@ export class MonitorController {
             if (!user.tenantId) {
                 throw new ForbiddenException('User is not assigned to a tenant');
             }
-            const belongsToTenant = await this.monitorService.verifyCallTenant(body.uuid_in, user.tenantId);
+            const belongsToTenant = await this.monitorService.verifyCallTenant(body.uuid_in, user.tenantId, body.uuid_out);
             if (!belongsToTenant) {
                 throw new ForbiddenException('Access denied: target call does not belong to your tenant');
             }
