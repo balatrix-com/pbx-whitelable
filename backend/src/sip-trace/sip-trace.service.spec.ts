@@ -67,7 +67,8 @@ describe('SipTraceService', () => {
     jest.spyOn(service as any, 'db').mockReturnValue({ query });
     const result = await service.tenantList('tenant-1', { search: '1555', page: '1', limit: '25' });
     expect(tenantLookup).toHaveBeenCalledWith({ where: { id: 'tenant-1' }, select: { customerCode: true } });
-    expect(query.mock.calls[0][0]).toMatch(/WITH latest AS[\s\S]*customer_id = \$1[\s\S]*LIMIT 100[\s\S]*WHERE \(\$2 = ''/);
+    expect(query.mock.calls[0][0]).toMatch(/WITH latest AS[\s\S]*customer_id = \$1 AND a_leg_uuid IS NOT NULL[\s\S]*LIMIT 100[\s\S]*WHERE \(\$2 = ''/);
+    expect(query.mock.calls[0][0]).toContain("a_leg_json->'variables'->>'billing_customer_id'");
     expect(query.mock.calls[0][1]).toEqual(['U1001', '1555', 26, 0]);
     expect(result.maxVisibleCalls).toBe(100);
   });
@@ -78,6 +79,8 @@ describe('SipTraceService', () => {
     jest.spyOn(service as any, 'db').mockReturnValue({ query });
     await expect(service.flow(event.session_uuid, 'tenant-1')).rejects.toBeInstanceOf(NotFoundException);
     expect(query.mock.calls[0][0]).toMatch(/JOIN latest USING \(session_uuid\)/);
+    expect(query.mock.calls[0][0]).toContain('a_leg_uuid IS NOT NULL');
+    expect(query.mock.calls[0][0]).toContain("a_leg_json->'variables'->>'billing_customer_id'");
     expect(query.mock.calls[0][1]).toEqual([event.session_uuid, 'U1001']);
   });
 

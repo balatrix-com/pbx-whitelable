@@ -100,7 +100,9 @@ export class SipTraceService implements OnModuleDestroy {
                started_at, ended_at, first_leg_received_at, a_leg_sip_call_id,
                b_leg_sip_call_ids, merge_status, cdr_export_status, hangup_cause, id
         FROM live_call_event
-        WHERE customer_id = $1 AND merge_status = 'READY'
+        WHERE customer_id = $1 AND a_leg_uuid IS NOT NULL
+          AND COALESCE(NULLIF(a_leg_json->'variables'->>'billing_customer_id', ''),
+                       a_leg_json->'variables'->>'variable_billing_customer_id') = $1
         ORDER BY COALESCE(started_at, first_leg_received_at) DESC, id DESC
         LIMIT 100
       )
@@ -139,7 +141,9 @@ export class SipTraceService implements OnModuleDestroy {
     const result = await this.db().query<TraceRow>(customerCode ? `
       WITH latest AS (
         SELECT session_uuid FROM live_call_event
-        WHERE customer_id = $2 AND merge_status = 'READY'
+        WHERE customer_id = $2 AND a_leg_uuid IS NOT NULL
+          AND COALESCE(NULLIF(a_leg_json->'variables'->>'billing_customer_id', ''),
+                       a_leg_json->'variables'->>'variable_billing_customer_id') = $2
         ORDER BY COALESCE(started_at, first_leg_received_at) DESC, id DESC
         LIMIT 100
       )
