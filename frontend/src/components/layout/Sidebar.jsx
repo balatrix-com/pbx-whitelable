@@ -88,6 +88,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { name: 'Extension Status', href: '/admin/extension-status', icon: Radio },
                     { name: 'Call Monitoring', href: '/monitoring', icon: Activity },
                     { name: 'Call Records', href: '/cdrs', icon: History },
+                    { name: 'SIP Traces', href: '/super-admin/sip-traces', icon: ScrollText },
                     { name: 'Manage Numbers', href: '/super-admin/numbers', icon: Phone },
                     { name: 'Plans', href: '/super-admin/plans', icon: ShieldCheck },
                     { name: 'Add-ons', href: '/super-admin/addons', icon: Package },
@@ -119,6 +120,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { name: 'Operational Time', href: '/telecom/schedules', icon: Clock },
                     { name: 'Call Monitoring', href: '/monitoring', icon: Activity },
                     { name: 'Call Records', href: '/cdrs', icon: History },
+                    { name: 'SIP Traces', href: '/telecom/sip-traces', icon: ScrollText },
                     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
                     { name: 'User Management', href: '/users', icon: Users },
                 ];
