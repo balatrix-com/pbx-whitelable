@@ -702,37 +702,39 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-amber-200/60 dark:border-amber-800/40">
-                                <button
-                                    type="button"
-                                    disabled={isArchived}
-                                    title={isArchived ? "Subscription changes disabled for deactivated tenants." : "Change Target Plan"}
-                                    onClick={() => setPlanSwitchModalOpen(true)}
-                                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-gray-800 dark:text-slate-100 border border-amber-300/80 dark:border-slate-700 hover:bg-amber-50/70 dark:hover:bg-slate-700 hover:border-amber-400 transition shadow-sm active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
-                                >
-                                    <RefreshCw className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                                    <span>Change Target Plan</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    disabled={cancellingSchedule || isArchived}
-                                    title={isArchived ? "Operation disabled for deactivated tenants." : "Cancel Scheduled Switch"}
-                                    onClick={handleCancelScheduledSwitch}
-                                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border border-red-200/90 dark:border-red-900/60 hover:bg-red-100 dark:hover:bg-red-900/50 transition shadow-sm disabled:opacity-50 active:scale-[0.98]"
-                                >
-                                    {cancellingSchedule ? (
-                                        <>
-                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                            <span>Cancelling...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <X className="h-3.5 w-3.5" />
-                                            <span>Cancel Switch</span>
-                                        </>
-                                    )}
-                                </button>
-                            </div>
+                            {isSuperAdmin && (
+                                <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-amber-200/60 dark:border-amber-800/40">
+                                    <button
+                                        type="button"
+                                        disabled={isArchived}
+                                        title={isArchived ? "Subscription changes disabled for deactivated tenants." : "Change Target Plan"}
+                                        onClick={() => setPlanSwitchModalOpen(true)}
+                                        className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-gray-800 dark:text-slate-100 border border-amber-300/80 dark:border-slate-700 hover:bg-amber-50/70 dark:hover:bg-slate-700 hover:border-amber-400 transition shadow-sm active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        <RefreshCw className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                                        <span>Change Target Plan</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={cancellingSchedule || isArchived}
+                                        title={isArchived ? "Operation disabled for deactivated tenants." : "Cancel Scheduled Switch"}
+                                        onClick={handleCancelScheduledSwitch}
+                                        className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border border-red-200/90 dark:border-red-900/60 hover:bg-red-100 dark:hover:bg-red-900/50 transition shadow-sm disabled:opacity-50 active:scale-[0.98]"
+                                    >
+                                        {cancellingSchedule ? (
+                                            <>
+                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                <span>Cancelling...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <X className="h-3.5 w-3.5" />
+                                                <span>Cancel Switch</span>
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -744,34 +746,44 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                             <span>Loading subscription details...</span>
                         </div>
                     ) : !subscription ? (
-                        <div className="py-12 px-6 text-center">
-                            <AlertCircle className="h-10 w-10 text-amber-500 mx-auto mb-3" />
-                            <h4 className="text-base font-bold text-gray-900 dark:text-white">No Active Subscription Found</h4>
-                            <p className="text-xs text-gray-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
-                                You do not have an active billing plan assigned yet. Assign a plan now to unlock PBX features.
-                            </p>
-                            <div className="mt-5 flex items-center justify-center gap-3">
-                                <button
-                                    onClick={() => setPlanSwitchModalOpen(true)}
-                                    disabled={isArchived}
-                                    title={isArchived ? "Subscription changes disabled for deactivated tenants." : "Assign Plan"}
-                                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-primary-600 hover:bg-primary-700 transition shadow-md shadow-primary-600/20 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
-                                >
-                                    <Sparkles className="h-4 w-4" />
-                                    Assign Plan / Subscribe
-                                </button>
-                                {onBrowsePlans && (
-                                    <button
-                                        onClick={onBrowsePlans}
-                                        disabled={isArchived}
-                                        title={isArchived ? "Subscription changes disabled for deactivated tenants." : "Browse Plans"}
-                                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-gray-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
-                                    >
-                                        Browse Plans
-                                    </button>
-                                )}
+                        !isSuperAdmin ? (
+                            <div className="py-12 px-6 text-center">
+                                <AlertCircle className="h-10 w-10 text-amber-500 mx-auto mb-3" />
+                                <h4 className="text-base font-bold text-gray-900 dark:text-white">No Active Subscription</h4>
+                                <p className="text-xs text-gray-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
+                                    You currently do not have an active subscription assigned. Please contact your system administrator or account representative to activate your plan.
+                                </p>
                             </div>
-                        </div>
+                        ) : (
+                            <div className="py-12 px-6 text-center">
+                                <AlertCircle className="h-10 w-10 text-amber-500 mx-auto mb-3" />
+                                <h4 className="text-base font-bold text-gray-900 dark:text-white">No Active Subscription Found</h4>
+                                <p className="text-xs text-gray-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
+                                    You do not have an active billing plan assigned yet. Assign a plan now to unlock PBX features.
+                                </p>
+                                <div className="mt-5 flex items-center justify-center gap-3">
+                                    <button
+                                        onClick={() => setPlanSwitchModalOpen(true)}
+                                        disabled={isArchived}
+                                        title={isArchived ? "Subscription changes disabled for deactivated tenants." : "Assign Plan"}
+                                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-primary-600 hover:bg-primary-700 transition shadow-md shadow-primary-600/20 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        <Sparkles className="h-4 w-4" />
+                                        Assign Plan / Subscribe
+                                    </button>
+                                    {onBrowsePlans && (
+                                        <button
+                                            onClick={onBrowsePlans}
+                                            disabled={isArchived}
+                                            title={isArchived ? "Subscription changes disabled for deactivated tenants." : "Browse Plans"}
+                                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-gray-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                                        >
+                                            Browse Plans
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        )
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-100 dark:divide-slate-800 text-left">
@@ -780,9 +792,11 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                         <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Plan Name</th>
                                         <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Status</th>
                                         <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Limits & Resources</th>
-                                        <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Expiry / Renewal Date</th>
+                                        <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Billing Period / Dates</th>
                                         <th className="px-6 py-4 text-center text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Auto-Renew</th>
-                                        <th className="px-6 py-4 text-center text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Actions</th>
+                                        {isSuperAdmin && (
+                                            <th className="px-6 py-4 text-center text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Actions</th>
+                                        )}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
@@ -832,78 +846,180 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                             </div>
                                         </td>
 
-                                        {/* Expiry Date */}
+                                        {/* Billing Period / Dates */}
                                         <td className="px-6 py-5 whitespace-nowrap">
-                                            {subscription.next_billing ? (
-                                                <div className="space-y-0.5">
-                                                    <div className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                                                        <Calendar className="h-3.5 w-3.5 text-gray-400" />
-                                                        {new Date(subscription.next_billing).toLocaleDateString(undefined, {
-                                                            year: 'numeric',
-                                                            month: 'short',
-                                                            day: 'numeric'
-                                                        })}
-                                                    </div>
-                                                    {getDaysRemaining(subscription.next_billing) !== null && (
-                                                        <div className="text-[11px] font-medium text-gray-500 dark:text-slate-400 flex items-center gap-1">
-                                                            <Clock className="h-3 w-3 text-amber-500" />
+                                            <div className="space-y-1 text-xs">
+                                                <div className="flex items-center gap-1.5 text-gray-700 dark:text-slate-300">
+                                                    <span className="font-semibold text-gray-500 dark:text-slate-400">Started:</span>
+                                                    <span>
+                                                        {subscription.start_date
+                                                            ? new Date(subscription.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                                                            : (subscription.created_at
+                                                                ? new Date(subscription.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                                                                : '—')}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 text-gray-900 dark:text-white font-bold">
+                                                    <span className="font-semibold text-gray-500 dark:text-slate-400">Renews:</span>
+                                                    <span>
+                                                        {subscription.next_billing
+                                                            ? new Date(subscription.next_billing).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                                                            : '—'}
+                                                    </span>
+                                                </div>
+                                                {subscription.next_billing && getDaysRemaining(subscription.next_billing) !== null && (
+                                                    <div className="text-[11px] font-medium text-gray-500 dark:text-slate-400 flex items-center gap-1">
+                                                        <Clock className="h-3 w-3 text-amber-500" />
+                                                        <span>
                                                             {getDaysRemaining(subscription.next_billing) > 0
                                                                 ? `${getDaysRemaining(subscription.next_billing)} days remaining`
                                                                 : 'Renews today'}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <span className="text-xs text-gray-400">—</span>
-                                            )}
-                                        </td>
-
-                                        {/* Auto-Renew Toggle */}
-                                        <td className="px-6 py-5 whitespace-nowrap text-center">
-                                            <div className="inline-flex flex-col items-center gap-1">
-                                                <button
-                                                    type="button"
-                                                    role="switch"
-                                                    aria-checked={!!subscription.auto_renew}
-                                                    disabled={togglingPlanAutoRenew || isArchived}
-                                                    title={isArchived ? "Auto-renew disabled for deactivated tenants." : "Toggle Auto-Renew"}
-                                                    onClick={handleTogglePlanAutoRenew}
-                                                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${subscription.auto_renew
-                                                            ? 'bg-primary-600'
-                                                            : 'bg-gray-200 dark:bg-slate-700'
-                                                        } ${togglingPlanAutoRenew || isArchived ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                >
-                                                    <span
-                                                        aria-hidden="true"
-                                                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${subscription.auto_renew ? 'translate-x-5' : 'translate-x-0'
-                                                            }`}
-                                                    />
-                                                </button>
-                                                <span className={`text-[10px] font-bold ${subscription.auto_renew
-                                                        ? 'text-primary-600 dark:text-primary-400'
-                                                        : 'text-gray-400 dark:text-slate-500'
-                                                    }`}>
-                                                    {subscription.auto_renew ? 'ON' : 'OFF'}
-                                                </span>
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
 
-                                        {/* Actions: Upgrade / Downgrade */}
-                                        <td className="px-6 py-5 whitespace-nowrap text-right">
-                                            <button
-                                                type="button"
-                                                disabled={isArchived}
-                                                onClick={() => setPlanSwitchModalOpen(true)}
-                                                title={isArchived ? "Subscription changes disabled for deactivated tenants." : "Change Plan"}
-                                                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black text-primary-600 dark:text-primary-400 bg-white dark:bg-slate-800 ring-1 ring-inset ring-primary-200 dark:ring-primary-800/40 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition shadow-xs active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-                                            >
-                                                <ArrowUpDown className="h-3.5 w-3.5" />
-                                                <span>{subscription.target_plan_name ? 'Modify Scheduled Plan' : 'Upgrade / Downgrade Plan'}</span>
-                                            </button>
+                                        {/* Auto-Renew Toggle / Read-Only Badge */}
+                                        <td className="px-6 py-5 whitespace-nowrap text-center">
+                                            {isSuperAdmin ? (
+                                                <div className="inline-flex flex-col items-center gap-1">
+                                                    <button
+                                                        type="button"
+                                                        role="switch"
+                                                        aria-checked={!!subscription.auto_renew}
+                                                        disabled={togglingPlanAutoRenew || isArchived}
+                                                        title={isArchived ? "Auto-renew disabled for deactivated tenants." : "Toggle Auto-Renew"}
+                                                        onClick={handleTogglePlanAutoRenew}
+                                                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${subscription.auto_renew
+                                                                ? 'bg-primary-600'
+                                                                : 'bg-gray-200 dark:bg-slate-700'
+                                                            } ${togglingPlanAutoRenew || isArchived ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    >
+                                                        <span
+                                                            aria-hidden="true"
+                                                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${subscription.auto_renew ? 'translate-x-5' : 'translate-x-0'
+                                                                }`}
+                                                        />
+                                                    </button>
+                                                    <span className={`text-[10px] font-bold ${subscription.auto_renew
+                                                            ? 'text-primary-600 dark:text-primary-400'
+                                                            : 'text-gray-400 dark:text-slate-500'
+                                                        }`}>
+                                                        {subscription.auto_renew ? 'ON' : 'OFF'}
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <span
+                                                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
+                                                        subscription.auto_renew
+                                                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
+                                                            : 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-slate-400 border border-gray-200 dark:border-slate-700'
+                                                    }`}
+                                                >
+                                                    {subscription.auto_renew ? 'Active (Auto-Renews)' : 'Manual (Off)'}
+                                                </span>
+                                            )}
                                         </td>
+
+                                        {/* Actions: Upgrade / Downgrade (Super Admin Only) */}
+                                        {isSuperAdmin && (
+                                            <td className="px-6 py-5 whitespace-nowrap text-right">
+                                                <button
+                                                    type="button"
+                                                    disabled={isArchived}
+                                                    onClick={() => setPlanSwitchModalOpen(true)}
+                                                    title={isArchived ? "Subscription changes disabled for deactivated tenants." : "Change Plan"}
+                                                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black text-primary-600 dark:text-primary-400 bg-white dark:bg-slate-800 ring-1 ring-inset ring-primary-200 dark:ring-primary-800/40 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition shadow-xs active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                                                >
+                                                    <ArrowUpDown className="h-3.5 w-3.5" />
+                                                    <span>{subscription.target_plan_name ? 'Modify Scheduled Plan' : 'Upgrade / Downgrade Plan'}</span>
+                                                </button>
+                                            </td>
+                                        )}
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* ========================================================================= */}
+            {/* SECTION: Subscription History (Previous Plans & Cycles)                   */}
+            {/* ========================================================================= */}
+            <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+                        <Clock className="h-4 w-4" />
+                    </div>
+                    <h3 className="text-base font-extrabold text-gray-900 dark:text-white tracking-tight">
+                        Subscription History
+                    </h3>
+                </div>
+                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-200/80 dark:border-slate-800 overflow-hidden">
+                    {((subscription?.history && subscription.history.length > 0) || subscription?.previous_plan) ? (
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-100 dark:divide-slate-800 text-left">
+                                <thead className="bg-gray-50/70 dark:bg-slate-800/50">
+                                    <tr>
+                                        <th className="px-6 py-3.5 text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">
+                                            Plan
+                                        </th>
+                                        <th className="px-6 py-3.5 text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">
+                                            Amount
+                                        </th>
+                                        <th className="px-6 py-3.5 text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">
+                                            Billing Period
+                                        </th>
+                                        <th className="px-6 py-3.5 text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">
+                                            Type
+                                        </th>
+                                        <th className="px-6 py-3.5 text-center text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">
+                                            Status
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                                    {((subscription?.history && subscription.history.length > 0)
+                                        ? subscription.history
+                                        : (subscription?.previous_plan ? [subscription.previous_plan] : [])
+                                    ).map((cycle, idx) => (
+                                        <tr key={cycle.id || idx} className="hover:bg-gray-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="font-extrabold text-sm text-gray-900 dark:text-white">
+                                                    {cycle.plan_name}
+                                                </div>
+                                                <div className="text-[11px] text-gray-400 font-mono">
+                                                    {cycle.plan_id}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap font-mono font-bold text-sm text-gray-900 dark:text-white">
+                                                ${Number(cycle.amount || 0).toFixed(2)} {cycle.currency || 'USD'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-600 dark:text-slate-300">
+                                                {cycle.start_date ? new Date(cycle.start_date).toLocaleDateString() : '—'} 
+                                                {' → '}
+                                                {cycle.end_date ? new Date(cycle.end_date).toLocaleDateString() : '—'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300">
+                                                    {cycle.transition_type === 'plan_switch' ? 'Plan Switch' : 'Renewal'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                                                    {cycle.status || 'Completed'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="py-8 px-4 text-center text-xs text-gray-400 dark:text-slate-500">
+                            No previous billing history available for this account.
                         </div>
                     )}
                 </div>
@@ -928,7 +1044,7 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                         </div>
                     </div>
 
-                    {onBrowseCatalog && (
+                    {isSuperAdmin && onBrowseCatalog && (
                         <button
                             onClick={onBrowseCatalog}
                             disabled={isArchived}
@@ -954,7 +1070,7 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                             <p className="text-xs text-gray-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
                                 You currently don't have any standalone add-ons. You can purchase additional extensions or DIDs anytime from the catalog.
                             </p>
-                            {onBrowseCatalog && (
+                            {isSuperAdmin && onBrowseCatalog && (
                                 <button
                                     onClick={onBrowseCatalog}
                                     disabled={isArchived}
@@ -975,7 +1091,9 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                         <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Start Date</th>
                                         <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Expiry Date</th>
                                         <th className="px-6 py-4 text-center text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Auto-Renew</th>
-                                        <th className="px-6 py-4 text-center text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Actions</th>
+                                        {isSuperAdmin && (
+                                            <th className="px-6 py-4 text-center text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-slate-400">Actions</th>
+                                        )}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
@@ -1056,51 +1174,65 @@ const TenantSubscriptionsView = ({ onBrowseCatalog, onBrowsePlans }) => {
                                                     )}
                                                 </td>
 
-                                                {/* Auto-Renew Toggle */}
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="flex w-full flex-col items-center justify-center gap-1">
-                                                        <button
-                                                            type="button"
-                                                            role="switch"
-                                                            aria-checked={!!addon.auto_renew}
-                                                            disabled={isToggling || isArchived}
-                                                            title={isArchived ? "Auto-renew disabled for deactivated tenants." : "Toggle Add-on Auto-Renew"}
-                                                            onClick={() => handleToggleAddonAutoRenew(addon)}
-                                                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${addon.auto_renew
-                                                                    ? 'bg-primary-600'
-                                                                    : 'bg-gray-200 dark:bg-slate-700'
-                                                                } ${isToggling || isArchived ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                {/* Auto-Renew Toggle / Read-Only Badge */}
+                                                <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                    {isSuperAdmin ? (
+                                                        <div className="flex w-full flex-col items-center justify-center gap-1">
+                                                            <button
+                                                                type="button"
+                                                                role="switch"
+                                                                aria-checked={!!addon.auto_renew}
+                                                                disabled={isToggling || isArchived}
+                                                                title={isArchived ? "Auto-renew disabled for deactivated tenants." : "Toggle Add-on Auto-Renew"}
+                                                                onClick={() => handleToggleAddonAutoRenew(addon)}
+                                                                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${addon.auto_renew
+                                                                        ? 'bg-primary-600'
+                                                                        : 'bg-gray-200 dark:bg-slate-700'
+                                                                    } ${isToggling || isArchived ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                            >
+                                                                <span
+                                                                    aria-hidden="true"
+                                                                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${addon.auto_renew ? 'translate-x-5' : 'translate-x-0'
+                                                                        }`}
+                                                                />
+                                                            </button>
+                                                            <span className={`text-[10px] font-bold ${addon.auto_renew
+                                                                    ? 'text-primary-600 dark:text-primary-400'
+                                                                    : 'text-gray-400 dark:text-slate-500'
+                                                                }`}>
+                                                                {addon.auto_renew ? 'ON' : 'OFF'}
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <span
+                                                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
+                                                                addon.auto_renew
+                                                                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
+                                                                    : 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-slate-400 border border-gray-200 dark:border-slate-700'
+                                                            }`}
                                                         >
-                                                            <span
-                                                                aria-hidden="true"
-                                                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${addon.auto_renew ? 'translate-x-5' : 'translate-x-0'
-                                                                    }`}
-                                                            />
-                                                        </button>
-                                                        <span className={`text-[10px] font-bold ${addon.auto_renew
-                                                                ? 'text-primary-600 dark:text-primary-400'
-                                                                : 'text-gray-400 dark:text-slate-500'
-                                                            }`}>
-                                                            {addon.auto_renew ? 'ON' : 'OFF'}
+                                                            {addon.auto_renew ? 'Active (Auto-Renews)' : 'Manual (Off)'}
                                                         </span>
-                                                    </div>
+                                                    )}
                                                 </td>
 
                                                 {/* Actions */}
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="flex w-full items-center justify-center">
-                                                        <button
-                                                            type="button"
-                                                            disabled={isArchived}
-                                                            onClick={() => setAddonToCancel(addon)}
-                                                            title={isArchived ? "Add-on operations disabled for deactivated tenants." : "Cancel Add-on"}
-                                                            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/40 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                                                        >
-                                                            <Trash2 className="h-3.5 w-3.5" />
-                                                            <span>Cancel</span>
-                                                        </button>
-                                                    </div>
-                                                </td>
+                                                {isSuperAdmin && (
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="flex w-full items-center justify-center">
+                                                            <button
+                                                                type="button"
+                                                                disabled={isArchived}
+                                                                onClick={() => setAddonToCancel(addon)}
+                                                                title={isArchived ? "Add-on operations disabled for deactivated tenants." : "Cancel Add-on"}
+                                                                className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/40 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                                <span>Cancel</span>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                )}
                                             </tr>
                                         );
                                     })}

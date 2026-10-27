@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Popover, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
-import { Bell, Check, Info, AlertTriangle, AlertCircle, PhoneMissed, DollarSign, Activity } from 'lucide-react';
+import { Bell, Check, Info, AlertTriangle, AlertCircle, PhoneMissed, DollarSign, Activity, X } from 'lucide-react';
 import { useGlobalMetrics } from '../../context/GlobalMetricsContext';
 import { notificationService } from '../../services/notification.service';
 import { formatDistanceToNow } from 'date-fns';
@@ -10,17 +10,17 @@ import { formatDistanceToNow } from 'date-fns';
 const getNotificationIcon = (type) => {
     switch (type) {
         case 'warning':
-            return <AlertTriangle className="h-5 w-5 text-amber-500" />;
+            return <AlertTriangle className="h-4 w-4 text-amber-500" />;
         case 'error':
-            return <AlertCircle className="h-5 w-5 text-red-500" />;
+            return <AlertCircle className="h-4 w-4 text-rose-500" />;
         case 'missed_call':
-            return <PhoneMissed className="h-5 w-5 text-purple-500" />;
+            return <PhoneMissed className="h-4 w-4 text-purple-500" />;
         case 'billing':
-            return <DollarSign className="h-5 w-5 text-emerald-500" />;
+            return <DollarSign className="h-4 w-4 text-emerald-500" />;
         case 'system':
-            return <Activity className="h-5 w-5 text-blue-500" />;
+            return <Activity className="h-4 w-4 text-blue-500" />;
         default:
-            return <Info className="h-5 w-5 text-gray-500" />;
+            return <Info className="h-4 w-4 text-gray-500 dark:text-slate-400" />;
     }
 };
 
@@ -173,8 +173,11 @@ const NotificationPanel = () => {
                 <>
                     <Popover.Button
                         className={`
-                            relative rounded-lg p-2 transition-all shadow-sm focus:outline-none ring-1
-                            ${open ? 'bg-primary-50 text-primary-600 ring-primary-300' : 'bg-white text-gray-400 hover:text-primary-600 hover:bg-primary-50 ring-gray-200 hover:ring-primary-300'}
+                            relative rounded-xl p-2 transition-all shadow-xs focus:outline-none border
+                            ${open
+                                ? 'bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 border-primary-300 dark:border-primary-700'
+                                : 'bg-white dark:bg-slate-900 text-gray-500 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-primary-50/60 dark:hover:bg-slate-800 border-gray-200 dark:border-slate-800'
+                            }
                         `}
                     >
                         <span className="sr-only">View notifications</span>
@@ -182,7 +185,7 @@ const NotificationPanel = () => {
                         {unreadCount > 0 && (
                             <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 ring-2 ring-white"></span>
+                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 ring-2 ring-white dark:ring-slate-900"></span>
                             </span>
                         )}
                     </Popover.Button>
@@ -197,13 +200,13 @@ const NotificationPanel = () => {
                         leaveTo="opacity-0 translate-y-1"
                     >
                         <Popover.Panel className="absolute right-0 z-50 mt-2 w-80 sm:w-96 transform px-4 sm:px-0">
-                            <div className="overflow-hidden rounded-2xl shadow-xl ring-1 ring-black/5 bg-white">
+                            <div className="overflow-hidden rounded-2xl shadow-2xl ring-1 ring-black/10 dark:ring-white/10 bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800">
                                 {/* Header */}
-                                <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 bg-gray-50/50">
-                                    <h3 className="text-sm font-bold text-gray-900 flex items-center">
+                                <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-800 px-4 py-3 bg-gray-50/80 dark:bg-slate-800/70">
+                                    <h3 className="text-sm font-extrabold text-gray-900 dark:text-white flex items-center">
                                         Notifications
                                         {unreadCount > 0 && (
-                                            <span className="ml-2 inline-flex items-center rounded-full bg-primary-50 px-2 py-0.5 text-xs font-bold text-primary-700 ring-1 ring-inset ring-primary-600/10">
+                                            <span className="ml-2 inline-flex items-center rounded-full bg-blue-50 dark:bg-blue-950/80 px-2 py-0.5 text-xs font-bold text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/50">
                                                 {unreadCount} new
                                             </span>
                                         )}
@@ -211,7 +214,7 @@ const NotificationPanel = () => {
                                     {unreadCount > 0 && (
                                         <button
                                             onClick={markAllAsRead}
-                                            className="text-xs font-semibold text-primary-600 hover:text-primary-700 transition-colors flex items-center"
+                                            className="text-xs font-bold text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors flex items-center"
                                         >
                                             <Check className="mr-1 h-3.5 w-3.5" />
                                             Mark all read
@@ -223,56 +226,81 @@ const NotificationPanel = () => {
                                 <div className="max-h-[400px] overflow-y-auto w-full">
                                     {notifications.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-                                            <div className="rounded-full bg-gray-50 p-3 mb-3 ring-1 ring-gray-100">
-                                                <Bell className="h-6 w-6 text-gray-400" />
+                                            <div className="rounded-full bg-gray-50 dark:bg-slate-800 p-3 mb-3 border border-gray-100 dark:border-slate-700">
+                                                <Bell className="h-6 w-6 text-gray-400 dark:text-slate-500" />
                                             </div>
-                                            <h4 className="text-sm font-bold text-gray-900">No notifications</h4>
-                                            <p className="mt-1 text-xs text-gray-500">You're all caught up! Check back later.</p>
+                                            <h4 className="text-sm font-bold text-gray-900 dark:text-white">No notifications</h4>
+                                            <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">You're all caught up! Check back later.</p>
                                         </div>
                                     ) : (
-                                        <div className="divide-y divide-gray-100">
+                                        <div className="divide-y divide-gray-100 dark:divide-slate-800">
                                             {notifications.map((notification) => (
                                                 <div
                                                     key={notification.id}
                                                     onClick={() => markAsRead(notification.id)}
                                                     className={`
-                                                        relative flex items-start gap-4 p-4 transition-colors cursor-pointer w-full group
-                                                        ${notification.read ? 'bg-white hover:bg-gray-50' : 'bg-primary-50/30 hover:bg-primary-50/50'}
+                                                        relative flex items-start gap-3.5 p-4 transition-colors cursor-pointer w-full group
+                                                        ${notification.read
+                                                            ? 'bg-white dark:bg-slate-900 hover:bg-gray-50/80 dark:hover:bg-slate-800/50'
+                                                            : 'bg-blue-50/30 dark:bg-slate-800/40 hover:bg-blue-50/60 dark:hover:bg-slate-800/70'
+                                                        }
                                                     `}
                                                 >
-                                                    <div className="flex-shrink-0 mt-1">
-                                                        <div className={`p-2 rounded-xl ring-1 shadow-sm ${notification.read ? 'bg-white ring-gray-200' : 'bg-white ring-primary-200 shadow-primary-500/10'}`}>
+                                                    {/* Left Icon Container */}
+                                                    <div className="flex-shrink-0 mt-0.5">
+                                                        <div className={`p-2.5 rounded-xl border shadow-xs transition-colors ${notification.read
+                                                            ? 'bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-slate-700'
+                                                            : 'bg-white dark:bg-slate-800 border-blue-200/80 dark:border-blue-800/60 shadow-blue-500/10'
+                                                            }`}>
                                                             {getNotificationIcon(notification.type)}
                                                         </div>
                                                     </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-start justify-between">
-                                                            <p className={`text-sm font-bold truncate ${notification.read ? 'text-gray-900' : 'text-primary-950'}`}>
-                                                                {notification.title}
-                                                            </p>
-                                                            <p className="text-[10px] font-medium text-gray-400 whitespace-nowrap ml-2 mt-0.5">
-                                                                {notification.time}
-                                                            </p>
+
+                                                    {/* Content & Top Action Bar */}
+                                                    <div className="flex-1 min-w-0 pr-1">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div className="flex items-center gap-2 min-w-0">
+                                                                <p className={`text-sm font-bold truncate ${notification.read
+                                                                    ? 'text-gray-700 dark:text-slate-300'
+                                                                    : 'text-gray-900 dark:text-white'
+                                                                    }`}>
+                                                                    {notification.title}
+                                                                </p>
+                                                                {!notification.read && (
+                                                                    <span className="shrink-0 inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-black uppercase tracking-wider bg-blue-100/90 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60">
+                                                                        New
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Right Actions: Time + Remove Button side-by-side */}
+                                                            <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                                                                <span className="text-[11px] font-medium text-gray-400 dark:text-slate-400 whitespace-nowrap">
+                                                                    {notification.time}
+                                                                </span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => removeNotification(notification.id, e)}
+                                                                    className="h-6 w-6 inline-flex items-center justify-center rounded-lg text-gray-400 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all focus:outline-none"
+                                                                    title="Dismiss notification"
+                                                                    aria-label="Dismiss notification"
+                                                                >
+                                                                    <X className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            </div>
                                                         </div>
-                                                        <p className={`mt-1 text-xs line-clamp-2 leading-relaxed ${notification.read ? 'text-gray-500' : 'text-gray-700 font-medium'}`}>
+
+                                                        <p className={`mt-1 text-xs line-clamp-2 leading-relaxed ${notification.read
+                                                            ? 'text-gray-500 dark:text-slate-400'
+                                                            : 'text-gray-700 dark:text-slate-300 font-medium'
+                                                            }`}>
                                                             {notification.message}
                                                         </p>
                                                     </div>
 
-                                                    {/* Delete Button (Visible on hover) */}
-                                                    <button
-                                                        onClick={(e) => removeNotification(notification.id, e)}
-                                                        className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all focus:outline-none"
-                                                        title="Dismiss"
-                                                    >
-                                                        <span className="sr-only">Dismiss</span>
-                                                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                        </svg>
-                                                    </button>
-
+                                                    {/* Active / Unread indicator bar */}
                                                     {!notification.read && (
-                                                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary-500 rounded-r-full"></div>
+                                                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-500 rounded-r-full"></div>
                                                     )}
                                                 </div>
                                             ))}
@@ -282,8 +310,8 @@ const NotificationPanel = () => {
 
                                 {/* Footer */}
                                 {notifications.length > 0 && (
-                                    <div className="p-3 bg-gray-50 border-t border-gray-100 text-center">
-                                        <button className="text-xs font-bold text-gray-600 hover:text-gray-900 transition-colors w-full p-2 outline-none focus:ring-2 focus:ring-primary-500/20 rounded-lg">
+                                    <div className="p-3 bg-gray-50/80 dark:bg-slate-800/70 border-t border-gray-100 dark:border-slate-800 text-center">
+                                        <button className="text-xs font-bold text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white transition-colors w-full p-2 outline-none focus:ring-2 focus:ring-primary-500/20 rounded-lg">
                                             View all notifications
                                         </button>
                                     </div>

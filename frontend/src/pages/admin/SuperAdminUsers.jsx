@@ -404,8 +404,9 @@ const SuperAdminUsers = () => {
                                             {selectedTenant !== 'null' && (
                                                 <button
                                                     onClick={() => handleDeleteTenant(selectedTenant)}
-                                                    className="p-3 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 transition-all active:scale-95"
-                                                    title="Destroy Tenant"
+                                                    disabled={isArchived}
+                                                    title={isArchived ? "Tenant deletion is disabled for deactivated tenants" : "Destroy Tenant"}
+                                                    className="p-3 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-red-50"
                                                 >
                                                     <Trash2 size={20} />
                                                 </button>
