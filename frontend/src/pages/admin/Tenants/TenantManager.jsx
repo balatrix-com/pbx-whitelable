@@ -1389,7 +1389,7 @@ const AssignNumberModal = ({ type, targetItem, tenantId, onClose, onSuccess }) =
                                     const val = num.number || num.id;
                                     return (
                                         <option key={num.id || val} value={val}>
-                                            {val} {num.provider ? `(${num.provider})` : ''} {num.isDemo ? '• Demo' : ''}
+                                            {val} {num.provider ? `(${num.provider})` : ''}
                                         </option>
                                     );
                                 })}

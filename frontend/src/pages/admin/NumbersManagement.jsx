@@ -14,9 +14,8 @@ const NumbersManagement = () => {
     const [search, setSearch] = useState('');
     const [showAddModal, setShowAddModal] = useState(false);
     const [showAssignModal, setShowAssignModal] = useState(null); // { type, id }
-    const [newNumber, setNewNumber] = useState({ number: '', price: '2.00', provider: 'telnyx', isDemo: false });
+    const [newNumber, setNewNumber] = useState({ number: '', price: '2.00', provider: 'telnyx' });
     const [selectedTenant, setSelectedTenant] = useState('');
-    const [demoFilter, setDemoFilter] = useState('all'); // all, standard, demo
 
     useEffect(() => {
         fetchData();
@@ -53,8 +52,7 @@ const NumbersManagement = () => {
             if (activeTab === 'tfn') {
                 await telecomService.adminAddTFNBulk({
                     numbers: numberList,
-                    price: parseFloat(newNumber.price),
-                    isDemo: newNumber.isDemo
+                    price: parseFloat(newNumber.price)
                 });
             } else {
                 await telecomService.adminAddDIDBulk({
@@ -64,7 +62,7 @@ const NumbersManagement = () => {
                 });
             }
             setShowAddModal(false);
-            setNewNumber({ number: '', price: '2.00', provider: 'telnyx', isDemo: false });
+            setNewNumber({ number: '', price: '2.00', provider: 'telnyx' });
             fetchData();
         } catch (error) {
             alert(error.response?.data?.message || 'Failed to add number');
@@ -109,13 +107,7 @@ const NumbersManagement = () => {
 
     const currentNumbers = activeTab === 'tfn' ? numbers.tfns : numbers.dids;
     const filteredNumbers = currentNumbers.filter(n => {
-        const matchesSearch = n.number.includes(search) || n.tenant?.name?.toLowerCase().includes(search.toLowerCase());
-        if (activeTab === 'did') return matchesSearch;
-
-        const matchesDemoFilter = demoFilter === 'all' ||
-            (demoFilter === 'demo' && n.isDemo) ||
-            (demoFilter === 'standard' && !n.isDemo);
-        return matchesSearch && matchesDemoFilter;
+        return n.number.includes(search) || n.tenant?.name?.toLowerCase().includes(search.toLowerCase());
     });
 
     if (!isSuperAdmin) return <div className="p-8">Access Denied</div>;
@@ -167,29 +159,6 @@ const NumbersManagement = () => {
                 />
             </div>
 
-            {/* Sub-Filters for TFN */}
-            {activeTab === 'tfn' && (
-                <div className="flex gap-1 bg-gray-50 p-1 rounded-xl w-fit border border-gray-100">
-                    <button
-                        onClick={() => setDemoFilter('all')}
-                        className={`px-4 py-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-widest transition-all ${demoFilter === 'all' ? 'bg-primary-600 text-white shadow-md shadow-primary-600/20' : 'text-gray-400 hover:text-gray-600'}`}
-                    >
-                        All TFNs
-                    </button>
-                    <button
-                        onClick={() => setDemoFilter('standard')}
-                        className={`px-4 py-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-widest transition-all ${demoFilter === 'standard' ? 'bg-white text-primary-600 shadow-sm border border-gray-100' : 'text-gray-400 hover:text-gray-600'}`}
-                    >
-                        Standard
-                    </button>
-                    <button
-                        onClick={() => setDemoFilter('demo')}
-                        className={`px-4 py-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-widest transition-all ${demoFilter === 'demo' ? 'bg-amber-100 text-amber-700 border border-amber-200 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
-                    >
-                        Demo Pool
-                    </button>
-                </div>
-            )}
 
             {/* List */}
             <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
@@ -218,11 +187,6 @@ const NumbersManagement = () => {
                                                     <Hash size={16} />
                                                 </div>
                                                 <span className="font-extrabold text-gray-900 text-base md:text-lg">{n.number}</span>
-                                                {n.isDemo && (
-                                                    <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-amber-100 text-amber-700 border border-amber-200 uppercase tracking-tighter">
-                                                        DEMO
-                                                    </span>
-                                                )}
                                             </div>
                                         </td>
                                         <td className="hidden sm:table-cell px-6 py-5">
