@@ -155,6 +155,10 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                 return false;
             }
         }
+
+        if (!/^\d{10}$/.test(basicInfo.phone)) {
+            return false;
+        }
         return true;
     };
 
@@ -196,6 +200,12 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                 ? `Please fill in the required field: ${missingFields[0]}`
                 : `Please fill in the following required fields: ${missingFields.join(', ')}`;
             setError(message);
+            setIsValidationError(true);
+            return false;
+        }
+
+        if (!/^\d{10}$/.test(basicInfo.phone)) {
+            setError('Phone number must contain exactly 10 digits.');
             setIsValidationError(true);
             return false;
         }
@@ -297,10 +307,18 @@ const TenantWizard = ({ onClose, onSuccess }) => {
             }
         } catch (err) {
             console.error('Tenant creation sequence failed:', err);
-            const msg = err.response?.data?.message || err.message || 'Failed during tenant creation sequence';
+            let msg = err.response?.data?.message || err.message || 'Failed during tenant creation sequence';
+
+            // Check if it failed because the email already exists or is an internal server error during creation
+            const rawMsg = (typeof msg === 'string' ? msg : JSON.stringify(msg)).toLowerCase();
+            if (rawMsg.includes('email already exists') || rawMsg.includes('internal server error') || err.response?.status === 500) {
+                msg = 'Email ID already exists';
+            }
+
             setError(msg);
             setIsValidationError(false);  // API error, not validation
-        } finally {
+        }
+        finally {
             setLoading(false);
             setStatusMessage('');
         }
@@ -467,10 +485,14 @@ const TenantWizard = ({ onClose, onSuccess }) => {
                                 type="tel"
                                 name="tenant_phone"
                                 autoComplete="off"
+                                inputMode="numeric"
+                                maxLength={10}
                                 className={inputClass}
                                 value={basicInfo.phone}
-                                onChange={e => setBasicInfo({ ...basicInfo, phone: e.target.value })}
-                                placeholder="1234567890"
+                                onChange={e => {
+                                    const phone = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                    setBasicInfo(prev => ({ ...prev, phone }));
+                                }} placeholder="1234567890"
                             />
                         </div>
                         <div>
