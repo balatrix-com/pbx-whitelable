@@ -299,8 +299,7 @@ export class OnboardingService {
         return this.prisma.tFN.findMany({
             where: {
                 status: TFNStatus.AVAILABLE,
-                tenantId: null,
-                // Removed isDemo: false to show all available numbers as requested
+                tenantId: null
             },
             orderBy: { number: 'asc' }
         });
