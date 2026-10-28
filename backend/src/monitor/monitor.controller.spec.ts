@@ -31,6 +31,18 @@ describe('MonitorController', () => {
             expect(classRoles).toEqual(expect.arrayContaining([Role.SUPER_ADMIN, Role.ADMIN, Role.SUPPORT]));
         });
 
+        it('has @Roles defined directly on the getActiveCalls method handler', () => {
+            const methodRoles = reflector.get<Role[]>(ROLES_KEY, MonitorController.prototype.getActiveCalls);
+            expect(methodRoles).toBeDefined();
+            expect(methodRoles).toEqual(expect.arrayContaining([Role.SUPER_ADMIN, Role.ADMIN, Role.SUPPORT]));
+        });
+
+        it('has @Roles defined directly on the initiateBarge method handler', () => {
+            const methodRoles = reflector.get<Role[]>(ROLES_KEY, MonitorController.prototype.initiateBarge);
+            expect(methodRoles).toBeDefined();
+            expect(methodRoles).toEqual(expect.arrayContaining([Role.SUPER_ADMIN, Role.ADMIN, Role.SUPPORT]));
+        });
+
         it.each([Role.SUPER_ADMIN, Role.ADMIN, Role.SUPPORT])('allows %s in RolesGuard', (role) => {
             const context = {
                 getHandler: () => MonitorController.prototype.getActiveCalls,

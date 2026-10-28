@@ -21,6 +21,7 @@ export class MonitorController {
     constructor(private readonly monitorService: MonitorService) { }
 
     @Get('active-calls')
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.SUPPORT)
     @Header('Cache-Control', 'no-store, no-cache, must-revalidate')
     @Header('Pragma', 'no-cache')
     @Header('Expires', '0')
