@@ -1,108 +1,444 @@
-.accept-invite-page {
+/* AcceptInvitePage — keyframe animations */
+
+@keyframes aip-blob1 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33%       { transform: translate(40px, -50px) scale(1.15); }
+    66%       { transform: translate(-30px, 30px) scale(0.9); }
+}
+@keyframes aip-blob2 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33%       { transform: translate(-50px, 30px) scale(1.1); }
+    66%       { transform: translate(30px, -40px) scale(0.95); }
+}
+@keyframes aip-blob3 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50%       { transform: translate(20px, 40px) scale(1.08); }
+}
+
+@keyframes aip-float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50%       { transform: translateY(-12px) rotate(5deg); }
+}
+@keyframes aip-floatB {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50%       { transform: translateY(-8px) rotate(-4deg); }
+}
+
+@keyframes aip-fadein {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes aip-success-pop {
+    0%   { transform: scale(0.6); opacity: 0; }
+    70%  { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes aip-spin-slow {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+@keyframes aip-pulse-ring {
+    0%   { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); }
+    70%  { box-shadow: 0 0 0 10px rgba(99,102,241,0); }
+    100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
+}
+
+@keyframes aip-shimmer {
+    0%   { background-position: -200% center; }
+    100% { background-position:  200% center; }
+}
+
+@keyframes aip-dot-bounce {
+    0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+    40%           { transform: scale(1);   opacity: 1; }
+}
+
+/* ── wrapper ── */
+.aip-page {
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    padding: 1rem;
+    padding: 1.5rem;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    position: relative;
+    overflow: hidden;
+    background: #0f0c29;
+    background: linear-gradient(135deg, #0f0c29 0%, #1a1060 40%, #24243e 100%);
 }
 
-.accept-card {
-    background: white;
-    padding: 2.5rem;
-    border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-    width: 100%;
-    max-width: 450px;
-    text-align: center;
-}
-
-.accept-card h2 {
-    color: #1a1a1a;
-    margin-bottom: 0.5rem;
-    font-size: 1.75rem;
-}
-
-.accept-card p {
-    color: #666;
-    margin-bottom: 2rem;
-}
-
-.success-icon {
-    width: 64px;
-    height: 64px;
-    background: #e8f5e9;
-    color: #2e7d32;
+/* animated blobs */
+.aip-blob {
+    position: absolute;
     border-radius: 50%;
+    filter: blur(70px);
+    opacity: 0.55;
+    pointer-events: none;
+    mix-blend-mode: screen;
+}
+.aip-blob-1 {
+    width: 520px; height: 520px;
+    top: -140px; left: -140px;
+    background: radial-gradient(circle, #6366f1 0%, #8b5cf6 60%, transparent 100%);
+    animation: aip-blob1 18s ease-in-out infinite;
+}
+.aip-blob-2 {
+    width: 440px; height: 440px;
+    bottom: -120px; right: -100px;
+    background: radial-gradient(circle, #06b6d4 0%, #3b82f6 60%, transparent 100%);
+    animation: aip-blob2 22s ease-in-out infinite;
+}
+.aip-blob-3 {
+    width: 300px; height: 300px;
+    top: 55%; left: 40%;
+    background: radial-gradient(circle, #ec4899 0%, #f43f5e 60%, transparent 100%);
+    animation: aip-blob3 16s ease-in-out infinite;
+    opacity: 0.3;
+}
+
+/* floating sparkle dots */
+.aip-spark {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+}
+.aip-spark-1 { width:8px;height:8px; background:#a5b4fc; top:12%; left:18%; animation: aip-float 4.5s ease-in-out infinite; }
+.aip-spark-2 { width:5px;height:5px; background:#67e8f9; top:70%; left:8%;  animation: aip-floatB 5.5s ease-in-out infinite 0.5s; }
+.aip-spark-3 { width:6px;height:6px; background:#f9a8d4; top:20%; right:12%; animation: aip-float 6s ease-in-out infinite 1s; }
+.aip-spark-4 { width:4px;height:4px; background:#fde68a; bottom:18%; right:20%; animation: aip-floatB 4s ease-in-out infinite 0.3s; }
+.aip-spark-5 { width:10px;height:10px; background:#c4b5fd; bottom:30%; left:14%; animation: aip-float 7s ease-in-out infinite 0.8s; opacity:0.6; }
+
+/* ── glass card ── */
+.aip-card {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    max-width: 680px;
+    border-radius: 28px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.07);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255,255,255,0.15);
+    box-shadow:
+        0 32px 80px rgba(0,0,0,0.45),
+        0 0 0 0.5px rgba(255,255,255,0.08) inset,
+        0 1px 0 rgba(255,255,255,0.18) inset;
+    animation: aip-fadein 0.7s cubic-bezier(.22,1,.36,1) both;
+}
+
+/* ── LEFT form panel ── */
+.aip-form-side {
+    flex: 1 1 0;
+    padding: 3rem 2.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* ── RIGHT illustration panel ── */
+.aip-illus-side {
+    flex: 0 0 210px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2.5rem 1.5rem;
+    gap: 22px;
+    background: rgba(255,255,255,0.04);
+    border-left: 1px solid rgba(255,255,255,0.1);
+    position: relative;
+    overflow: hidden;
+}
+/* subtle concentric ring decoration */
+.aip-illus-side::before {
+    content: '';
+    position: absolute;
+    width: 320px; height: 320px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.06);
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    pointer-events: none;
+}
+.aip-illus-side::after {
+    content: '';
+    position: absolute;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.08);
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    pointer-events: none;
+}
+
+.aip-shield-wrap {
+    animation: aip-float 5s ease-in-out infinite;
+    filter: drop-shadow(0 12px 28px rgba(99,102,241,0.55));
+    position: relative;
+    z-index: 1;
+}
+
+.aip-illus-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 99px;
+    padding: 4px 12px;
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    position: relative;
+    z-index: 1;
+}
+.aip-illus-badge-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 6px #4ade80;
+    animation: aip-pulse-ring 2s infinite;
+}
+
+.aip-illus-text {
+    text-align: center;
+    font-size: 13px;
+    color: rgba(255,255,255,0.55);
+    line-height: 1.65;
+    font-weight: 400;
+    max-width: 155px;
+    position: relative;
+    z-index: 1;
+}
+
+/* ── Typography ── */
+.aip-eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #a5b4fc;
+    margin: 0 0 10px;
+}
+
+.aip-title {
+    font-size: 1.9rem;
+    font-weight: 800;
+    margin: 0 0 6px;
+    letter-spacing: -0.5px;
+    line-height: 1.15;
+    background: linear-gradient(135deg, #fff 30%, #c7d2fe 80%, #a5b4fc 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.aip-subtitle {
+    font-size: 14px;
+    color: rgba(255,255,255,0.45);
+    margin: 0 0 28px;
+    font-weight: 400;
+}
+
+/* ── Error ── */
+.aip-error {
+    background: rgba(239,68,68,0.12);
+    border: 1px solid rgba(239,68,68,0.35);
+    color: #fca5a5;
+    border-radius: 12px;
+    padding: 11px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ── Form fields ── */
+.aip-field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 18px; }
+
+.aip-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.55);
+    letter-spacing: 0.3px;
+}
+
+.aip-input-wrap { position: relative; }
+
+.aip-input {
+    width: 100%;
+    padding: 13px 46px 13px 16px;
+    border: 1.5px solid rgba(255,255,255,0.12);
+    border-radius: 14px;
+    font-size: 15px;
+    color: #fff;
+    background: rgba(255,255,255,0.07);
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+    letter-spacing: 2px;
+    -webkit-text-security: none;
+    caret-color: #a5b4fc;
+}
+.aip-input::placeholder { color: rgba(255,255,255,0.22); letter-spacing: 3px; }
+.aip-input:focus {
+    border-color: rgba(165,180,252,0.7);
+    background: rgba(255,255,255,0.1);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.2);
+}
+.aip-input-error { border-color: rgba(239,68,68,0.6) !important; }
+
+.aip-eye-btn {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 0;
+    color: rgba(255,255,255,0.35);
+    transition: color 0.2s;
+}
+.aip-eye-btn:hover { color: rgba(255,255,255,0.7); }
+
+/* ── Strength bar ── */
+.aip-strength-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+}
+.aip-strength-track {
+    flex: 1;
+    height: 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 99px;
+    overflow: hidden;
+}
+.aip-strength-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.4s cubic-bezier(.22,1,.36,1), background 0.4s;
+}
+.aip-strength-label {
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* ── Submit button ── */
+.aip-btn {
+    display: block;
+    width: 100%;
+    margin-top: 26px;
+    padding: 15px;
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #7c3aed 100%);
+    background-size: 200% auto;
+    color: #ffffff;
+    border: none;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+    transition: background-position 0.4s ease, transform 0.15s, box-shadow 0.2s;
+    box-shadow: 0 6px 24px rgba(99,102,241,0.45), 0 1px 0 rgba(255,255,255,0.1) inset;
+    position: relative;
+    overflow: hidden;
+}
+.aip-btn::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 60%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    transform: skewX(-15deg);
+    transition: left 0.5s;
+}
+.aip-btn:hover:not(:disabled)::before { left: 150%; }
+.aip-btn:hover:not(:disabled) {
+    background-position: right center;
+    box-shadow: 0 10px 32px rgba(99,102,241,0.55), 0 1px 0 rgba(255,255,255,0.1) inset;
+    transform: translateY(-1px);
+}
+.aip-btn:active:not(:disabled) { transform: translateY(1px); }
+.aip-btn:disabled {
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.35);
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+/* ── Loading dots ── */
+.aip-dots { display: inline-flex; gap: 4px; align-items: center; }
+.aip-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: white;
+    animation: aip-dot-bounce 1.2s infinite ease-in-out;
+}
+.aip-dot:nth-child(2) { animation-delay: 0.2s; }
+.aip-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* ── Success screen ── */
+.aip-success-wrap {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    padding: 3.5rem 2.5rem;
+    animation: aip-fadein 0.6s ease both;
+    background: rgba(255,255,255,0.07);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 28px;
+    max-width: 400px;
+    width: 100%;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.45);
+}
+.aip-success-ring {
+    width: 90px; height: 90px;
+    border-radius: 50%;
+    background: rgba(74,222,128,0.12);
+    border: 2px solid rgba(74,222,128,0.4);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2rem;
-    margin: 0 auto 1.5rem;
+    margin: 0 auto 22px;
+    animation: aip-success-pop 0.6s cubic-bezier(.22,1,.36,1) both;
+    box-shadow: 0 0 30px rgba(74,222,128,0.25);
 }
+.aip-success-title {
+    font-size: 1.6rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #fff 30%, #a7f3d0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0 0 8px;
+}
+.aip-success-sub { font-size: 14px; color: rgba(255,255,255,0.45); margin: 0; }
+.aip-success-redirect { font-size: 12px; color: rgba(255,255,255,0.25); margin-top: 12px; font-style: italic; }
 
-.redirect-text {
-    font-size: 0.875rem;
-    font-style: italic;
-    margin-top: 1rem;
+/* ── Divider ── */
+.aip-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 24px 0 0;
 }
-
-.form-group {
-    text-align: left;
-    margin-bottom: 1.5rem;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-    color: #333;
-    font-size: 0.9rem;
-}
-
-.form-group input {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    font-size: 1rem;
-    transition: all 0.2s;
-}
-
-.form-group input:focus {
-    outline: none;
-    border-color: #1976d2;
-    box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
-}
-
-.error-message {
-    background: #ffebee;
-    color: #c62828;
-    padding: 0.75rem;
-    border-radius: 6px;
-    margin-bottom: 1.5rem;
-    font-size: 0.9rem;
-    text-align: left;
-}
-
-.submit-btn {
-    width: 100%;
-    padding: 0.875rem;
-    background: #1976d2;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.submit-btn:hover {
-    background: #1565c0;
-}
-
-.submit-btn:disabled {
-    background: #ccc;
-    cursor: not-allowed;
-}
+.aip-divider-line { flex: 1; height: 1px; background: rgba(255,255,255,0.08); }
+.aip-divider-text { font-size: 11px; color: rgba(255,255,255,0.25); white-space: nowrap; }

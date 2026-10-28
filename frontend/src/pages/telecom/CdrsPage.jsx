@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Download, Search, Filter, DollarSign, PhoneOff, ArrowDownRight, ArrowUpRight, History, Calendar, Play, Pause, Loader2, Users, Wallet, Info } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Download, Search, Filter, DollarSign, PhoneOff, ArrowDownRight, ArrowUpRight, History, Calendar, Play, Pause, Loader2, Users, Wallet, Info, Volume2, VolumeX, MoreVertical } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay, startOfMonth } from 'date-fns';
 import { telecomService } from '../../services/telecom.service';
 import api from '../../services/api';
@@ -8,11 +8,24 @@ import { useBillingIntelligence } from '../../hooks/useBillingIntelligence';
 import { useAuth } from '../../context/AuthContext';
 
 
+const PLAYBACK_SPEEDS = [0.75, 1, 1.25, 1.5, 2];
+
 const PlaybackButton = ({ uuid, cdr }) => {
     const [status, setStatus] = useState('idle'); // 'idle' | 'loading' | 'playing' | 'none'
     const [audioUrl, setAudioUrl] = useState(null);
     const [downloading, setDownloading] = useState(false);
-    const audioRef = React.useRef(null);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const [volume, setVolume] = useState(1);
+    const [muted, setMuted] = useState(false);
+    const [playbackSpeed, setPlaybackSpeed] = useState(1);
+    const [showMenu, setShowMenu] = useState(false);
+    const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+    const [menuPlacement, setMenuPlacement] = useState('bottom'); // 'top' or 'bottom'
+    const audioRef = useRef(null);
+    const menuRef = useRef(null);
+    const volumeRef = useRef(null);
+    const menuBtnRef = useRef(null);
 
     // Strictly check if has_recording / hasRecording in the CDR payload is true
     const hasRecording = Boolean(
@@ -22,9 +35,29 @@ const PlaybackButton = ({ uuid, cdr }) => {
         cdr?.has_recording === 1
     );
 
+    // Close menus on outside click
+    useEffect(() => {
+        const handler = (e) => {
+            if (menuRef.current && !menuRef.current.contains(e.target) && (!menuBtnRef.current || !menuBtnRef.current.contains(e.target))) {
+                setShowMenu(false);
+            }
+            if (volumeRef.current && !volumeRef.current.contains(e.target)) {
+                setShowVolumeSlider(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
     if (!hasRecording || status === 'none') {
-        return <span className="text-gray-300 font-medium">-</span>;
+        return <span className="text-gray-300 font-medium text-xs">—</span>;
     }
+
+    const fmt = (sec) => {
+        const s = Math.floor(sec);
+        const m = Math.floor(s / 60);
+        return `${m}:${String(s % 60).padStart(2, '0')}`;
+    };
 
     const handlePlay = async () => {
         if (status === 'playing') {
@@ -52,6 +85,7 @@ const PlaybackButton = ({ uuid, cdr }) => {
     const handleDownload = async () => {
         if (downloading) return;
         setDownloading(true);
+        setShowMenu(false);
         try {
             let downloadUrl = audioUrl;
             if (!downloadUrl) {
@@ -67,10 +101,52 @@ const PlaybackButton = ({ uuid, cdr }) => {
             document.body.removeChild(link);
         } catch (e) {
             console.error('Failed to download recording:', e);
-            setStatus('none');
         } finally {
             setDownloading(false);
         }
+    };
+
+    const handleSeek = (e) => {
+        const val = Number(e.target.value);
+        if (audioRef.current) {
+            audioRef.current.currentTime = val;
+            setCurrentTime(val);
+        }
+    };
+
+    const handleVolumeChange = (e) => {
+        const val = Number(e.target.value);
+        setVolume(val);
+        if (audioRef.current) audioRef.current.volume = val;
+        if (val === 0) setMuted(true);
+        else setMuted(false);
+    };
+
+    const toggleMute = () => {
+        if (!audioRef.current) return;
+        const next = !muted;
+        setMuted(next);
+        audioRef.current.muted = next;
+    };
+
+    const applySpeed = (speed) => {
+        setPlaybackSpeed(speed);
+        if (audioRef.current) audioRef.current.playbackRate = speed;
+        setShowMenu(false);
+    };
+
+    const toggleMenu = () => {
+        if (!showMenu && menuBtnRef.current) {
+            const rect = menuBtnRef.current.getBoundingClientRect();
+            // If there's less than 240px below the button, position menu above
+            if (window.innerHeight - rect.bottom < 240) {
+                setMenuPlacement('top');
+            } else {
+                setMenuPlacement('bottom');
+            }
+        }
+        setShowMenu(v => !v);
+        setShowVolumeSlider(false);
     };
 
     useEffect(() => {
@@ -79,27 +155,114 @@ const PlaybackButton = ({ uuid, cdr }) => {
         }
     }, [audioUrl, status]);
 
+    const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+
     return (
         <div className="flex items-center gap-2">
-            <button
-                onClick={handlePlay}
-                disabled={status === 'loading'}
-                title="Play / Pause Recording"
-                className="w-8 h-8 rounded-lg bg-indigo-50/80 text-indigo-600 hover:bg-indigo-100/90 active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
-            >
-                {status === 'loading' ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
-                ) : status === 'playing' ? (
-                    <Pause className="w-4 h-4 text-indigo-600 fill-indigo-600" />
-                ) : (
-                    <Play className="w-4 h-4 text-indigo-600 ml-0.5" />
-                )}
-            </button>
+            {/* Player bar */}
+            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-2.5 py-1.5 shadow-sm min-w-[200px]">
+                {/* Play / Pause */}
+                <button
+                    onClick={handlePlay}
+                    disabled={status === 'loading'}
+                    className="w-7 h-7 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-700 hover:bg-gray-100 active:scale-95 transition-all disabled:opacity-50 shrink-0"
+                    title={status === 'playing' ? 'Pause' : 'Play'}
+                >
+                    {status === 'loading' ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+                    ) : status === 'playing' ? (
+                        <Pause className="w-3 h-3 fill-gray-700 text-gray-700" />
+                    ) : (
+                        <Play className="w-3 h-3 fill-gray-700 text-gray-700 ml-0.5" />
+                    )}
+                </button>
+
+                {/* Time + Seek */}
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    <span className="text-[10px] font-bold text-gray-500 tabular-nums shrink-0">{fmt(currentTime)}</span>
+                    <div className="relative flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                            className="absolute left-0 top-0 h-full bg-indigo-500 rounded-full transition-all"
+                            style={{ width: `${progress}%` }}
+                        />
+                        <input
+                            type="range"
+                            min={0}
+                            max={duration || 0}
+                            step={0.1}
+                            value={currentTime}
+                            onChange={handleSeek}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                    </div>
+                    <span className="text-[10px] font-bold text-gray-400 tabular-nums shrink-0">{fmt(duration)}</span>
+                </div>
+
+                {/* Volume */}
+                <div className="relative shrink-0" ref={volumeRef}>
+                    <button
+                        onClick={() => { setShowVolumeSlider(v => !v); setShowMenu(false); }}
+                        className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+                        title="Volume"
+                    >
+                        {muted || volume === 0 ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                    </button>
+                    {showVolumeSlider && (
+                        <div className="absolute bottom-full right-0 mb-2 bg-white border border-gray-200 shadow-xl rounded-xl px-3 py-2.5 z-50 flex flex-col items-center gap-1.5" style={{ width: 40 }}>
+                            <input
+                                type="range"
+                                min={0}
+                                max={1}
+                                step={0.05}
+                                value={muted ? 0 : volume}
+                                onChange={handleVolumeChange}
+                                className="h-20 cursor-pointer accent-indigo-500"
+                                style={{ writingMode: 'vertical-lr', direction: 'rtl', WebkitAppearance: 'slider-vertical' }}
+                            />
+                            <span className="text-[9px] font-bold text-gray-400">{muted ? 0 : Math.round(volume * 100)}%</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Three-dot Menu */}
+                <div className="relative shrink-0" ref={menuRef}>
+                    <button
+                        ref={menuBtnRef}
+                        onClick={toggleMenu}
+                        className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors rounded-full hover:bg-gray-100"
+                        title="More options"
+                    >
+                        <MoreVertical className="w-3.5 h-3.5" />
+                    </button>
+                    {showMenu && (
+                        <div className={`absolute ${menuPlacement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'} right-0 bg-white border border-gray-200 shadow-2xl rounded-2xl py-2 z-50 min-w-[160px]`}>
+                            {/* Divider + Speed */}
+                            <div className="px-4 pt-2 pb-1">
+                                <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">Playback Speed</p>
+                            </div>
+                            {PLAYBACK_SPEEDS.map((speed) => (
+                                <button
+                                    key={speed}
+                                    onClick={() => applySpeed(speed)}
+                                    className={`w-full text-left px-4 py-2 text-sm font-semibold transition-colors ${playbackSpeed === speed
+                                            ? 'bg-indigo-50 text-indigo-700'
+                                            : 'text-gray-700 hover:bg-gray-50'
+                                        }`}
+                                >
+                                    {speed}×
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Dedicated Download Button */}
             <button
                 onClick={handleDownload}
                 disabled={downloading}
                 title="Download Recording"
-                className="w-8 h-8 rounded-lg bg-emerald-50/80 text-emerald-600 hover:bg-emerald-100/90 active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
+                className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-600 hover:bg-emerald-100 active:scale-95 transition-all flex items-center justify-center disabled:opacity-50 shrink-0 shadow-sm"
             >
                 {downloading ? (
                     <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
@@ -107,12 +270,17 @@ const PlaybackButton = ({ uuid, cdr }) => {
                     <Download className="w-4 h-4 text-emerald-600" />
                 )}
             </button>
+
+            {/* Hidden audio element */}
             {audioUrl && (
                 <audio
                     ref={audioRef}
                     src={audioUrl}
                     onEnded={() => setStatus('idle')}
-                    onPause={() => setStatus('idle')}
+                    onPause={() => { if (status === 'playing') setStatus('idle'); }}
+                    onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
+                    onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
+                    onDurationChange={() => setDuration(audioRef.current?.duration || 0)}
                     className="hidden"
                 />
             )}
@@ -423,7 +591,7 @@ const CdrsPage = () => {
             </div>
 
             {/* Table Section */}
-            <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200">
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-24">
                         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600 mb-4"></div>
@@ -439,7 +607,7 @@ const CdrsPage = () => {
                     </div>
                 ) : (
                     <>
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto pb-4">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50/50">
                                     <tr>
@@ -454,9 +622,7 @@ const CdrsPage = () => {
                                         <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Recording Charge</th>
                                         <th scope="col" className="hidden md:table-cell px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Total Amount</th>
                                         <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Status</th>
-                                        {!isSuperAdmin && (
-                                            <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Recording</th>
-                                        )}
+                                        <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Recording</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -505,11 +671,9 @@ const CdrsPage = () => {
                                                     <span className="text-xs font-bold text-gray-600 capitalize md:text-sm">{cdr.status}</span>
                                                 </div>
                                             </td>
-                                            {!isSuperAdmin && (
-                                                <td className="whitespace-nowrap px-3 py-4">
-                                                    <PlaybackButton uuid={cdr.uuid} cdr={cdr} />
-                                                </td>
-                                            )}
+                                            <td className="px-3 py-4">
+                                                <PlaybackButton uuid={cdr.uuid} cdr={cdr} />
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
