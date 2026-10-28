@@ -17,9 +17,9 @@ describe('Tenant-owned routing targets', () => {
             dID: { findFirst: jest.fn().mockResolvedValue({ id: 'did-a', tenantId: 'tenant-a', number: '100', routeType: 'extension', routeTargetId: 'ext-a' }), update: jest.fn().mockResolvedValue({ id: 'did-a', number: '100' }) },
             tFN: { findFirst: jest.fn().mockResolvedValue({ id: 'tfn-a', tenantId: 'tenant-a', number: '200', routeType: 'extension', routeTargetId: 'ext-a' }), findUnique: jest.fn().mockResolvedValue({ id: 'tfn-a', tenantId: 'tenant-a', number: '200', routeType: 'extension', routeTargetId: 'ext-a' }), update: jest.fn().mockResolvedValue({ id: 'tfn-a', tenantId: 'tenant-a', number: '200' }) },
             extension: { findFirst: jest.fn(({ where }: any) => Promise.resolve(where.id === 'ext-a' && where.tenantId === 'tenant-a' ? { id: 'ext-a' } : null)) },
-            operationalSchedule: { findFirst: jest.fn().mockResolvedValue({ id: 'schedule-a', tenantId: 'tenant-a', primaryRouteType: 'extension', primaryRouteTarget: 'ext-a', afterHoursRouteType: 'ring_group', afterHoursRouteTarget: 'ring-a', weekendRouteType: '', weekendRouteTarget: '' }), update: jest.fn().mockResolvedValue({ id: 'schedule-a', name: 'A' }) },
+            operationalSchedule: { findFirst: jest.fn(({ where }: any) => Promise.resolve(where?.id === 'schedule-a' && where?.tenantId === 'tenant-a' ? { id: 'schedule-a', tenantId: 'tenant-a', primaryRouteType: 'extension', primaryRouteTarget: 'ext-a', afterHoursRouteType: 'ring_group', afterHoursRouteTarget: 'ring-a', weekendRouteType: '', weekendRouteTarget: '' } : null)), update: jest.fn().mockResolvedValue({ id: 'schedule-a', name: 'A' }) },
             ringGroup: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn(), count: jest.fn().mockResolvedValue(0) },
-            iVR: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn() },
+            iVR: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn(), count: jest.fn().mockResolvedValue(0) },
             dIDForward: { findFirst: jest.fn().mockResolvedValue(null) },
             tenantFeature: { findUnique: jest.fn().mockResolvedValue(null) },
         };

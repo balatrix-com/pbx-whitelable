@@ -8,6 +8,7 @@ import { formatCustomerId } from '../../utils/billing.utils';
 const NumbersManagement = () => {
     const { isSuperAdmin } = useAuth();
     const [activeTab, setActiveTab] = useState('tfn');
+    const [tfnFilter, setTfnFilter] = useState('all'); // 'all' | 'available'
     const [numbers, setNumbers] = useState({ tfns: [], dids: [] });
     const [tenants, setTenants] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -105,9 +106,19 @@ const NumbersManagement = () => {
         }
     };
 
+    const availableTfnsCount = numbers.tfns.filter(n => !n.tenant && (!n.status || n.status === 'AVAILABLE')).length;
+
     const currentNumbers = activeTab === 'tfn' ? numbers.tfns : numbers.dids;
     const filteredNumbers = currentNumbers.filter(n => {
-        return n.number.includes(search) || n.tenant?.name?.toLowerCase().includes(search.toLowerCase());
+        const matchesSearch = (n.number || '').toLowerCase().includes(search.toLowerCase()) ||
+            (n.tenant?.name || '').toLowerCase().includes(search.toLowerCase());
+
+        if (activeTab === 'tfn' && tfnFilter === 'available') {
+            const isAvailable = !n.tenant && (!n.status || n.status === 'AVAILABLE');
+            return matchesSearch && isAvailable;
+        }
+
+        return matchesSearch;
     });
 
     if (!isSuperAdmin) return <div className="p-8">Access Denied</div>;
@@ -147,18 +158,59 @@ const NumbersManagement = () => {
                 </button>
             </div>
 
-            {/* Search */}
-            <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input
-                    type="text"
-                    placeholder="Search by number or tenant name..."
-                    className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:border-transparent shadow-sm font-medium"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                />
-            </div>
+            {/* Search & Filters */}
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+                <div className="relative flex-1">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                    <input
+                        type="text"
+                        placeholder="Search by number or tenant name..."
+                        className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:border-transparent shadow-sm font-medium"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
+                </div>
 
+                {activeTab === 'tfn' && (
+                    <div className="flex items-center gap-1.5 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 shrink-0 self-start sm:self-auto">
+                        <button
+                            type="button"
+                            onClick={() => setTfnFilter('all')}
+                            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all duration-200 ${
+                                tfnFilter === 'all'
+                                    ? 'bg-white text-indigo-900 shadow-sm border border-indigo-200/80 ring-1 ring-indigo-500/10'
+                                    : 'text-slate-500 hover:text-slate-900'
+                            }`}
+                        >
+                            All TFNs
+                            <span className={`ml-1.5 px-2 py-0.5 rounded-full text-xs font-bold ${
+                                tfnFilter === 'all' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-200 text-slate-700'
+                            }`}>
+                                {numbers.tfns.length}
+                            </span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setTfnFilter(tfnFilter === 'available' ? 'all' : 'available')}
+                            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all duration-200 flex items-center gap-1.5 ${
+                                tfnFilter === 'available'
+                                    ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500/20'
+                                    : 'text-slate-500 hover:text-slate-900'
+                            }`}
+                        >
+                            <CheckCircle2 size={15} className={tfnFilter === 'available' ? 'text-white' : 'text-emerald-500'} />
+                            <span>Available TFNs</span>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                tfnFilter === 'available'
+                                    ? 'bg-emerald-700 text-white'
+                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            }`}>
+                                {availableTfnsCount}
+                            </span>
+                        </button>
+                    </div>
+                )}
+            </div>
 
             {/* List */}
             <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
@@ -177,7 +229,27 @@ const NumbersManagement = () => {
                             {loading ? (
                                 <tr><td colSpan="5" className="p-12 text-center text-gray-400 font-bold">Loading inventory...</td></tr>
                             ) : filteredNumbers.length === 0 ? (
-                                <tr><td colSpan="5" className="p-12 text-center text-gray-400 font-bold">No numbers found matching your criteria.</td></tr>
+                                <tr>
+                                    <td colSpan="5" className="p-12 text-center text-gray-400 font-bold">
+                                        {activeTab === 'tfn' && tfnFilter === 'available' ? (
+                                            <div className="flex flex-col items-center justify-center gap-2">
+                                                <span>No available TFNs found{search ? ' matching your search' : ''}.</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setTfnFilter('all');
+                                                        setSearch('');
+                                                    }}
+                                                    className="text-primary-600 hover:text-primary-700 text-xs font-bold underline"
+                                                >
+                                                    Clear filters
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            'No numbers found matching your criteria.'
+                                        )}
+                                    </td>
+                                </tr>
                             ) : (
                                 filteredNumbers.map(n => (
                                     <tr key={n.id} className="hover:bg-gray-50/50 transition-colors group">

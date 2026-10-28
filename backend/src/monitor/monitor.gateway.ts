@@ -212,7 +212,7 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     // ---------------------------------------------------------------------------
 
     private canMonitor(user: { role: string; monitoringEnabled: boolean }): boolean {
-        return user.role === 'SUPER_ADMIN' || user.role === 'ADMIN' || user.monitoringEnabled === true;
+        return user.role === 'SUPER_ADMIN' || user.role === 'ADMIN' || (user.role === 'SUPPORT' && user.monitoringEnabled === true);
     }
 
     private disconnectExpiredClients() {
@@ -238,16 +238,20 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
             if (!current || current.status !== 'ACTIVE' || !this.canMonitor(current)
                 || current.role !== authenticated.role
                 || current.tenantId !== authenticated.tenantId
-                || current.monitoringEnabled !== authenticated.monitoringEnabled
+                || (authenticated.monitoringEnabled && !current.monitoringEnabled)
                 || Date.now() >= client.data.tokenExpiresAt) {
                 client.disconnect(true);
                 return false;
             }
+            authenticated.monitoringEnabled = current.monitoringEnabled;
             return true;
         } catch (error) {
             this.logger.warn(`Monitor authorization recheck failed for ${client.id}: ${error.message}`);
-            client.disconnect(true);
-            return false;
+            if (Date.now() >= client.data.tokenExpiresAt) {
+                client.disconnect(true);
+                return false;
+            }
+            return true;
         }
     }
 
@@ -276,8 +280,7 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
                 select: { role: true, tenantId: true, status: true, monitoringEnabled: true },
             });
             if (!current || expiresAt <= Date.now() || current.status !== 'ACTIVE' || !this.canMonitor(current)
-                || current.role !== payload.role || current.tenantId !== payload.tenantId
-                || current.monitoringEnabled !== (payload.monitoringEnabled === true)) {
+                || current.role !== payload.role || current.tenantId !== payload.tenantId) {
                 this.logger.warn(`Client ${client.id} (User: ${payload.sub}) denied monitoring access`);
                 client.disconnect(true);
                 return;
@@ -325,7 +328,9 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
         this.logger.log(`User attempting join: ${user.sub}, Role: ${user.role}, UserTenant: ${user.tenantId}, ReqTenant: ${tenantId}`); // DEBUG
 
         // Validate tenant access
-        if (user.role !== 'SUPER_ADMIN' && user.tenantId !== tenantId) {
+        const normalize = (id?: string) => (id || '').trim().replace(/^U/, '');
+        const isSameTenant = normalize(user.tenantId) === normalize(tenantId);
+        if (user.role !== 'SUPER_ADMIN' && (tenantId === 'all' || !isSameTenant)) {
             this.logger.warn(`User ${user.sub} tried to join unauthorized tenant room ${tenantId}`);
             client.emit('error', { message: 'Unauthorized tenant access' });
             return;

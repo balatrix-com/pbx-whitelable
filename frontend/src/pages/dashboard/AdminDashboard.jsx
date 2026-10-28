@@ -199,7 +199,7 @@ const AdminDashboard = () => {
             )}
 
             {/* Elevated KPI Cards */}
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2">
 
                 {/* Billing Health Card */}
                 <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all relative overflow-hidden group">
