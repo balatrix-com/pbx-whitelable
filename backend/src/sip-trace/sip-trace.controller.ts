@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Header, Param, Query, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -13,16 +13,19 @@ export class SipTraceController {
   constructor(private readonly traces: SipTraceService) {}
 
   @Get()
+  @Header('Cache-Control', 'private, no-store')
   list(@Query() query: Record<string, string>) {
     return this.traces.list(query);
   }
 
   @Get(':sessionUuid')
+  @Header('Cache-Control', 'private, no-store')
   flow(@Param('sessionUuid') sessionUuid: string) {
     return this.traces.flow(sessionUuid);
   }
 
   @Get(':sessionUuid/messages/:messageId')
+  @Header('Cache-Control', 'private, no-store')
   raw(@Param('sessionUuid') sessionUuid: string, @Param('messageId') messageId: string) {
     return this.traces.raw(sessionUuid, messageId);
   }
@@ -35,16 +38,19 @@ export class TenantSipTraceController {
   constructor(private readonly traces: SipTraceService) {}
 
   @Get()
+  @Header('Cache-Control', 'private, no-store')
   list(@GetUser('tenantId') tenantId: string, @Query() query: Record<string, string>) {
     return this.traces.tenantList(tenantId, query);
   }
 
   @Get(':sessionUuid')
+  @Header('Cache-Control', 'private, no-store')
   flow(@GetUser('tenantId') tenantId: string, @Param('sessionUuid') sessionUuid: string) {
     return this.traces.flow(sessionUuid, tenantId);
   }
 
   @Get(':sessionUuid/messages/:messageId')
+  @Header('Cache-Control', 'private, no-store')
   raw(@GetUser('tenantId') tenantId: string, @Param('sessionUuid') sessionUuid: string,
       @Param('messageId') messageId: string) {
     return this.traces.raw(sessionUuid, messageId, tenantId);

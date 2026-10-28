@@ -1,8 +1,10 @@
 import {
-  BadGatewayException, BadRequestException, Injectable, NotFoundException,
+  BadGatewayException, BadRequestException, Injectable, Logger, NotFoundException,
   OnModuleDestroy, ServiceUnavailableException,
 } from '@nestjs/common';
 import { Pool } from 'pg';
+import { createHash } from 'node:crypto';
+import { isIP } from 'node:net';
 import { PrismaService } from '../prisma/prisma.service';
 
 type TraceRow = {
@@ -13,14 +15,43 @@ type TraceRow = {
   merge_status: string; cdr_export_status: string; hangup_cause: string | null;
 };
 type Json = Record<string, any>;
+type SipMessage = {
+  id: string; callId: string; timestamp: string | null; timestampMs: number;
+  method: string; responseCode: number | null; cseqMethod: string | null;
+  hasSdp: boolean; src: string; dst: string; srcIp: string; dstIp: string;
+  captureId: number; raw: string; rawFingerprint: string;
+};
+
+const EMBEDDED_MESSAGE_LIMIT = 100;
+const EMBEDDED_RAW_BYTES = 256 * 1024;
+const FLOW_MESSAGE_LIMIT = 500;
+const HOMER_RESPONSE_BYTES = 8 * 1024 * 1024;
+const HOMER_PACKET_LIMIT = 2000;
+const CACHE_ENTRY_LIMIT = 5;
+const CACHE_ENTRY_BYTES = 10 * 1024 * 1024;
+const CACHE_TOTAL_BYTES = 32 * 1024 * 1024;
+const CACHE_TTL_MS = 120_000;
 
 @Injectable()
 export class SipTraceService implements OnModuleDestroy {
+  private readonly logger = new Logger(SipTraceService.name);
   private pool?: Pool;
+  private readonly oversizedCache = new Map<string, { messages: SipMessage[]; bytes: number; expires: number }>();
+  private readonly inFlight = new Map<string, Promise<SipMessage[]>>();
+  private cachedBytes = 0;
+  private readonly hiddenIps = new Set((process.env.SIP_TRACE_TENANT_HIDDEN_IPS || '10.30.0.61')
+    .split(',').map(value => value.trim().toLowerCase()).filter(value => isIP(value) !== 0));
+  private readonly hiddenAddresses = [...this.hiddenIps,
+    ...(process.env.SIP_TRACE_TENANT_HIDDEN_HOSTS || '').split(',').map(value => value.trim()).filter(Boolean)];
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async onModuleDestroy() { await this.pool?.end(); }
+  async onModuleDestroy() {
+    this.oversizedCache.clear();
+    this.inFlight.clear();
+    this.cachedBytes = 0;
+    await this.pool?.end();
+  }
 
   private db() {
     if (!process.env.SIP_TRACE_DATABASE_URL) {
@@ -118,13 +149,15 @@ export class SipTraceService implements OnModuleDestroy {
       ORDER BY COALESCE(started_at, first_leg_received_at) DESC, id DESC
       LIMIT $3 OFFSET $4`, [customerCode, search,
         Math.min(limit + 1, 101 - (page - 1) * limit), (page - 1) * limit]);
-    return { data: rows.rows.slice(0, limit).map(row => this.summary(row)),
+    return { data: rows.rows.slice(0, limit).map(row => this.summary(row, true)),
       page, hasMore: rows.rows.length > limit, maxVisibleCalls: 100 };
   }
 
-  private summary(row: TraceRow) {
+  private summary(row: TraceRow, tenant = false) {
     const { a_leg_sip_call_id, b_leg_sip_call_ids, ...rest } = row;
-    return { ...rest, sipCallIds: this.callIds(row), traceAvailable: this.callIds(row).length > 0 };
+    return tenant
+      ? { ...rest, traceAvailable: this.callIds(row).length > 0 }
+      : { ...rest, sipCallIds: this.callIds(row), traceAvailable: this.callIds(row).length > 0 };
   }
 
   private callIds(row: TraceRow) {
@@ -163,18 +196,111 @@ export class SipTraceService implements OnModuleDestroy {
     return result.rows[0];
   }
 
-  private async messages(row: TraceRow) {
+  private window(row: TraceRow) {
+    const start = (row.started_at || row.first_leg_received_at).getTime();
+    const end = row.ended_at?.getTime()
+      || Math.min(Math.ceil(Date.now() / 60000) * 60000, start + 24 * 3600_000);
+    return { from: start - 300000, to: end + 300000 };
+  }
+
+  private cacheKey(row: TraceRow) {
+    return createHash('sha256').update(JSON.stringify([
+      row.session_uuid, this.callIds(row), this.window(row),
+    ])).digest('hex');
+  }
+
+  private cacheGet(key: string) {
+    const entry = this.oversizedCache.get(key);
+    if (!entry) return undefined;
+    this.oversizedCache.delete(key);
+    this.cachedBytes -= entry.bytes;
+    if (entry.expires <= Date.now()) return undefined;
+    this.oversizedCache.set(key, entry);
+    this.cachedBytes += entry.bytes;
+    this.logger.debug('SIP trace oversized-cache hit');
+    return entry.messages;
+  }
+
+  private cachePut(key: string, messages: SipMessage[]) {
+    const bytes = Buffer.byteLength(JSON.stringify(messages), 'utf8');
+    if (bytes > CACHE_ENTRY_BYTES) return;
+    const existing = this.oversizedCache.get(key);
+    if (existing) {
+      this.cachedBytes -= existing.bytes;
+      this.oversizedCache.delete(key);
+    }
+    for (const [entryKey, entry] of this.oversizedCache) {
+      if (entry.expires <= Date.now()) {
+        this.cachedBytes -= entry.bytes;
+        this.oversizedCache.delete(entryKey);
+      }
+    }
+    while (this.oversizedCache.size >= CACHE_ENTRY_LIMIT ||
+           this.cachedBytes + bytes > CACHE_TOTAL_BYTES) {
+      const oldest = this.oversizedCache.keys().next().value;
+      if (!oldest) break;
+      this.cachedBytes -= this.oversizedCache.get(oldest)!.bytes;
+      this.oversizedCache.delete(oldest);
+    }
+    this.oversizedCache.set(key, { messages, bytes, expires: Date.now() + CACHE_TTL_MS });
+    this.cachedBytes += bytes;
+    this.logger.debug(`SIP trace oversized-cache store bytes=${bytes} entries=${this.oversizedCache.size} totalBytes=${this.cachedBytes}`);
+  }
+
+  private async packets(row: TraceRow) {
+    const key = this.cacheKey(row);
+    const cached = this.cacheGet(key);
+    if (cached) return cached;
+    const pending = this.inFlight.get(key);
+    if (pending) return pending;
+    const task = this.messages(row);
+    this.inFlight.set(key, task);
+    try { return await task; }
+    finally { if (this.inFlight.get(key) === task) this.inFlight.delete(key); }
+  }
+
+  private async readHomer(response: Response): Promise<{ payload: Json; bytes: number }> {
+    const headerLength = Number(response.headers?.get('content-length') || 0);
+    if (headerLength > HOMER_RESPONSE_BYTES) {
+      throw new BadGatewayException('Homer trace exceeds portal response limit');
+    }
+    let body: string;
+    if (response.body) {
+      const reader = response.body.getReader();
+      const chunks: Buffer[] = [];
+      let bytes = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        bytes += value.byteLength;
+        if (bytes > HOMER_RESPONSE_BYTES) {
+          await reader.cancel();
+          throw new BadGatewayException('Homer trace exceeds portal response limit');
+        }
+        chunks.push(Buffer.from(value));
+      }
+      body = Buffer.concat(chunks, bytes).toString('utf8');
+    } else {
+      body = await response.text();
+      if (Buffer.byteLength(body, 'utf8') > HOMER_RESPONSE_BYTES) {
+        throw new BadGatewayException('Homer trace exceeds portal response limit');
+      }
+    }
+    try { return { payload: JSON.parse(body) as Json, bytes: Buffer.byteLength(body, 'utf8') }; }
+    catch { throw new BadGatewayException('Homer returned invalid JSON'); }
+  }
+
+  private async messages(row: TraceRow): Promise<SipMessage[]> {
+    const started = Date.now();
     const ids = this.callIds(row);
     if (!ids.length) return [];
-    const start = (row.started_at || row.first_leg_received_at).getTime();
-    const end = row.ended_at?.getTime() || Math.min(Date.now(), start + 24 * 3600_000);
     const base = process.env.HOMER_API_BASE_URL?.replace(/\/$/, '');
     const token = process.env.HOMER_API_TOKEN?.trim();
     if (!base || !token) throw new ServiceUnavailableException('Homer API is not configured');
     // Every query is constrained by server-owned Call-IDs and the call's time window.
     const body = { ...(ids.length === 1 ? { session_id: ids[0] } : { session_ids: ids }),
       proto_type: 1, event_type: 'call',
-      timestamp: { from: start - 300000, to: Math.min(end + 300000, Date.now() + 300000) } };
+      timestamp: this.window(row) };
     let response: Response;
     try {
       response = await fetch(`${base}/api/v4/transactions/messages`, {
@@ -183,18 +309,20 @@ export class SipTraceService implements OnModuleDestroy {
       });
     } catch { throw new BadGatewayException('Homer is unavailable'); }
     if (!response.ok) throw new BadGatewayException(`Homer returned HTTP ${response.status}`);
-    let payload: Json;
-    try { payload = await response.json() as Json; }
-    catch { throw new BadGatewayException('Homer returned invalid JSON'); }
+    const { payload, bytes } = await this.readHomer(response);
     const data = payload?.data;
     const rows: Json[] = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+    if (rows.length > HOMER_PACKET_LIMIT) {
+      throw new BadGatewayException('Homer trace contains too many packets for portal');
+    }
     const allowed = new Set(ids);
-    const mapped = rows.slice(0, 2000).map((item, index) => {
+    const mapped = rows.map((item, index) => {
       const protocol = item.protocol_header || {};
       const detail = item.data_header || {};
       const callId = String(detail.call_id || item.sid || item.session_id || item.call_id || '');
       if (!allowed.has(callId)) return null;
-      const raw = String(item.raw || item.payload || '');
+      const originalRaw = String(item.raw || item.payload || '');
+      const raw = this.redact(originalRaw);
       const dateValue = item.timestamp || item.create_date;
       const epoch = Number(dateValue || item.micro_ts || 0);
       const parsed = typeof dateValue === 'string' ? Date.parse(dateValue) : NaN;
@@ -206,42 +334,110 @@ export class SipTraceService implements OnModuleDestroy {
       const responseCode = /^[1-6]\d\d$/.test(method) ? Number(method) : null;
       const cseqMethod = raw.match(/^CSeq:\s*\d+\s+([A-Z]+)\b/im)?.[1] || null;
       const hasSdp = /^Content-Type:\s*application\/sdp\b/im.test(raw);
+      const srcIp = String(protocol.src_ip || item.src_ip || '?');
+      const dstIp = String(protocol.dst_ip || item.dst_ip || '?');
       return { id: String(item.id || item.uuid || `${callId}-${timestampMs}-${index}`), callId,
         timestamp: Number.isFinite(timestampMs) && timestampMs > 0 ? new Date(timestampMs).toISOString() : null,
         timestampMs, method, responseCode, cseqMethod, hasSdp,
-        src: `${protocol.src_ip || item.src_ip || '?'}:${protocol.src_port || item.src_port || '?'}`,
-        dst: `${protocol.dst_ip || item.dst_ip || '?'}:${protocol.dst_port || item.dst_port || '?'}`,
-        captureId: Number(protocol.capture_id ?? item.capture_id ?? 0), raw };
-    }).filter((item): item is NonNullable<typeof item> => item !== null)
+        src: `${srcIp}:${protocol.src_port || item.src_port || '?'}`,
+        dst: `${dstIp}:${protocol.dst_port || item.dst_port || '?'}`,
+        srcIp, dstIp, captureId: Number(protocol.capture_id ?? item.capture_id ?? 0), raw,
+        rawFingerprint: createHash('sha256').update(originalRaw).digest('hex') };
+    }).filter((item): item is SipMessage => item !== null)
       .sort((a, b) => a.timestampMs - b.timestampMs);
     // Homer may contain mirrored duplicate HEP packets. Keep the first copy
     // and its ID so raw-message retrieval can still find the same packet.
     const seen = new Set<string>();
-    return mapped.filter(item => {
-      const fingerprint = JSON.stringify([item.callId, item.timestampMs, item.src, item.dst, item.raw]);
+    const deduplicated = mapped.filter(item => {
+      const fingerprint = JSON.stringify([item.callId, item.timestampMs, item.src, item.dst, item.rawFingerprint]);
       if (seen.has(fingerprint)) return false;
       seen.add(fingerprint);
       return true;
     });
+    this.logger.debug(`SIP trace Homer fetch ms=${Date.now() - started} bytes=${bytes} packets=${rows.length} mapped=${deduplicated.length}`);
+    return deduplicated;
+  }
+
+  private isHiddenIp(value: string) {
+    const normalized = value.toLowerCase().replace(/^::ffff:/, '');
+    return this.hiddenIps.has(normalized);
+  }
+
+  private maskTenant(value: string) {
+    let result = value;
+    for (const address of this.hiddenAddresses) {
+      let index = result.toLowerCase().indexOf(address.toLowerCase());
+      while (index >= 0) {
+        result = result.slice(0, index) + '[PBX internal]' + result.slice(index + address.length);
+        index = result.toLowerCase().indexOf(address.toLowerCase(), index + '[PBX internal]'.length);
+      }
+    }
+    return result;
+  }
+
+  private visiblePackets(row: TraceRow, packets: SipMessage[], tenant: boolean) {
+    if (!tenant) return packets;
+    return packets.filter(packet => !this.isHiddenIp(packet.srcIp) && !this.isHiddenIp(packet.dstIp))
+      .map(packet => ({
+        ...packet,
+        id: createHash('sha256').update(JSON.stringify([
+          row.session_uuid, packet.id, packet.timestampMs, packet.src, packet.dst, packet.raw,
+        ])).digest('hex'),
+        callId: this.maskTenant(packet.callId),
+        method: this.maskTenant(packet.method),
+        src: this.maskTenant(packet.src),
+        dst: this.maskTenant(packet.dst),
+        raw: this.maskTenant(packet.raw),
+      }));
+  }
+
+  private displayed(packets: SipMessage[]) {
+    if (packets.length <= FLOW_MESSAGE_LIMIT) return packets;
+    const half = FLOW_MESSAGE_LIMIT / 2;
+    return [...packets.slice(0, half), ...packets.slice(-half)];
   }
 
   async flow(sessionUuid: string, tenantId?: string) {
     const row = await this.event(sessionUuid, tenantId);
-    const messages = await this.messages(row);
+    const packets = await this.packets(row);
+    const visible = this.visiblePackets(row, packets, Boolean(tenantId));
+    const embeddedBytes = visible.reduce((sum, packet) => sum + Buffer.byteLength(packet.raw, 'utf8'), 0);
+    const embedded = visible.length <= EMBEDDED_MESSAGE_LIMIT && embeddedBytes <= EMBEDDED_RAW_BYTES;
+    if (!embedded) this.cachePut(this.cacheKey(row), packets);
+    const messages = this.displayed(visible);
     const participants = [...new Set(messages.flatMap(message => [message.src, message.dst]))];
     const first = messages[0]?.timestampMs || 0;
-    return { call: this.summary(row), participants,
-      messages: messages.map(({ raw, ...message }) => ({ ...message,
+    return { call: this.summary(row, Boolean(tenantId)), participants,
+      rawMode: embedded ? 'embedded' : 'on_demand',
+      noExternalSignaling: Boolean(tenantId) && packets.length > 0 && visible.length === 0,
+      traceTruncated: visible.length > messages.length,
+      omittedMessages: visible.length - messages.length,
+      messages: messages.map(message => ({
+        id: message.id, callId: message.callId, timestamp: message.timestamp,
+        timestampMs: message.timestampMs, method: message.method,
+        responseCode: message.responseCode, cseqMethod: message.cseqMethod,
+        hasSdp: message.hasSdp, src: message.src, dst: message.dst,
+        captureId: message.captureId,
         elapsedMs: message.timestampMs - first,
         fromIndex: participants.indexOf(message.src), toIndex: participants.indexOf(message.dst),
-        rawAvailable: Boolean(raw) })) };
+        raw: embedded ? this.redact(message.raw) : null,
+        rawAvailable: Boolean(message.raw) })) };
   }
 
   async raw(sessionUuid: string, messageId: string, tenantId?: string) {
     if (!messageId || messageId.length > 512) throw new BadRequestException('Invalid message ID');
     const row = await this.event(sessionUuid, tenantId);
-    const message = (await this.messages(row)).find(item => item.id === messageId);
+    const key = this.cacheKey(row);
+    const cacheEntry = this.oversizedCache.get(key);
+    const cacheHit = Boolean(cacheEntry && cacheEntry.expires > Date.now());
+    const packets = await this.packets(row);
+    const visible = this.visiblePackets(row, packets, Boolean(tenantId));
+    const message = this.displayed(visible).find(item => item.id === messageId);
     if (!message) throw new NotFoundException('SIP message not found in this call');
+    if (!cacheHit && (visible.length > EMBEDDED_MESSAGE_LIMIT ||
+        visible.reduce((sum, packet) => sum + Buffer.byteLength(packet.raw, 'utf8'), 0) > EMBEDDED_RAW_BYTES)) {
+      this.cachePut(key, packets);
+    }
     return { id: message.id, raw: this.redact(message.raw) };
   }
 

@@ -97,6 +97,8 @@ export default function SipTraceDetail({ row, endpoint, onClose }) {
     const [rawLoading, setRawLoading] = useState(false);
     const [rawError, setRawError] = useState('');
     const rawRequest = useRef(0);
+    const rawCache = useRef(new Map());
+    const rawInFlight = useRef(new Map());
     const closeButton = useRef(null);
     const dialog = useRef(null);
     const markerPrefix = useId().replace(/:/g, '');
@@ -112,7 +114,14 @@ export default function SipTraceDetail({ row, endpoint, onClose }) {
         } finally { setLoading(false); }
     }, [endpoint, row.session_uuid]);
 
-    useEffect(() => { load(); }, [load]);
+    useEffect(() => {
+        rawRequest.current += 1;
+        rawCache.current.clear();
+        rawInFlight.current.clear();
+        setSelectedMessage(null);
+        setRaw(null);
+        load();
+    }, [load]);
     useEffect(() => {
         const previousFocus = document.activeElement;
         closeButton.current?.focus();
@@ -136,13 +145,32 @@ export default function SipTraceDetail({ row, endpoint, onClose }) {
         setRaw(null);
         setRawError('');
         if (!message.rawAvailable) { setRawLoading(false); return; }
+        if (typeof message.raw === 'string') {
+            setRaw({ id: message.id, raw: message.raw });
+            setRawLoading(false);
+            return;
+        }
+        const cached = rawCache.current.get(message.id);
+        if (cached) {
+            setRaw(cached);
+            setRawLoading(false);
+            return;
+        }
         setRawLoading(true);
+        let pending = rawInFlight.current.get(message.id);
         try {
-            const result = await api.get(`${endpoint}/${encodeURIComponent(row.session_uuid)}/messages/${encodeURIComponent(message.id)}`, { skipRetry: true, timeout: 15000 });
-            if (rawRequest.current === requestId) setRaw(result.data);
+            if (!pending) {
+                pending = api.get(`${endpoint}/${encodeURIComponent(row.session_uuid)}/messages/${encodeURIComponent(message.id)}`, { skipRetry: true, timeout: 15000 })
+                    .then(result => result.data);
+                rawInFlight.current.set(message.id, pending);
+            }
+            const result = await pending;
+            rawCache.current.set(message.id, result);
+            if (rawRequest.current === requestId) setRaw(result);
         } catch (err) {
             if (rawRequest.current === requestId) setRawError(err.response?.data?.message || 'Unable to load this SIP message.');
         } finally {
+            if (rawInFlight.current.get(message.id) === pending) rawInFlight.current.delete(message.id);
             if (rawRequest.current === requestId) setRawLoading(false);
         }
     };
@@ -166,12 +194,17 @@ export default function SipTraceDetail({ row, endpoint, onClose }) {
                             <div><Activity size={21} /><span>Messages<strong>{messages.length}</strong></span></div>
                             <div><RadioTower size={21} /><span>Endpoints<strong>{participants.length}</strong></span></div>
                         </div>
+                        {flow.traceTruncated && <p className="pbx-sip-detail-notice" role="status">
+                            This large trace omits {flow.omittedMessages} middle messages from the portal view. The first and last messages are shown.
+                        </p>}
                         <div className="pbx-sip-tabs" role="tablist" aria-label="SIP trace views">
                             <button type="button" role="tab" aria-selected={tab === 'trace'} onClick={() => setTab('trace')}><RadioTower size={17} /> SIP Trace</button>
                             <button type="button" role="tab" aria-selected={tab === 'raw'} onClick={() => setTab('raw')}><FileJson size={17} /> Raw Data</button>
                         </div>
                         <div className="pbx-sip-detail-body" role="tabpanel">
-                            {!messages.length ? <p className="pbx-sip-detail-status">No SIP packets were found for this call’s recorded Call-IDs. Check Homer capture, correlation, and retention.</p>
+                            {!messages.length ? <p className="pbx-sip-detail-status">{flow.noExternalSignaling
+                                ? 'No external SIP signaling available for this call.'
+                                : 'No SIP packets were found for this call’s recorded Call-IDs. Check Homer capture, correlation, and retention.'}</p>
                                 : tab === 'trace' ? <div className="pbx-sip-inspector">
                                     <SipLadder participants={participants} messages={messages} selected={selectedMessage} onSelect={selectMessage} markerPrefix={markerPrefix} />
                                     <RawMessage message={selectedMessage} raw={raw} loading={rawLoading} error={rawError} retry={() => selectMessage(selectedMessage)} />
