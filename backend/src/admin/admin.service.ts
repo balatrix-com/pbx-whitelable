@@ -438,7 +438,7 @@ export class AdminService {
                 number: t.number,
                 status: t.status,
                 price: t.price,
-                isDemo: t.isDemo,
+                isDemo: false,
                 tenant: t.tenant,
                 purchasedAt: t.purchasedAt,
                 createdAt: t.createdAt
@@ -460,8 +460,7 @@ export class AdminService {
             data: {
                 number: data.number,
                 price: data.price || 2.00,
-                status: 'AVAILABLE',
-                isDemo: data.isDemo || false
+                status: 'AVAILABLE'
             }
         });
     }
@@ -481,8 +480,7 @@ export class AdminService {
         const payload = data.numbers.map(num => ({
             number: num,
             price: data.price || 2.00,
-            status: 'AVAILABLE' as any,
-            isDemo: data.isDemo || false
+            status: 'AVAILABLE' as any
         }));
         return this.prisma.tFN.createMany({
             data: payload,

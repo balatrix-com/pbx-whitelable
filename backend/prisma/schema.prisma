@@ -52,7 +52,6 @@ model TFN {
   id             String    @id @default(uuid())
   number         String    @unique
   status         TFNStatus @default(AVAILABLE)
-  isDemo         Boolean   @default(false)
   price          Decimal   @default(2.00)
   tenantId       String?
   purchasedAt    DateTime?
