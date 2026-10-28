@@ -4,10 +4,19 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { FeatureGuard } from '../auth/guards/feature.guard';
 import { RequireFeature } from '../auth/decorators/feature.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Role } from '@prisma/client';
+
+function normalizeTenantId(id?: string | null): string {
+    if (!id) return '';
+    const trimmed = id.trim();
+    return trimmed.startsWith('U') ? trimmed : `U${trimmed}`;
+}
 
 @Controller('monitor')
 @UseGuards(JwtAuthGuard, RolesGuard, FeatureGuard)
 @RequireFeature('monitor')
+@Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.SUPPORT)
 export class MonitorController {
     constructor(private readonly monitorService: MonitorService) { }
 
@@ -18,35 +27,39 @@ export class MonitorController {
     async getActiveCalls(@Request() req: any, @Query('tenantId') queryTenantId?: string) {
         const user = req.user;
 
-        // Check permissions
-        if (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN' && !user.monitoringEnabled) {
-            throw new ForbiddenException('Monitoring access restrictions apply');
+        // Check permissions: Super Admin and Admin have access; Support requires monitoringEnabled === true
+        if (user.role !== Role.SUPER_ADMIN && user.role !== Role.ADMIN && !user.monitoringEnabled) {
+            throw new ForbiddenException('Monitoring access restrictions apply. Monitoring is not enabled for your account.');
         }
 
         // Standard tenant isolation: non-SUPER_ADMIN users cannot query other tenants or 'all'
-        if (user.role !== 'SUPER_ADMIN') {
-            if (queryTenantId && queryTenantId !== user.tenantId) {
+        if (user.role !== Role.SUPER_ADMIN) {
+            if (queryTenantId && queryTenantId === 'all') {
+                throw new ForbiddenException('Access denied: cannot monitor all tenants');
+            }
+            if (queryTenantId && normalizeTenantId(queryTenantId) !== normalizeTenantId(user.tenantId)) {
                 throw new ForbiddenException('Access denied: cannot monitor other tenants');
             }
         }
 
         // If super admin, can request any tenant or 'all', otherwise strictly user's tenant
-        const tenantId = (user.role === 'SUPER_ADMIN' && queryTenantId) ? queryTenantId : user.tenantId;
+        const tenantId = (user.role === Role.SUPER_ADMIN && queryTenantId) ? queryTenantId : user.tenantId;
 
         const calls = await this.monitorService.getActiveCalls(tenantId);
         return { calls };
     }
 
     @Post('barge')
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.SUPPORT)
     async initiateBarge(@Request() req: any, @Body() body: { uuid_in: string; uuid_out: string; mode: 'barge' | 'listen' | 'whisper', adminExtension?: string }) {
         const user = req.user;
 
-        if (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN' && !user.monitoringEnabled) {
+        if (user.role !== Role.SUPER_ADMIN && user.role !== Role.ADMIN && !user.monitoringEnabled) {
             throw new ForbiddenException('Monitoring access restricted');
         }
 
         let adminExtension = body.adminExtension;
-        if (user.role === 'SUPER_ADMIN') {
+        if (user.role === Role.SUPER_ADMIN) {
             adminExtension = '999001';
             if (body.mode !== 'listen') {
                 throw new BadRequestException('Super Admins are restricted to "listen" mode only');
@@ -58,7 +71,7 @@ export class MonitorController {
         }
 
         // For non-SUPER_ADMIN, verify that the call belongs to their tenant
-        if (user.role !== 'SUPER_ADMIN') {
+        if (user.role !== Role.SUPER_ADMIN) {
             if (!user.tenantId) {
                 throw new ForbiddenException('User is not assigned to a tenant');
             }

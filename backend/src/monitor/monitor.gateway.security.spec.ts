@@ -67,4 +67,25 @@ describe('monitor socket authorization lifecycle', () => {
         expect(socket.join).not.toHaveBeenCalled();
         expect(socket.emit).toHaveBeenCalledWith('error', { message: 'Unauthorized tenant access' });
     });
+
+    it('allows room join with normalized tenant ID (e.g. 1012 for U1012)', async () => {
+        currentUser = { role: 'ADMIN', tenantId: 'U1012', status: 'ACTIVE', monitoringEnabled: true };
+        const jwt = (gateway as any).jwtService;
+        jwt.verify.mockReturnValueOnce({
+            sub: 'user-a', role: 'ADMIN', tenantId: 'U1012', monitoringEnabled: true,
+            exp: Math.floor(Date.now() / 1000) + 10,
+        });
+        await gateway.handleConnection(socket);
+        await gateway.handleJoinRoom('1012', socket);
+        expect(socket.join).toHaveBeenCalledWith('tenant:1012');
+        expect(socket.emit).toHaveBeenCalledWith('room_joined', expect.objectContaining({ room: 'tenant:1012' }));
+    });
+
+    it('retains connection during transient database error if token is still unexpired', async () => {
+        await gateway.handleConnection(socket);
+        const prisma = (gateway as any).prismaService;
+        prisma.user.findUnique.mockRejectedValueOnce(new Error('Connection pool timeout'));
+        await (gateway as any).revalidateActiveClients();
+        expect(socket.disconnect).not.toHaveBeenCalled();
+    });
 });
