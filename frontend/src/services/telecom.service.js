@@ -62,11 +62,6 @@ export const telecomService = {
     },
 
     // Monitoring
-    getMonitoringStatus: async () => {
-        const response = await api.get('/telecom/monitoring/live');
-        return response.data;
-    },
-
     purchaseMonitoring: async () => {
         const response = await api.post('/telecom/monitoring/purchase', {});
         return response.data; // should return updated status

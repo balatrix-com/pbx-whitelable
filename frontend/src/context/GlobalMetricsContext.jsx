@@ -14,12 +14,14 @@ export const GlobalMetricsProvider = ({ children }) => {
     const { data: walletData } = useWalletQuery();
     const balance = walletData?.balance || 0;
     const [activeCalls, setActiveCalls] = useState([]);
-    const [queueDepth, setQueueDepth] = useState(0);
+    // The live-call updater has no queue membership data yet.
+    const queueDepth = null;
 
     // Connection State
     const [socket, setSocket] = useState(null);
 
     const tenantId = user?.tenant?.id || user?.tenantId;
+    const canMonitor = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || (user?.role === 'SUPPORT' && user?.monitoringEnabled);
 
     useEffect(() => {
         if (!isAuthenticated || !tenantId) {
@@ -29,7 +31,11 @@ export const GlobalMetricsProvider = ({ children }) => {
                 setSocket(null);
             }
             setActiveCalls([]);
-            setQueueDepth(0);
+            return;
+        }
+
+        if (!canMonitor) {
+            setActiveCalls([]);
             return;
         }
 
@@ -38,29 +44,12 @@ export const GlobalMetricsProvider = ({ children }) => {
         // 1. Initial Data Fetch (Telecom only)
         const fetchInitialData = async () => {
             try {
-                // Fetch Telecom Metrics (Initial active calls + queues) - ONLY if monitoring is enabled for this user
-                if (user?.role === 'SUPER_ADMIN' || user?.monitoringEnabled) {
-                    try {
-                        const callsData = await telecomService.getActiveCalls(tenantId);
-                        if (isMounted) setActiveCalls(callsData.data?.calls || []);
-                    } catch (err) {
-                        console.debug('Detailed monitoring access restricted', err);
-                    }
-                }
-
-                // Attempt to fetch monitoring status (queues, mostly)
-                // ONLY if balance is positive to avoid 403 WALLET_ZERO noise
-                if (balance > 0) {
-                    try {
-                        const monitorStatus = await telecomService.getMonitoringStatus(tenantId);
-                        if (isMounted && monitorStatus.data?.queues) {
-                            const totalWaiting = monitorStatus.data.queues.reduce((acc, q) => acc + (q.waiting || 0), 0);
-                            setQueueDepth(totalWaiting);
-                        }
-                    } catch (err) {
-                        // Suppress error as it might be an add-on issue
-                        console.debug('Monitoring add-on info', err);
-                    }
+                // The monitor API reads the current customer call hashes from Redis.
+                try {
+                    const callsData = await telecomService.getActiveCalls(tenantId);
+                    if (isMounted) setActiveCalls(callsData.data?.calls || []);
+                } catch (err) {
+                    console.debug('Detailed monitoring access restricted', err);
                 }
 
             } catch (err) {
@@ -72,7 +61,7 @@ export const GlobalMetricsProvider = ({ children }) => {
 
         // 2. Setup Socket.io for Real-time Call Updates
         const token = sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken');
-        if (token) {
+        if (token && canMonitor) {
             const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/api\/?$/, '');
             const socketUrl = `${baseUrl.replace(/\/$/, '')}/monitor`;
             const socketPath = '/api/socket.io';
@@ -122,31 +111,7 @@ export const GlobalMetricsProvider = ({ children }) => {
         return () => {
             isMounted = false;
         };
-    }, [isAuthenticated, tenantId]);
-
-    // 3. Periodic Polling for Queues (every 30 seconds as fallback)
-    useEffect(() => {
-        if (!isAuthenticated || !tenantId) return;
-
-        const interval = setInterval(async () => {
-            try {
-                // Fetch queues only if balance allows
-                if (balance > 0) {
-                    try {
-                        const monitorStatus = await telecomService.getMonitoringStatus(tenantId);
-                        if (monitorStatus.data?.queues) {
-                            const totalWaiting = monitorStatus.data.queues.reduce((acc, q) => acc + (q.waiting || 0), 0);
-                            setQueueDepth(totalWaiting);
-                        }
-                    } catch (err) { /* ignore */ }
-                }
-            } catch (err) {
-                console.error('Periodic fetch failed', err);
-            }
-        }, 30000);
-
-        return () => clearInterval(interval);
-    }, [isAuthenticated, tenantId, balance]);
+    }, [isAuthenticated, tenantId, canMonitor]);
 
     const value = useMemo(() => ({
         balance,

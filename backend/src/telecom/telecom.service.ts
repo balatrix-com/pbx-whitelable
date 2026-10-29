@@ -9,6 +9,7 @@ import { RecordingStorageService } from '../freeswitch/recording-storage.service
 import { EntitlementsService } from '../entitlements/entitlements.service';
 import { LookupRedisService } from '../redis/lookup-redis.module';
 import { AdminService } from '../admin/admin.service';
+import { MonitorService } from '../monitor/monitor.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -23,6 +24,7 @@ export class TelecomService implements OnModuleInit {
         private entitlements: EntitlementsService,
         private lookupRedis: LookupRedisService,
         private adminService: AdminService,
+        private monitorService: MonitorService,
     ) { }
 
     async onModuleInit() {
@@ -127,22 +129,12 @@ export class TelecomService implements OnModuleInit {
     }
 
     async getMonitoringStatus(tenantId: string) {
-        const state = await this.enforcementService.getServiceState(tenantId);
-        if (state === ServiceState.PLAN_EXPIRED) throw new ForbiddenException(`Monitoring unavailable: ${state}`);
-
-        const addon = await this.prisma.monitoringAddOn.findUnique({ where: { tenantId } });
-        if (!addon || !addon.isActive) {
-            return { active: false };
-        }
-
-        // Return Mock Data
+        const calls = await this.monitorService.getActiveCalls(tenantId);
         return {
-            activeCalls: Math.floor(Math.random() * 10),
-            queues: [
-                { name: 'Support', waiting: Math.floor(Math.random() * 5) },
-                { name: 'Sales', waiting: Math.floor(Math.random() * 3) }
-            ],
-            serverStatus: 'HEALTHY'
+            active: true,
+            activeCalls: calls.length,
+            // Queue membership is not tracked by the live-call Redis updater.
+            queues: [],
         };
     }
 

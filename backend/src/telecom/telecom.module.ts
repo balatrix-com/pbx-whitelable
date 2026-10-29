@@ -17,6 +17,7 @@ import { DIDForwardsModule } from './did-forwards/did-forwards.module';
 import { PhoneNumbersModule } from './phone-numbers/phone-numbers.module';
 import { EntitlementsModule } from '../entitlements/entitlements.module';
 import { LookupRedisModule } from '../redis/lookup-redis.module';
+import { MonitorModule } from '../monitor/monitor.module';
 
 import { AdminModule } from '../admin/admin.module';
 import { SubscriptionTelecomController } from './subscription-telecom.controller';
@@ -42,6 +43,7 @@ import { TeardownEnforcerService } from './teardown-enforcer.service';
     PhoneNumbersModule,
     EntitlementsModule,
     LookupRedisModule,
+    MonitorModule,
   ],
   controllers: [TelecomController, SubscriptionTelecomController],
   providers: [TelecomService, TeardownEnforcerService],

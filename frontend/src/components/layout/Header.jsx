@@ -57,7 +57,7 @@ const Header = ({ onMenuClick }) => {
                     <div className={`flex items-center space-x-2 px-2.5 py-1 rounded-md border transition-colors ${queueDepth > 0 ? 'bg-amber-50 border-amber-100' : 'bg-blue-50 border-blue-100'}`}>
                         <Activity className={`h-3.5 w-3.5 ${queueDepth > 0 ? 'text-amber-600' : 'text-blue-600'}`} />
                         <span className={`text-xs font-bold uppercase tracking-wide flex items-center ${queueDepth > 0 ? 'text-amber-800' : 'text-blue-800'}`}>
-                            Queue Depth: <strong className={`font-mono ml-1.5 text-sm ${queueDepth > 0 ? 'text-amber-900' : 'text-blue-900'}`}>{queueDepth}</strong>
+                            Queue Depth: <strong className={`font-mono ml-1.5 text-sm ${queueDepth > 0 ? 'text-amber-900' : 'text-blue-900'}`}>{queueDepth ?? '—'}</strong>
                         </span>
                     </div>
                 </div>
