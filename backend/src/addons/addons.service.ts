@@ -110,7 +110,7 @@ export class AddonsService {
                 this.httpService.get(`${this.subBillingUrl}/addons/catalog`)
             );
             const data = response.data?.data || response.data;
-            if (Array.isArray(data) && data.length > 0) {
+            if (Array.isArray(data)) {
                 return data.map(item => ({
                     addon_id: item.addon_id,
                     name: item.name,
@@ -124,9 +124,10 @@ export class AddonsService {
                 }));
             }
         } catch (error) {
-            this.logger.warn(`Failed to fetch addon catalog from sub-billing: ${error.message}, falling back to hardcoded catalog`);
+            this.logger.warn(`Failed to fetch addon catalog from sub-billing: ${error.message}`);
+            return [];
         }
-        return this.catalog.filter(item => item.is_active);
+        return [];
     }
 
     async createCatalogItem(data: any) {

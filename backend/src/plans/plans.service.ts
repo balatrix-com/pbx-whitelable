@@ -51,7 +51,7 @@ export class PlansService implements OnModuleInit {
                 this.httpService.get(`${this.subBillingUrl}/plans`)
             );
             const data = response.data?.data || response.data;
-            if (Array.isArray(data) && data.length > 0) {
+            if (Array.isArray(data)) {
                 return data;
             }
         } catch (error) {
@@ -152,11 +152,15 @@ export class PlansService implements OnModuleInit {
         }
 
         // 2. Call sub-billing engine deletion
+        let subBillingDeleted = false;
         try {
             this.logger.log(`Deleting plan from sub-billing: ${this.subBillingUrl}/plans/${planId}`);
             const response = await firstValueFrom(
                 this.httpService.delete(`${this.subBillingUrl}/plans/${planId}`)
             );
+            if (response.data?.success) {
+                subBillingDeleted = true;
+            }
         } catch (error) {
             const status = error.response?.status;
             const message = error.response?.data?.message || error.message;
@@ -176,6 +180,11 @@ export class PlansService implements OnModuleInit {
             } catch (err) {
                 this.logger.warn(`Local plan deletion skipped or failed: ${err.message}`);
             }
+        }
+
+        if (!localPlan && !subBillingDeleted) {
+            const { NotFoundException } = await import('@nestjs/common');
+            throw new NotFoundException(`Plan "${planId}" not found`);
         }
 
         return {

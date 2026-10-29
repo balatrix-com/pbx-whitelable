@@ -114,6 +114,13 @@ export class AdminController {
         return this.adminService.updateRateCard(id, data);
     }
 
+    @Delete('rate-cards/:id')
+    @Roles('SUPER_ADMIN')
+    @Audit('RATE_CARD_DELETED', 'RATE_CARD')
+    deleteRateCard(@Param('id') id: string) {
+        return this.adminService.deleteRateCard(id);
+    }
+
     @Post('rate-cards/mappings')
     @Roles('SUPER_ADMIN')
     @Audit('RATE_CARD_MAPPING_UPDATED', 'RATE_CARD')

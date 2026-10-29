@@ -182,10 +182,10 @@ const PlansPage = () => {
                                     <CheckCircle2 className="h-3.5 w-3.5" /> Active Subscription
                                 </div>
                                 <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-                                    {subscription?.plan_name || 'Tier 1 Starter Plan'}
+                                    {subscription?.plan_name || (subLoading ? 'Loading...' : 'No Active Subscription')}
                                 </h2>
                                 <p className="text-xs font-medium text-gray-500 dark:text-slate-400">
-                                    Status: <span className="text-emerald-600 dark:text-emerald-400 font-bold uppercase">{subscription?.status || 'ACTIVE'}</span>
+                                    Status: <span className={`font-bold uppercase ${subscription?.status === 'ACTIVE' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>{subscription?.status || 'INACTIVE'}</span>
                                     {subscription?.next_billing && (
                                         <span className="ml-3">Next Billing: <span className="font-bold text-gray-900 dark:text-white">{new Date(subscription.next_billing).toLocaleDateString()}</span></span>
                                     )}
@@ -196,13 +196,13 @@ const PlansPage = () => {
                                 <div className="px-4 py-3 rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-800 min-w-[120px]">
                                     <span className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider block">Extensions</span>
                                     <span className="text-lg font-extrabold text-gray-900 dark:text-white font-mono">
-                                        {subscription?.limits?.extensions || 5}
+                                        {subscription?.limits?.extensions ?? 0}
                                     </span>
                                 </div>
                                 <div className="px-4 py-3 rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-800 min-w-[120px]">
                                     <span className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider block">Free Minutes</span>
                                     <span className="text-lg font-extrabold text-gray-900 dark:text-white font-mono">
-                                        {subscription?.limits?.free_mins || 500}
+                                        {subscription?.limits?.free_mins ?? 0}
                                     </span>
                                 </div>
                                 <div className="px-4.5 py-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/40 min-w-[180px]">

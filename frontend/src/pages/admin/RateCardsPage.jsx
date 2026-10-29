@@ -6,6 +6,7 @@ import {
     Plus,
     Search,
     Edit2,
+    Trash2,
     Save,
     X,
     Globe,
@@ -18,6 +19,8 @@ import {
     Users
 } from 'lucide-react';
 import clsx from 'clsx';
+import { useToast } from '../../context/ToastContext';
+import ConfirmActionModal from '../../components/subscription/ConfirmActionModal';
 
 const RateCardsPage = () => {
     const { isSuperAdmin } = useAuth();
@@ -35,10 +38,33 @@ const RateCardsPage = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [mappingSearchQuery, setMappingSearchQuery] = useState('');
 
+    const { addToast } = useToast();
+
     // Modal States
     const [showModal, setShowModal] = useState(false);
     const [editingCard, setEditingCard] = useState(null);
     const [modalLoading, setModalLoading] = useState(false);
+
+    // Delete Standard Rate Card State
+    const [cardToDelete, setCardToDelete] = useState(null);
+    const [deleteLoading, setDeleteLoading] = useState(false);
+
+    const handleConfirmDeleteRateCard = async () => {
+        if (!cardToDelete) return;
+        setDeleteLoading(true);
+        try {
+            const res = await api.delete(`/admin/rate-cards/${cardToDelete.ratecard_id}`);
+            addToast('success', res?.data?.message || `Rate card "${cardToDelete.name}" deleted successfully`);
+            setCardToDelete(null);
+            fetchData();
+        } catch (error) {
+            console.error('Failed to delete rate card:', error);
+            const msg = error.response?.data?.message || error.normalized?.message || error.message || 'Cannot delete rate card';
+            addToast('error', msg);
+        } finally {
+            setDeleteLoading(false);
+        }
+    };
 
     useEffect(() => {
         if (isSuperAdmin) {
@@ -298,15 +324,25 @@ const RateCardsPage = () => {
                                                 </div>
                                             </td>
                                             <td className="px-4 md:px-6 py-4 text-right">
-                                                <button
-                                                    onClick={() => {
-                                                        setEditingCard(card);
-                                                        setShowModal(true);
-                                                    }}
-                                                    className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all"
-                                                >
-                                                    <Edit2 size={18} />
-                                                </button>
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <button
+                                                        onClick={() => {
+                                                            setEditingCard(card);
+                                                            setShowModal(true);
+                                                        }}
+                                                        className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all"
+                                                        title="Edit rate card"
+                                                    >
+                                                        <Edit2 size={18} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setCardToDelete(card)}
+                                                        className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                                        title="Delete rate card"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -538,6 +574,19 @@ const RateCardsPage = () => {
                     loading={modalLoading}
                 />
             )}
+
+            {/* Confirm Delete Standard Rate Card Modal */}
+            <ConfirmActionModal
+                isOpen={!!cardToDelete}
+                onClose={() => !deleteLoading && setCardToDelete(null)}
+                onConfirm={handleConfirmDeleteRateCard}
+                title="Delete Rate Card"
+                message={`Are you sure you want to delete rate card "${cardToDelete?.name}"? This action cannot be undone.`}
+                confirmText="Delete Rate Card"
+                cancelText="Cancel"
+                isDanger={true}
+                loading={deleteLoading}
+            />
         </div>
     );
 };

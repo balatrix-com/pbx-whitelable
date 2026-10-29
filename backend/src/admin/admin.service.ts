@@ -162,6 +162,18 @@ export class AdminService {
         }
     }
 
+    async deleteRateCard(id: string) {
+        try {
+            const response = await lastValueFrom(this.httpService.delete(`${this.subBillingUrl}/rate-cards/${id}`));
+            if (response.data?.success) {
+                await this.triggerCacheRefresh();
+            }
+            return response.data;
+        } catch (error: any) {
+            this.handleProxyError(error, 'deleteRateCard');
+        }
+    }
+
     /**
      * Customer Rate Card Mappings Proxy
      */
