@@ -16,6 +16,7 @@ const RETRY_DELAY = 1000; // 1 second base delay
 
 // Helper to check if error is retryable
 const isRetryableError = (error) => {
+    if (error.config?.skipRetry) return false;
     const method = error.config?.method?.toLowerCase();
     const isIdempotent = ['get', 'put', 'delete', 'head', 'options'].includes(method);
 

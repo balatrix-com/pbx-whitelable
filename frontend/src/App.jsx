@@ -27,6 +27,7 @@ import AudioLibrary from './pages/telecom/AudioLibrary';
 import AnalyticsDashboard from './pages/telecom/analytics/AnalyticsDashboard';
 import MonitoringPage from './pages/telecom/MonitoringPage';
 import CdrsPage from './pages/telecom/CdrsPage';
+import SipTracesPage from './pages/admin/SipTracesPage';
 import DIDForwardsPage from './pages/telecom/did-forwards/DIDForwardsPage';
 import DIDForwardForm from './pages/telecom/did-forwards/DIDForwardForm';
 import RevenuePage from './pages/admin/RevenuePage';
@@ -156,6 +157,7 @@ function App() {
 
                                             {/* Admin Only */}
                                             <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']} />}>
+                                                <Route path="/telecom/sip-traces" element={<SipTracesPage tenantMode />} />
                                                 <Route path="/users" element={<UserManagement />} />
                                                 <Route path="/settings" element={<BrandingSettingsPage />} />
                                             </Route>
@@ -163,6 +165,7 @@ function App() {
 
                                             {/* Super Admin Only */}
                                             <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
+                                                <Route path="/super-admin/sip-traces" element={<SipTracesPage />} />
                                                 <Route path="/platform" element={<PlatformDashboard />} />
                                                 <Route path="/admin/users" element={<AllUsersPage />} />
                                                 <Route path="/admin/audit-logs" element={<AuditLogsPage />} />

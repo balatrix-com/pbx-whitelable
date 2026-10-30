@@ -115,7 +115,7 @@ export class MonitorService {
     /**
      * Verify if a call belongs to a specific tenant in Redis
      */
-    async verifyCallTenant(uuid: string, tenantId: string): Promise<boolean> {
+    async verifyCallTenant(uuid: string, tenantId: string, bUuid?: string): Promise<boolean> {
         try {
             if (!tenantId || tenantId === 'all') return true;
 
@@ -152,7 +152,13 @@ export class MonitorService {
             for (const code of candidateCodes) {
                 const key = `customer:${code}:call:${uuid}`;
                 if (await this.redisClient.exists(key) === 1) {
-                    return true;
+                    const call = await this.redisClient.hGetAll(key);
+                    if (!['new', 'ringing', 'answered', 'connected'].includes((call.call_status || '').toLowerCase())) {
+                        return false;
+                    }
+                    // The requested B leg must be the one paired with this
+                    // tenant's current A leg. The frontend may fall back to A.
+                    return !bUuid || bUuid === uuid || call.b_uuid === bUuid;
                 }
             }
             return false;

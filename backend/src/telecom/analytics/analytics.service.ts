@@ -280,8 +280,15 @@ export class AnalyticsService {
      */
     async getLiveStats(tenantId: string) {
         try {
-            const pattern = `customer:${tenantId}:call:*`;
-            const keys = await this.redisClient.keys(pattern);
+            const tenant = await this.prisma.tenant.findUnique({
+                where: { id: tenantId }, select: { customerCode: true },
+            });
+            if (!tenant?.customerCode) throw new Error('Tenant has no customer code');
+            const pattern = `customer:${tenant.customerCode}:call:*`;
+            const keys: string[] = [];
+            for await (const batch of this.redisClient.scanIterator({ MATCH: pattern, COUNT: 100 })) {
+                for (const key of batch) keys.push(key);
+            }
 
             let ringing = 0;
             let answered = 0;

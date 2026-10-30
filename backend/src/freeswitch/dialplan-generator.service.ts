@@ -55,7 +55,9 @@ export class DialplanGeneratorService {
    */
   private getRecordingVariablesBlock(): string {
     return `
+          <action application="export" data="billing_recording_requested=true"/>
           <action application="set" data="RECORD_STEREO=true"/>
+          <action application="set" data="media_bug_answer_req=true"/>
           <action application="set" data="recording_follow_transfer=true"/>`;
   }
 
@@ -332,6 +334,8 @@ ${actions}
           <action application="set" data="call_timeout=30"/>
           <action application="set" data="ignore_early_media=true"/>
           <!-- Forward to external number, preserving original caller ID -->
+          <action application="export" data="billing_call_type=DID_FORWARD"/>
+          <action application="export" data="billing_forward_destination=${destination}"/>
           <action application="bridge" data="{ignore_early_media=true}sofia/external/${destination}@${gw}"/>
           <!-- Fallback if forward fails -->
           <action application="answer"/>

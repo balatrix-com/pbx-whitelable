@@ -1,8 +1,10 @@
-import { Controller, Post, Get, Body, UseGuards, Query, Param, Res } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, Query, Param, Res, ForbiddenException, Header } from '@nestjs/common';
 import { TelecomService } from './telecom.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { FeatureGuard } from '../auth/guards/feature.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequireFeature } from '../auth/decorators/feature.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Role, type User } from '@prisma/client';
 
@@ -43,8 +45,18 @@ export class TelecomController {
 
     // Monitoring
     @Get('monitoring/live')
+    @UseGuards(RolesGuard, FeatureGuard)
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.SUPPORT)
+    @RequireFeature('monitor')
+    @Header('Cache-Control', 'no-store')
     getMonitoring(@GetUser() user: User) {
-        return this.telecomService.getMonitoringStatus(user.tenantId!);
+        if (user.role === Role.SUPPORT && !user.monitoringEnabled) {
+            throw new ForbiddenException('Monitoring is not enabled for your account');
+        }
+        if (!user.tenantId && user.role !== Role.SUPER_ADMIN) {
+            throw new ForbiddenException('User is not assigned to a tenant');
+        }
+        return this.telecomService.getMonitoringStatus(user.role === Role.SUPER_ADMIN ? 'all' : user.tenantId!);
     }
 
     @Post('monitoring/purchase')
