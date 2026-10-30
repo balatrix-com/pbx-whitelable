@@ -622,7 +622,9 @@ const CdrsPage = () => {
                                         <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Recording Charge</th>
                                         <th scope="col" className="hidden md:table-cell px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Total Amount</th>
                                         <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Status</th>
-                                        <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Recording</th>
+                                        {!isSuperAdmin && (
+                                            <th scope="col" className="px-3 py-4 text-left text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Recording</th>
+                                        )}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -671,9 +673,11 @@ const CdrsPage = () => {
                                                     <span className="text-xs font-bold text-gray-600 capitalize md:text-sm">{cdr.status}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-4">
-                                                <PlaybackButton uuid={cdr.uuid} cdr={cdr} />
-                                            </td>
+                                            {!isSuperAdmin && (
+                                                <td className="px-3 py-4">
+                                                    <PlaybackButton uuid={cdr.uuid} cdr={cdr} />
+                                                </td>
+                                            )}
                                         </tr>
                                     ))}
                                 </tbody>
