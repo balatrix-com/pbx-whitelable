@@ -12,7 +12,6 @@ import ChangePasswordPage from './pages/auth/ChangePasswordPage';
 import ImpersonateLoader from './pages/admin/ImpersonateLoader';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import WalletPage from './pages/billing/WalletPage';
-import PaymentMethodsPage from './pages/billing/PaymentMethodsPage';
 import PhoneNumbersPage from './pages/telecom/PhoneNumbersPage';
 import ExtensionsPage from './pages/telecom/Extensions/ExtensionsPage';
 import ExtensionsStatusPage from './pages/telecom/Extensions/ExtensionsStatusPage';
@@ -99,7 +98,6 @@ function App() {
                                         <Route path="/onboarding/*" element={<Navigate to="/dashboard" replace />} />
 
                                         {/* Protected Routes */}
-                                        {/* Protected Routes */}
                                         <Route element={
                                             <GlobalMetricsProvider>
                                                 <PrivateLayout />
@@ -111,7 +109,7 @@ function App() {
                                             {/* Admin & Support Access */}
                                             <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPPORT', 'SUPER_ADMIN']} />}>
                                                 <Route path="/wallet" element={<WalletPage />} />
-                                                <Route path="/wallet/cards" element={<PaymentMethodsPage />} />
+                                                <Route path="/wallet/cards" element={<Navigate to="/wallet" replace />} />
                                                 <Route path="/telecom/phone-numbers" element={<PhoneNumbersPage />} />
                                                 <Route path="/phone-numbers" element={<Navigate to="/telecom/phone-numbers" replace />} />
                                                 <Route path="/tfn" element={<Navigate to="/telecom/phone-numbers" replace />} />
@@ -161,7 +159,6 @@ function App() {
                                                 <Route path="/users" element={<UserManagement />} />
                                                 <Route path="/settings" element={<BrandingSettingsPage />} />
                                             </Route>
-
 
                                             {/* Super Admin Only */}
                                             <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>

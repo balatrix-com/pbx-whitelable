@@ -1,8 +1,6 @@
-import { Controller, Post, Get, Body, Headers, Req, UseGuards, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Get, Headers, Req, UseGuards, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { BillingService } from './billing.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { GetUser } from '../auth/decorators/get-user.decorator';
-import type { User } from '@prisma/client';
 import type { Request } from 'express';
 
 @Controller('billing')
@@ -11,8 +9,8 @@ export class BillingController {
 
     @Post('create-checkout')
     @UseGuards(JwtAuthGuard)
-    createCheckout(@GetUser() user: User) {
-        return this.billingService.createCheckoutSession(user.tenantId!);
+    createCheckout() {
+        throw new ForbiddenException('Card checkout is disabled. Payments are managed manually by administration.');
     }
 
     @Post('webhook')
@@ -25,13 +23,13 @@ export class BillingController {
 
     @Get('payment-methods')
     @UseGuards(JwtAuthGuard)
-    listPaymentMethods(@GetUser() user: User) {
-        return this.billingService.listPaymentMethods(user.tenantId!);
+    listPaymentMethods() {
+        return [];
     }
 
     @Post('set-default-card')
     @UseGuards(JwtAuthGuard)
-    setDefaultCard(@GetUser() user: User, @Body('paymentMethodId') pmId: string) {
-        return this.billingService.setDefaultPaymentMethod(user.tenantId!, pmId);
+    setDefaultCard() {
+        throw new ForbiddenException('Payment methods are disabled.');
     }
 }

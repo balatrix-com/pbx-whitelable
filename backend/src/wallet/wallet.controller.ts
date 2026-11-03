@@ -119,20 +119,17 @@ export class WalletController {
 
     @Get('cards')
     getCards(@GetUser() user: User) {
-        if (!user.tenantId) return [];
-        return this.walletService.getCards(user.tenantId);
+        return [];
     }
 
     @Post('topup')
-    topUp(@GetUser() user: User, @Body() body: TopUpDto) {
-        if (!user.tenantId) throw new ForbiddenException('No tenant associated with this account');
-        return this.walletService.topUpWallet(user.tenantId, body.amount);
+    topUp() {
+        throw new ForbiddenException('Self-service top-up is disabled. Account balances are managed manually by administration.');
     }
 
     @Post('auto-recharge')
-    autoRecharge(@GetUser() user: User, @Body() body: AutoRechargeDto) {
-        if (!user.tenantId) throw new ForbiddenException('No tenant associated with this account');
-        return this.walletService.updateAutoRechargeSettings(user.tenantId, body.enabled, body.threshold, body.amount);
+    autoRecharge() {
+        throw new ForbiddenException('Auto-recharge is disabled. Account balances are managed manually by administration.');
     }
 
     @Get('payment-details')
@@ -190,9 +187,6 @@ export class WalletController {
         if (user.role !== Role.SUPER_ADMIN) {
             throw new ForbiddenException('Only Platform Owner can perform internal adjustments');
         }
-
-        // If user is ADMIN of their own tenant, they can maybe add funds? 
-        // Requirement says "internal-adjust (admin only)". Let's stick to standard RBAC.
 
         const tenantId = targetTenantId || user.tenantId!; // Default to self if not provided
         return this.walletService.adjustBalance(tenantId, amount, type, description, `MANUAL-ADJ-BY-${user.email}`);

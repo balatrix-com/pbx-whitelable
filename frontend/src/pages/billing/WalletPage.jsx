@@ -1,19 +1,14 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { useToast } from '../../context/ToastContext';
-import { walletService } from '../../services/wallet.service';
 import { useBillingIntelligence } from '../../hooks/useBillingIntelligence';
 import { useWalletQuery, useSubscriptionQuery, useWalletActions } from '../../hooks/useBillingQueries';
-import { Wallet, ArrowDown, ArrowUp, CreditCard, RotateCw, TrendingDown, Clock, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
+import { Wallet, ArrowDown, ArrowUp, CreditCard, Clock, CheckCircle, RefreshCw, TrendingDown } from 'lucide-react';
 import ReadOnlyBanner from '../../components/ReadOnlyBanner';
 
 const WalletPage = () => {
-    const { user, isSupport } = useAuth();
+    const { isSupport } = useAuth();
     const navigate = useNavigate();
-    const location = useLocation();
-    const [addingFunds, setAddingFunds] = useState(false);
-    const [rechargeAmount, setRechargeAmount] = useState('50');
 
     // Queries
     const { data: wallet, isLoading: walletLoading, isFetching: walletRefreshing } = useWalletQuery();
@@ -22,46 +17,7 @@ const WalletPage = () => {
 
     const intelligence = useBillingIntelligence(wallet, subscription);
 
-    const { addToast } = useToast();
-
-    useEffect(() => {
-        const queryParams = new URLSearchParams(location.search);
-        if (queryParams.get('success')) {
-            addToast('success', 'Payment successful! Your wallet will be updated shortly.');
-            // Clear query parameters using navigate so React Router is aware
-            navigate(window.location.pathname, { replace: true });
-            refreshWallet();
-        } else if (queryParams.get('canceled')) {
-            addToast('warning', 'Payment was cancelled.');
-            navigate(window.location.pathname, { replace: true });
-        }
-    }, [location.search, addToast, refreshWallet, navigate]);
-
-    const handleAddFunds = useCallback(async (amount) => {
-        const numericAmount = parseFloat(amount);
-        if (isNaN(numericAmount) || numericAmount <= 0) {
-            addToast('error', 'Please enter a valid amount');
-            return;
-        }
-
-        setAddingFunds(true);
-        try {
-            const data = await walletService.topup(numericAmount);
-            if (data?.checkoutUrl) {
-                window.location.href = data.checkoutUrl;
-            } else {
-                addToast('error', 'Failed to initiate payment: No checkout URL');
-            }
-        } catch (e) {
-            console.error(e);
-            addToast('error', 'Failed to add funds');
-        } finally {
-            setAddingFunds(false);
-        }
-    }, [addToast]);
-
     const loading = walletLoading || subLoading;
-    const refreshing = walletRefreshing;
 
     if (loading) return (
         <div className="flex flex-col items-center justify-center p-16">
@@ -69,9 +25,6 @@ const WalletPage = () => {
             <p className="text-gray-500 font-medium">Loading wallet details...</p>
         </div>
     );
-
-    const isReadOnly = isSupport;
-    const isAdmin = user?.role === 'ADMIN' || user?.role === 'admin';
 
     return (
         <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8">
@@ -81,7 +34,7 @@ const WalletPage = () => {
             <header className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                 <div>
                     <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">Wallet</h1>
-                    <p className="text-gray-500 dark:text-slate-400 mt-1 font-medium text-sm md:text-base">Manage your account balance and payment methods</p>
+                    <p className="text-gray-500 dark:text-slate-400 mt-1 font-medium text-sm md:text-base">View your account balance, credit limit, and transaction history</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
                     <button
@@ -91,40 +44,6 @@ const WalletPage = () => {
                         <CreditCard size={18} className="text-indigo-500" />
                         Subscriptions & Add-ons
                     </button>
-                    <button
-                        onClick={() => navigate('/wallet/cards')}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-bold text-gray-700 dark:text-slate-200 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 transition-all focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
-                        disabled={isReadOnly}
-                        title={isReadOnly ? "Restricted for Support users" : ""}
-                    >
-                        <CreditCard size={18} className="text-gray-500 dark:text-slate-400" />
-                        Manage Cards
-                    </button>
-                    {!isAdmin && (
-                        <div className="flex items-center gap-2 w-full sm:w-auto">
-                            <div className="relative flex-1 sm:flex-initial">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400 font-bold">$</span>
-                                <input
-                                    type="number"
-                                    value={rechargeAmount}
-                                    onChange={(e) => setRechargeAmount(e.target.value)}
-                                    min="1"
-                                    step="1"
-                                    className="w-full sm:w-24 pl-7 pr-3 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm font-bold text-gray-900 dark:text-white bg-white dark:bg-slate-900"
-                                    placeholder="50.00"
-                                />
-                            </div>
-                            <button
-                                onClick={() => handleAddFunds(rechargeAmount)}
-                                disabled={addingFunds || isReadOnly || !rechargeAmount || rechargeAmount <= 0}
-                                title={isReadOnly ? "Restricted for Support users" : ""}
-                                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-primary-700 transition-all focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                            >
-                                {addingFunds ? <RotateCw size={18} className="animate-spin" /> : <RotateCw size={18} />}
-                                Add Funds
-                            </button>
-                        </div>
-                    )}
                 </div>
             </header>
 
@@ -177,7 +96,7 @@ const WalletPage = () => {
                                 <dt className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Current Balance</dt>
                             </div>
                             <button
-                                onClick={() => { refreshWallet(); fetchPaymentDetails(); }}
+                                onClick={refreshWallet}
                                 disabled={walletRefreshing}
                                 className={`p-1 rounded-md hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors text-gray-400 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 ${walletRefreshing ? 'animate-spin' : ''}`}
                                 title="Refresh balance"
@@ -197,16 +116,12 @@ const WalletPage = () => {
                             )}
                         </div>
                     </div>
-                    <div className={`px-6 py-3 border-t border-gray-100 dark:border-white/[0.08] relative z-10 ${wallet?.autoRecharge?.enabled ? 'bg-green-50/50 dark:bg-emerald-950/40' : 'bg-red-50/50 dark:bg-red-950/40'}`}>
+                    <div className="px-6 py-3 border-t border-gray-100 dark:border-white/[0.08] bg-slate-50 dark:bg-slate-800/40 relative z-10">
                         <div className="flex items-center justify-between">
-                            <span className={`text-[11px] font-bold uppercase tracking-wider ${wallet?.autoRecharge?.enabled ? 'text-green-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                                Auto-recharge: {wallet?.autoRecharge?.enabled ? 'ON' : 'OFF'}
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                Balance: Admin Allocated
                             </span>
-                            {!wallet?.autoRecharge?.enabled ? (
-                                <AlertTriangle className="h-4 w-4 text-red-500 dark:text-red-400" />
-                            ) : (
-                                <CheckCircle className="h-4 w-4 text-green-600 dark:text-emerald-400" />
-                            )}
+                            <CheckCircle className="h-4 w-4 text-primary-500" />
                         </div>
                     </div>
                 </div>
@@ -246,7 +161,7 @@ const WalletPage = () => {
                     </div>
                     <div className={`px-6 py-3 border-t border-gray-100 dark:border-white/[0.08] relative z-10 ${intelligence.financial.runwayDays < 7 ? 'bg-red-50/50 dark:bg-red-950/40' : 'bg-gray-50/50 dark:bg-slate-900/40'}`}>
                         <div className={`text-[11px] font-bold uppercase tracking-wider ${intelligence.financial.runwayDays < 7 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-slate-400'}`}>
-                            {intelligence.financial.runwayDays < 7 ? 'Top-up required immediately' : 'Funds are sufficient'}
+                            {intelligence.financial.runwayDays < 7 ? 'Low balance notice' : 'Funds are sufficient'}
                         </div>
                     </div>
                 </div>
@@ -277,7 +192,7 @@ const WalletPage = () => {
                                 <div className="flex items-center space-x-4">
                                     <div className="flex-shrink-0">
                                         {(tx.type === 'DEPOSIT' || tx.type === 'CREDIT') ? (
-                                            <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-green-50 dark:bg-emerald-950/60 ring-1 ring-inset ring-green-600/20 dark:ring-emerald-500/30">
+                                             <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-green-50 dark:bg-emerald-950/60 ring-1 ring-inset ring-green-600/20 dark:ring-emerald-500/30">
                                                 <ArrowDown className="h-5 w-5 text-green-600 dark:text-emerald-400" />
                                             </span>
                                         ) : (
