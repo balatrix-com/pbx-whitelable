@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { of, throwError } from 'rxjs';
+import { BadRequestException } from '@nestjs/common';
 
 describe('PlansService', () => {
   let service: PlansService;
@@ -24,6 +25,10 @@ describe('PlansService', () => {
         create: jest.fn().mockImplementation((args) => Promise.resolve({ id: 'local-1', ...args.data })),
         count: jest.fn(),
         delete: jest.fn(),
+      },
+      subscription: {
+        count: jest.fn(),
+        deleteMany: jest.fn(),
       },
     };
 
@@ -94,6 +99,42 @@ describe('PlansService', () => {
         })
       );
       expect(result).toBeDefined();
+    });
+  });
+
+  describe('deletePlan', () => {
+    it('should throw BadRequestException if active local subscriptions exist', async () => {
+      prismaService.plan.findFirst.mockResolvedValue({ id: 'plan-1', name: 'Starter' });
+      prismaService.subscription.count.mockResolvedValue(2);
+
+      await expect(service.deletePlan('plan-1')).rejects.toThrow(BadRequestException);
+      expect(httpService.delete).not.toHaveBeenCalled();
+    });
+
+    it('should successfully delete or archive plan via sub-billing when 0 active subscriptions', async () => {
+      prismaService.plan.findFirst.mockResolvedValue({ id: 'plan-1', name: 'Starter' });
+      prismaService.subscription.count.mockResolvedValue(0);
+      httpService.delete.mockReturnValue(of({ data: { success: true, message: 'Plan deleted successfully' } }));
+      prismaService.subscription.deleteMany.mockResolvedValue({ count: 1 });
+      prismaService.plan.delete.mockResolvedValue({ id: 'plan-1' });
+
+      const result = await service.deletePlan('plan-1');
+      expect(httpService.delete).toHaveBeenCalledWith('http://localhost:5005/api/plans/plan-1');
+      expect(result).toEqual({ success: true, message: 'Plan "plan-1" deleted successfully' });
+    });
+
+    it('should propagate 409 from sub-billing as BadRequestException', async () => {
+      prismaService.plan.findFirst.mockResolvedValue(null);
+      httpService.delete.mockReturnValue(
+        throwError(() => ({
+          response: {
+            status: 409,
+            data: { message: '1 active subscription(s) still reference it' },
+          },
+        }))
+      );
+
+      await expect(service.deletePlan('plan-99')).rejects.toThrow(BadRequestException);
     });
   });
 });

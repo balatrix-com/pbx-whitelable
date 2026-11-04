@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
@@ -144,7 +144,6 @@ export class PlansService implements OnModuleInit {
             });
 
             if (activeSubs > 0) {
-                const { BadRequestException } = await import('@nestjs/common');
                 throw new BadRequestException(
                     `Cannot delete plan "${localPlan.name}": ${activeSubs} active tenant subscription(s) are currently using this plan.`
                 );
@@ -165,7 +164,6 @@ export class PlansService implements OnModuleInit {
             const status = error.response?.status;
             const message = error.response?.data?.message || error.message;
             if (status === 409) {
-                const { BadRequestException } = await import('@nestjs/common');
                 throw new BadRequestException(`Cannot delete plan: ${message}`);
             }
             this.logger.warn(`Sub-billing delete call for plan "${planId}" result: ${message}`);
@@ -174,6 +172,9 @@ export class PlansService implements OnModuleInit {
         // 3. Delete local PBX plan record
         if (localPlan) {
             try {
+                await this.prisma.subscription.deleteMany({
+                    where: { planId: localPlan.id, status: { not: 'ACTIVE' } }
+                });
                 await this.prisma.plan.delete({
                     where: { id: localPlan.id }
                 });
@@ -183,7 +184,6 @@ export class PlansService implements OnModuleInit {
         }
 
         if (!localPlan && !subBillingDeleted) {
-            const { NotFoundException } = await import('@nestjs/common');
             throw new NotFoundException(`Plan "${planId}" not found`);
         }
 
