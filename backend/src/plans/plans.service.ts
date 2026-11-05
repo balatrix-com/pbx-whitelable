@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger, BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
@@ -88,41 +88,83 @@ export class PlansService implements OnModuleInit {
 
     async createCustom(data: any, userId: string) {
         let subBillingResult = null;
+        const targetPlanId = data.plan_id || data.name?.toLowerCase().replace(/[^a-z0-9]/g, '_');
+
         try {
             const response = await firstValueFrom(
                 this.httpService.post(`${this.subBillingUrl}/v1/plans`, {
                     ...data,
-                    plan_id: data.plan_id || data.name?.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+                    plan_id: targetPlanId,
                     rate_card_id: data.rate_card_id ? String(data.rate_card_id) : undefined
                 })
             );
             subBillingResult = response.data;
         } catch (error) {
-            this.logger.warn(`Failed to push custom plan to sub-billing: ${error.message}`);
+            const status = error.response?.status;
+            const message = error.response?.data?.message || error.message;
+            this.logger.error(`Failed to push custom plan to sub-billing: ${message}`);
+            if (status === 409) {
+                throw new ConflictException(message);
+            }
+            throw new BadRequestException(`Failed to create plan in billing service: ${message}`);
         }
 
-        const localPlan = await this.prisma.plan.create({
-            data: {
-                name: data.name,
-                price: Number(data.price ?? data.amount ?? 0),
-                freeMinutes: Number(data.freeMinutes ?? data.free_mins ?? 0),
-                isCustom: true,
-                createdBy: userId,
-                tier: data.tier || Tier.BASIC,
-                billingCycle: data.billingCycle || BillingCycle.MONTHLY,
-                maxDIDs: Number(data.maxDIDs ?? data.dids ?? 0),
-                maxTFNs: Number(data.maxTFNs ?? data.tfns ?? 0),
-                maxExtensions: Number(data.maxExtensions ?? data.extensions ?? 0),
-                maxRingGroups: Number(data.maxRingGroups ?? 0),
-                maxIVRs: Number(data.maxIVRs ?? 0),
-                maxDIDForwards: Number(data.maxDIDForwards ?? 0),
-                allowSchedules: data.allowSchedules ?? false,
-                allowDIDForwards: data.allowDIDForwards ?? false,
-                allowCallRecording: data.allowCallRecording ?? false,
-                allowVoicemail: data.allowVoicemail ?? true,
-                initialCredit: Number(data.initialCredit ?? 0)
+        const planId = subBillingResult?.data?.plan_id || targetPlanId;
+
+        // Check if local plan already exists by name
+        const existingLocal = await this.prisma.plan.findFirst({
+            where: {
+                name: data.name
             }
         });
+
+        let localPlan;
+        if (existingLocal) {
+            localPlan = await this.prisma.plan.update({
+                where: { id: existingLocal.id },
+                data: {
+                    price: Number(data.price ?? data.amount ?? 0),
+                    freeMinutes: Number(data.freeMinutes ?? data.free_mins ?? 0),
+                    isCustom: true,
+                    tier: data.tier || Tier.BASIC,
+                    billingCycle: data.billingCycle || BillingCycle.MONTHLY,
+                    maxDIDs: Number(data.maxDIDs ?? data.dids ?? 0),
+                    maxTFNs: Number(data.maxTFNs ?? data.tfns ?? 0),
+                    maxExtensions: Number(data.maxExtensions ?? data.extensions ?? 0),
+                    maxRingGroups: Number(data.maxRingGroups ?? 0),
+                    maxIVRs: Number(data.maxIVRs ?? 0),
+                    maxDIDForwards: Number(data.maxDIDForwards ?? 0),
+                    allowSchedules: data.allowSchedules ?? false,
+                    allowDIDForwards: data.allowDIDForwards ?? false,
+                    allowCallRecording: data.allowCallRecording ?? false,
+                    allowVoicemail: data.allowVoicemail ?? true,
+                    initialCredit: Number(data.initialCredit ?? 0)
+                }
+            });
+        } else {
+            localPlan = await this.prisma.plan.create({
+                data: {
+                    name: data.name,
+                    price: Number(data.price ?? data.amount ?? 0),
+                    freeMinutes: Number(data.freeMinutes ?? data.free_mins ?? 0),
+                    isCustom: true,
+                    createdBy: userId,
+                    tier: data.tier || Tier.BASIC,
+                    billingCycle: data.billingCycle || BillingCycle.MONTHLY,
+                    maxDIDs: Number(data.maxDIDs ?? data.dids ?? 0),
+                    maxTFNs: Number(data.maxTFNs ?? data.tfns ?? 0),
+                    maxExtensions: Number(data.maxExtensions ?? data.extensions ?? 0),
+                    maxRingGroups: Number(data.maxRingGroups ?? 0),
+                    maxIVRs: Number(data.maxIVRs ?? 0),
+                    maxDIDForwards: Number(data.maxDIDForwards ?? 0),
+                    allowSchedules: data.allowSchedules ?? false,
+                    allowDIDForwards: data.allowDIDForwards ?? false,
+                    allowCallRecording: data.allowCallRecording ?? false,
+                    allowVoicemail: data.allowVoicemail ?? true,
+                    initialCredit: Number(data.initialCredit ?? 0)
+                }
+            });
+        }
 
         return subBillingResult || localPlan;
     }
