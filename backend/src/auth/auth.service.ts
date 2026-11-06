@@ -12,7 +12,6 @@ import { User, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 import { MailService } from '../mail/mail.service';
-import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AuthService {
@@ -21,8 +20,7 @@ export class AuthService {
         private jwtService: JwtService,
         private configService: ConfigService,
         private enforcementService: EnforcementService,
-        private mailService: MailService,
-        private notificationsService: NotificationsService
+        private mailService: MailService
     ) { }
 
     async validateUser(email: string, pass: string): Promise<any> {

@@ -32,5 +32,9 @@ frontend/node_modules/
 # Prisma
 /prisma/migrations/
 *.db
+
+# Scratch and cleanup scripts
+backend/scripts/cleanup_*.js
+backend/scripts/clear_*.js
 # GitHub Actions Runner
 actions-runner/

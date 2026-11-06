@@ -5,7 +5,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 
 describe('Authentication access boundaries', () => {
     const prisma = { user: { findUnique: jest.fn() }, $transaction: jest.fn() };
-    const service = new AuthService(prisma as any, {} as any, {} as any, {} as any, {} as any, {} as any);
+    const service = new AuthService(prisma as any, {} as any, {} as any, {} as any, {} as any);
     beforeEach(() => jest.clearAllMocks());
     it('rejects signup without creating records or tokens', async () => {
         expect(() => new AuthController(service).signup()).toThrow(NotFoundException);

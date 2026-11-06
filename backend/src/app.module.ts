@@ -31,7 +31,6 @@ import configuration from './config/configuration';
 import { RedisModule } from './redis/redis.module';
 import { MonitorModule } from './monitor/monitor.module';
 import { MailModule } from './mail/mail.module';
-import { NotificationsModule } from './notifications/notifications.module';
 import { LookupRedisModule } from './redis/lookup-redis.module';
 import { CarriersModule } from './carriers/carriers.module';
 import { InboundWhitelistModule } from './inbound-whitelist/inbound-whitelist.module';
@@ -71,7 +70,6 @@ import { SipTraceModule } from './sip-trace/sip-trace.module';
     RedisModule, // Global Redis module
     MonitorModule,
     MailModule,
-    NotificationsModule,
     LookupRedisModule,
     CarriersModule,
     InboundWhitelistModule,

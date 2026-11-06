@@ -6,7 +6,6 @@ describe('WalletService - switchSubscriptionPlan & cancelScheduledPlanSwitch', (
     let service: WalletService;
     let mockPrisma: any;
     let mockBillingService: any;
-    let mockNotificationsService: any;
     let mockHttpService: any;
     let mockConfigService: any;
     let mockFreeSwitchSync: any;
@@ -28,7 +27,6 @@ describe('WalletService - switchSubscriptionPlan & cancelScheduledPlanSwitch', (
         };
 
         mockBillingService = {};
-        mockNotificationsService = {};
         mockHttpService = {
             post: jest.fn(),
             get: jest.fn(),
@@ -42,7 +40,6 @@ describe('WalletService - switchSubscriptionPlan & cancelScheduledPlanSwitch', (
         service = new WalletService(
             mockPrisma,
             mockBillingService,
-            mockNotificationsService,
             mockHttpService,
             mockConfigService,
             mockFreeSwitchSync,
