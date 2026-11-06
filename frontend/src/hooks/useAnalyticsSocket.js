@@ -17,11 +17,13 @@ const useAnalyticsSocket = () => {
     const [isConnected, setIsConnected] = useState(false);
     const socketRef = useRef(null);
 
-    const canConnect = user?.role === 'SUPER_ADMIN' || user?.monitoringEnabled === true;
-    const tenantId = user?.tenant?.id || user?.tenantId;
+    const isPlatformAdmin = user?.role === 'SUPER_ADMIN';
+    const isImpersonating = Boolean(user?.isImpersonating || user?.impersonation || localStorage.getItem('originalToken'));
+    const targetTenantId = (isPlatformAdmin && !isImpersonating) ? 'all' : (user?.tenant?.id || user?.tenantId);
+    const canConnect = isPlatformAdmin || user?.monitoringEnabled === true;
 
     const connect = useCallback(() => {
-        if (!canConnect || !tenantId) return;
+        if (!canConnect || !targetTenantId) return;
 
         const token = sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken');
         if (!token) return;
@@ -40,7 +42,7 @@ const useAnalyticsSocket = () => {
 
         socket.on('connect', () => {
             setIsConnected(true);
-            socket.emit('join_room', tenantId);
+            socket.emit('join_room', targetTenantId);
         });
 
         socket.on('disconnect', () => setIsConnected(false));
@@ -56,7 +58,7 @@ const useAnalyticsSocket = () => {
             socket.disconnect();
             socketRef.current = null;
         };
-    }, [canConnect, tenantId]);
+    }, [canConnect, targetTenantId]);
 
     useEffect(() => {
         const cleanup = connect();

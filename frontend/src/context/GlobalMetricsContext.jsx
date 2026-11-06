@@ -20,12 +20,16 @@ export const GlobalMetricsProvider = ({ children }) => {
     // Connection State
     const [socket, setSocket] = useState(null);
 
-    const tenantId = user?.tenant?.id || user?.tenantId;
-    const canMonitor = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || (user?.role === 'SUPPORT' && user?.monitoringEnabled);
+    const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+    const isImpersonating = Boolean(user?.isImpersonating || user?.impersonation || localStorage.getItem('originalToken'));
+    const isPlatformAdmin = isSuperAdmin && !isImpersonating;
+
+    const targetTenantId = isPlatformAdmin ? 'all' : (user?.tenant?.id || user?.tenantId);
+    const canMonitor = isPlatformAdmin || user?.role === 'ADMIN' || (user?.role === 'SUPPORT' && user?.monitoringEnabled);
 
     useEffect(() => {
-        if (!isAuthenticated || !tenantId) {
-            // Cleanup on logout
+        if (!isAuthenticated || !targetTenantId) {
+            // Cleanup on logout or missing tenant context
             if (socket) {
                 socket.disconnect();
                 setSocket(null);
@@ -46,8 +50,9 @@ export const GlobalMetricsProvider = ({ children }) => {
             try {
                 // The monitor API reads the current customer call hashes from Redis.
                 try {
-                    const callsData = await telecomService.getActiveCalls(tenantId);
-                    if (isMounted) setActiveCalls(callsData.data?.calls || []);
+                    const callsData = await telecomService.getActiveCalls(targetTenantId);
+                    const callList = callsData?.data?.calls || callsData?.calls || [];
+                    if (isMounted) setActiveCalls(callList);
                 } catch (err) {
                     console.debug('Detailed monitoring access restricted', err);
                 }
@@ -75,7 +80,7 @@ export const GlobalMetricsProvider = ({ children }) => {
             });
 
             newSocket.on('connect', () => {
-                newSocket.emit('join_room', tenantId);
+                newSocket.emit('join_room', targetTenantId);
             });
 
             newSocket.on('call_update', (callData) => {
@@ -111,7 +116,7 @@ export const GlobalMetricsProvider = ({ children }) => {
         return () => {
             isMounted = false;
         };
-    }, [isAuthenticated, tenantId, canMonitor]);
+    }, [isAuthenticated, targetTenantId, canMonitor]);
 
     const value = useMemo(() => ({
         balance,
