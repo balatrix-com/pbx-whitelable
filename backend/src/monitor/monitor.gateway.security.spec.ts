@@ -53,12 +53,39 @@ describe('monitor socket authorization lifecycle', () => {
         expect(socket.join).not.toHaveBeenCalled();
     });
 
-    it('disconnects an already joined socket when monitoring permission is revoked', async () => {
+    it('disconnects an already joined socket when role or authorization is revoked', async () => {
         await gateway.handleConnection(socket);
         socket.data.joinedTenantIds.add('tenant-a');
         currentUser = { ...currentUser, role: 'SUPPORT', monitoringEnabled: false };
         await (gateway as any).revalidateActiveClients();
         expect(socket.disconnect).toHaveBeenCalled();
+    });
+
+    it('allows SUPPORT user with monitoringEnabled: false to connect and join their own tenant room', async () => {
+        currentUser = { role: 'SUPPORT', tenantId: 'tenant-a', status: 'ACTIVE', monitoringEnabled: false };
+        const jwt = (gateway as any).jwtService;
+        jwt.verify.mockReturnValueOnce({
+            sub: 'support-user-1', role: 'SUPPORT', tenantId: 'tenant-a', monitoringEnabled: false,
+            exp: Math.floor(Date.now() / 1000) + 10,
+        });
+        await gateway.handleConnection(socket);
+        expect(socket.disconnect).not.toHaveBeenCalled();
+        await gateway.handleJoinRoom('tenant-a', socket);
+        expect(socket.join).toHaveBeenCalledWith('tenant:tenant-a');
+        expect(socket.emit).toHaveBeenCalledWith('room_joined', expect.objectContaining({ room: 'tenant:tenant-a' }));
+    });
+
+    it('denies SUPPORT user from joining all tenants room (tenant:all)', async () => {
+        currentUser = { role: 'SUPPORT', tenantId: 'tenant-a', status: 'ACTIVE', monitoringEnabled: false };
+        const jwt = (gateway as any).jwtService;
+        jwt.verify.mockReturnValueOnce({
+            sub: 'support-user-1', role: 'SUPPORT', tenantId: 'tenant-a', monitoringEnabled: false,
+            exp: Math.floor(Date.now() / 1000) + 10,
+        });
+        await gateway.handleConnection(socket);
+        await gateway.handleJoinRoom('all', socket);
+        expect(socket.join).not.toHaveBeenCalled();
+        expect(socket.emit).toHaveBeenCalledWith('error', { message: 'Unauthorized tenant access' });
     });
 
     it('never joins another tenant room with a valid own-tenant token', async () => {

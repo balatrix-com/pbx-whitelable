@@ -20,7 +20,7 @@ const useAnalyticsSocket = () => {
     const isPlatformAdmin = user?.role === 'SUPER_ADMIN';
     const isImpersonating = Boolean(user?.isImpersonating || user?.impersonation || localStorage.getItem('originalToken'));
     const targetTenantId = (isPlatformAdmin && !isImpersonating) ? 'all' : (user?.tenant?.id || user?.tenantId);
-    const canConnect = isPlatformAdmin || user?.monitoringEnabled === true;
+    const canConnect = isPlatformAdmin || user?.role === 'ADMIN' || user?.role === 'SUPPORT';
 
     const connect = useCallback(() => {
         if (!canConnect || !targetTenantId) return;

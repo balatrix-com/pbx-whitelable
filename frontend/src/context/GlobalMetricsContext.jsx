@@ -25,7 +25,7 @@ export const GlobalMetricsProvider = ({ children }) => {
     const isPlatformAdmin = isSuperAdmin && !isImpersonating;
 
     const targetTenantId = isPlatformAdmin ? 'all' : (user?.tenant?.id || user?.tenantId);
-    const canMonitor = isPlatformAdmin || user?.role === 'ADMIN' || (user?.role === 'SUPPORT' && user?.monitoringEnabled);
+    const canMonitor = isPlatformAdmin || user?.role === 'ADMIN' || user?.role === 'SUPPORT';
 
     useEffect(() => {
         if (!isAuthenticated || !targetTenantId) {

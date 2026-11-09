@@ -28,13 +28,16 @@ export class MonitorController {
     async getActiveCalls(@Request() req: any, @Query('tenantId') queryTenantId?: string) {
         const user = req.user;
 
-        // Check permissions: Super Admin and Admin have access; Support requires monitoringEnabled === true
-        if (user.role !== Role.SUPER_ADMIN && user.role !== Role.ADMIN && !user.monitoringEnabled) {
-            throw new ForbiddenException('Monitoring access restrictions apply. Monitoring is not enabled for your account.');
+        // Verify role access: SUPER_ADMIN, ADMIN, and SUPPORT are allowed
+        if (user.role !== Role.SUPER_ADMIN && user.role !== Role.ADMIN && user.role !== Role.SUPPORT) {
+            throw new ForbiddenException('Access denied');
         }
 
         // Standard tenant isolation: non-SUPER_ADMIN users cannot query other tenants or 'all'
         if (user.role !== Role.SUPER_ADMIN) {
+            if (!user.tenantId) {
+                throw new ForbiddenException('User is not assigned to a tenant');
+            }
             if (queryTenantId && queryTenantId === 'all') {
                 throw new ForbiddenException('Access denied: cannot monitor all tenants');
             }

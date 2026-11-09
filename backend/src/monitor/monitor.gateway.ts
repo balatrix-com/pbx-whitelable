@@ -212,7 +212,7 @@ export class MonitorGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     // ---------------------------------------------------------------------------
 
     private canMonitor(user: { role: string; monitoringEnabled: boolean }): boolean {
-        return user.role === 'SUPER_ADMIN' || user.role === 'ADMIN' || (user.role === 'SUPPORT' && user.monitoringEnabled === true);
+        return user.role === 'SUPER_ADMIN' || user.role === 'ADMIN' || user.role === 'SUPPORT';
     }
 
     private disconnectExpiredClients() {

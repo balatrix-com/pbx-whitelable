@@ -119,9 +119,22 @@ describe('MonitorController', () => {
             expect(result.calls).toHaveLength(1);
         });
 
-        it('rejects SUPPORT with monitoringEnabled: false with 403 Forbidden', async () => {
+        it('allows SUPPORT with monitoringEnabled: false to query their own tenant active calls', async () => {
             const req = { user: { role: Role.SUPPORT, tenantId: 'U1012', monitoringEnabled: false } };
-            await expect(controller.getActiveCalls(req, 'U1012')).rejects.toThrow(ForbiddenException);
+            const result = await controller.getActiveCalls(req, 'U1012');
+            expect(monitorService.getActiveCalls).toHaveBeenCalledWith('U1012');
+            expect(result.calls).toHaveLength(1);
+        });
+
+        it('rejects SUPPORT attempting to query all tenants with 403 Forbidden', async () => {
+            const req = { user: { role: Role.SUPPORT, tenantId: 'U1012', monitoringEnabled: false } };
+            await expect(controller.getActiveCalls(req, 'all')).rejects.toThrow(ForbiddenException);
+            expect(monitorService.getActiveCalls).not.toHaveBeenCalled();
+        });
+
+        it('rejects SUPPORT attempting to query another tenant with 403 Forbidden', async () => {
+            const req = { user: { role: Role.SUPPORT, tenantId: 'U1012', monitoringEnabled: false } };
+            await expect(controller.getActiveCalls(req, 'U1005')).rejects.toThrow(ForbiddenException);
             expect(monitorService.getActiveCalls).not.toHaveBeenCalled();
         });
 
@@ -137,7 +150,7 @@ describe('MonitorController', () => {
             const req = { user: { role: Role.ADMIN, tenantId: 'U1012' } };
             const body = { uuid_in: 'uuid-1', uuid_out: 'uuid-2', mode: 'barge' as const, adminExtension: 'U101203' };
             const res = await controller.initiateBarge(req, body);
-            expect(monitorService.verifyCallTenant).toHaveBeenCalledWith('uuid-1', 'U1012');
+            expect(monitorService.verifyCallTenant).toHaveBeenCalledWith('uuid-1', 'U1012', 'uuid-2');
             expect(monitorService.initiateBarge).toHaveBeenCalledWith('uuid-1', 'uuid-2', 'U101203', 'barge');
             expect(res.status).toBe('success');
         });
@@ -146,7 +159,7 @@ describe('MonitorController', () => {
             const req = { user: { role: Role.SUPPORT, tenantId: 'U1012', monitoringEnabled: true } };
             const body = { uuid_in: 'uuid-1', uuid_out: 'uuid-2', mode: 'listen' as const, adminExtension: 'U101204' };
             const res = await controller.initiateBarge(req, body);
-            expect(monitorService.verifyCallTenant).toHaveBeenCalledWith('uuid-1', 'U1012');
+            expect(monitorService.verifyCallTenant).toHaveBeenCalledWith('uuid-1', 'U1012', 'uuid-2');
             expect(monitorService.initiateBarge).toHaveBeenCalledWith('uuid-1', 'uuid-2', 'U101204', 'listen');
             expect(res.status).toBe('success');
         });
