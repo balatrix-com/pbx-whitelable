@@ -366,6 +366,13 @@ export class UsersService {
         name?: string,
         flushExtension?: boolean
     ) {
+        // Defense-in-depth: only SUPER_ADMIN may manage monitoring extensions,
+        // regardless of what the controller @Roles guard already enforces.
+        const actor = await this.prisma.user.findUnique({ where: { id: actorId } });
+        if (!actor || actor.role !== Role.SUPER_ADMIN) {
+            throw new ForbiddenException('Only Super Admins can manage monitoring extensions');
+        }
+
         const canManage = await this.canManageUser(actorId, targetUserId);
         if (!canManage) {
             throw new ForbiddenException('You do not have permission to manage this user');

@@ -53,7 +53,7 @@ export class UsersController {
     }
 
     @Patch(':id/permissions')
-    @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+    @Roles(Role.SUPER_ADMIN)
     @Audit('USER_ROLE_UPDATED', 'USER_MANAGEMENT')
     updatePermissions(
         @GetUser() user: User,

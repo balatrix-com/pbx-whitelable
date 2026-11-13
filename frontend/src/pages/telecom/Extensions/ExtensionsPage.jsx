@@ -32,7 +32,8 @@ function ExtensionsPage() {
             const extRes = await api.get('/telecom/extensions');
             setExtensions(extRes.data);
 
-            if (role === 'SUPER_ADMIN' || role === 'ADMIN') {
+            // Only SUPER_ADMIN can view and manage monitoring extensions
+            if (role === 'SUPER_ADMIN') {
                 try {
                     const usersRes = await api.get('/users?limit=100');
                     const users = usersRes.data.data || [];
@@ -314,30 +315,36 @@ function ExtensionsPage() {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
                                                 <div className="flex items-center justify-end space-x-2">
-                                                    {user.monitoringEnabled ? (
+                                                    {/* Only SUPER_ADMIN can toggle monitoring status */}
+                                                    {canManageExtensions && (
+                                                        user.monitoringEnabled ? (
+                                                            <button
+                                                                className="px-2.5 py-1 text-xs font-semibold text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-md transition-colors"
+                                                                onClick={() => handleToggleMonitoringStatus(user, false)}
+                                                                title="Disable / Pause Monitoring"
+                                                            >
+                                                                Pause
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                className="px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition-colors"
+                                                                onClick={() => handleToggleMonitoringStatus(user, true)}
+                                                                title="Enable / Reactivate Extension"
+                                                            >
+                                                                Enable
+                                                            </button>
+                                                        )
+                                                    )}
+                                                    {/* Only SUPER_ADMIN can edit monitoring credentials */}
+                                                    {canManageExtensions && (
                                                         <button
-                                                            className="px-2.5 py-1 text-xs font-semibold text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-md transition-colors"
-                                                            onClick={() => handleToggleMonitoringStatus(user, false)}
-                                                            title="Disable / Pause Monitoring"
+                                                            className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-md transition-colors focus:outline-none"
+                                                            onClick={() => handleEditMonitoring(user)}
+                                                            title="Edit Credentials"
                                                         >
-                                                            Pause
-                                                        </button>
-                                                    ) : (
-                                                        <button
-                                                            className="px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition-colors"
-                                                            onClick={() => handleToggleMonitoringStatus(user, true)}
-                                                            title="Enable / Reactivate Extension"
-                                                        >
-                                                            Enable
+                                                            <Edit2 className="h-4 w-4" />
                                                         </button>
                                                     )}
-                                                    <button
-                                                        className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-md transition-colors focus:outline-none"
-                                                        onClick={() => handleEditMonitoring(user)}
-                                                        title="Edit Credentials"
-                                                    >
-                                                        <Edit2 className="h-4 w-4" />
-                                                    </button>
                                                     {canManageExtensions && (
                                                         <button
                                                             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors focus:outline-none"
@@ -346,6 +353,12 @@ function ExtensionsPage() {
                                                         >
                                                             <Trash2 className="h-4 w-4" />
                                                         </button>
+                                                    )}
+                                                    {/* Read-only status indicator for non-SuperAdmin viewers */}
+                                                    {!canManageExtensions && (
+                                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide px-2 py-1 bg-gray-50 rounded border border-gray-100">
+                                                            {user.monitoringEnabled ? 'Active' : 'Inactive'}
+                                                        </span>
                                                     )}
                                                 </div>
                                             </td>
