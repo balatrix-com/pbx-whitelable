@@ -32,8 +32,8 @@ function ExtensionsPage() {
             const extRes = await api.get('/telecom/extensions');
             setExtensions(extRes.data);
 
-            // Only SUPER_ADMIN can view and manage monitoring extensions
-            if (role === 'SUPER_ADMIN') {
+            // Allow SUPER_ADMIN and ADMIN (tenant) to view monitoring extensions
+            if (role === 'SUPER_ADMIN' || role === 'ADMIN') {
                 try {
                     const usersRes = await api.get('/users?limit=100');
                     const users = usersRes.data.data || [];
