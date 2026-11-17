@@ -5,7 +5,10 @@ import {
     PhoneCall,
     Headphones,
     ListTree,
-    Wallet
+    Wallet,
+    Building2,
+    RadioTower,
+    CreditCard
 } from 'lucide-react';
 
 const ICON_MAP = {
@@ -14,7 +17,10 @@ const ICON_MAP = {
     PhoneCall,
     Headphones,
     ListTree,
-    Wallet
+    Wallet,
+    Building2,
+    RadioTower,
+    CreditCard
 };
 
 const HelpCategoryFilter = ({ categories, selectedCategory, onSelectCategory, counts }) => {
@@ -30,18 +36,18 @@ const HelpCategoryFilter = ({ categories, selectedCategory, onSelectCategory, co
                         key={cat.id}
                         type="button"
                         onClick={() => onSelectCategory(cat.id)}
-                        className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all shadow-xs ${
+                        className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                             isSelected
-                                ? 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-500'
-                                : 'bg-white dark:bg-[#0d0e13] text-gray-700 dark:text-slate-300 border border-gray-200/80 dark:border-white/[0.08] hover:bg-gray-50 dark:hover:bg-white/[0.04]'
+                                ? 'bg-primary-600 text-white shadow-sm ring-1 ring-primary-600'
+                                : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/70'
                         }`}
                     >
-                        <IconComponent className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-gray-500 dark:text-slate-400'}`} />
+                        <IconComponent className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-slate-500'}`} />
                         <span>{cat.label}</span>
-                        <span className={`inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
                             isSelected
-                                ? 'bg-indigo-700 text-white'
-                                : 'bg-gray-100 dark:bg-white/[0.08] text-gray-600 dark:text-slate-300'
+                                ? 'bg-primary-700 text-white'
+                                : 'bg-white text-slate-600 border border-slate-200/60'
                         }`}>
                             {count}
                         </span>
