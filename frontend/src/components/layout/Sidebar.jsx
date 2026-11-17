@@ -36,7 +36,8 @@ import {
     History,
     Radio,
     Package,
-    ShieldCheck
+    ShieldCheck,
+    LifeBuoy
 } from 'lucide-react';
 import { Menu, Transition } from '@headlessui/react';
 import { Fragment, useState, useEffect } from 'react';
@@ -96,6 +97,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { name: 'Carriers & Gateways', href: '/super-admin/carriers', icon: Server },
                     { name: 'User Management', href: '/super-admin/users', icon: Users },
                     { name: 'System Settings', href: '/settings', icon: Settings },
+                    { name: 'Help Center', href: '/help', icon: LifeBuoy },
                 ];
                 break;
             case 'ADMIN':
@@ -123,6 +125,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { name: 'SIP Traces', href: '/telecom/sip-traces', icon: ScrollText },
                     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
                     { name: 'User Management', href: '/users', icon: Users },
+                    { name: 'Help Center', href: '/help', icon: LifeBuoy },
                 ];
                 break;
 
@@ -147,6 +150,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { name: 'Schedules', href: '/telecom/schedules', icon: Clock },
                     { name: 'Call Monitoring', href: '/monitoring', icon: Activity },
                     { name: 'Call Records', href: '/cdrs', icon: History },
+                    { name: 'Help Center', href: '/help', icon: LifeBuoy },
                 ];
                 break;
             default:

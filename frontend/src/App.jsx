@@ -50,6 +50,7 @@ import PrivateLayout from './components/layout/PrivateLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import PlatformDashboard from './pages/platform/PlatformDashboard';
 import GlobalAnalyticsDashboard from './pages/platform/GlobalAnalyticsDashboard';
+import HelpCenterPage from './pages/help/HelpCenterPage';
 import { useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 
@@ -105,6 +106,8 @@ function App() {
                                         }>
                                             {/* Dashboard: All Authenticated Users (Redirect Super Admin) */}
                                             <Route path="/dashboard" element={<DashboardRedirect />} />
+                                            <Route path="/help" element={<HelpCenterPage />} />
+                                            <Route path="/help-center" element={<Navigate to="/help" replace />} />
 
                                             {/* Admin & Support Access */}
                                             <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPPORT', 'SUPER_ADMIN']} />}>
