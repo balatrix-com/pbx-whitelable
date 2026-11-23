@@ -16,6 +16,7 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { lastValueFrom } from 'rxjs';
 import { EntitlementsService } from '../../entitlements/entitlements.service';
+import { VoicemailService } from '../../voicemail/voicemail.service';
 
 @Injectable()
 export class ExtensionsService {
@@ -28,6 +29,7 @@ export class ExtensionsService {
         private readonly httpService: HttpService,
         private readonly configService: ConfigService,
         private readonly entitlements: EntitlementsService,
+        private readonly voicemail: VoicemailService,
     ) { }
 
     private async resolveTenantId(tenantId: string): Promise<string> {
@@ -133,6 +135,7 @@ export class ExtensionsService {
                     created++;
 
                     existingMap.set(extNum, newExt);
+                    await this.voicemail.ensureDefaultBoxes(targetTenantId);
                     this.logger.log(`[Auto-Sync] Synced/Upserted extension ${extNum} in PBX DB for tenant ${targetTenantId}`);
 
                     // Sync to FreeSWITCH & Kamailio
@@ -154,6 +157,7 @@ export class ExtensionsService {
             }
         }
 
+        await this.voicemail.ensureDefaultBoxes(targetTenantId);
         // Sync with Redis Lookup DB
         await this.lookupRedis.updateExtensionLookup(targetTenantId).catch(err => {
             syncFailed++;
@@ -307,6 +311,7 @@ export class ExtensionsService {
         });
 
         this.logger.log(`Created extension ${extension.extensionNumber} for tenant ${tenantId}`);
+        await this.voicemail.ensureDefaultBoxes(tenantId);
 
         // Sync to FreeSWITCH/Kamailio — non-fatal if unreachable
         try {
@@ -434,6 +439,8 @@ export class ExtensionsService {
             throw new BadRequestException(`Cannot delete extension. It is currently the routing target for DID ${didUsage.number}.`);
         }
 
+        const mailboxId = await this.voicemail.assertExtensionMailboxCanRetire(tenantId, id);
+
         // Sync: Delete from FreeSwitch — non-fatal if unreachable
         try {
             await this.freeSwitchSync.deleteExtension(extension);
@@ -443,6 +450,7 @@ export class ExtensionsService {
 
         // Delete
         await this.prisma.extension.delete({ where: { id } });
+        await this.voicemail.retireExtensionMailbox(tenantId, mailboxId);
 
         // Sync with Redis Lookup DB
         await this.lookupRedis.deleteExtensionLookup(extension.extensionNumber);

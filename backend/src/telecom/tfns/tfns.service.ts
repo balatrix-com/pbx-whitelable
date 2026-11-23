@@ -268,6 +268,12 @@ export class TFNsService {
             if (!schedule) {
                 throw new BadRequestException('Schedule not found');
             }
+        } else if (routeType === 'voicemail') {
+            const [box, feature] = await Promise.all([
+                this.prisma.voicemailBox.findFirst({ where: { id: targetId, tenantId, enabled: true, retiredAt: null } }),
+                this.prisma.tenantFeature.findUnique({ where: { tenantId } }),
+            ]);
+            if (!box || !feature?.voicemailEnabled) throw new BadRequestException('Voicemail box is unavailable');
         } else {
             throw new BadRequestException(`Unknown route type: ${routeType}`);
         }

@@ -7,7 +7,7 @@ export class CreateTFNDto {
 
     @IsString()
     @IsOptional()
-    @IsEnum(['extension', 'ring_group', 'ivr', 'schedule', 'forward'])
+    @IsEnum(['extension', 'ring_group', 'ivr', 'schedule', 'forward', 'voicemail'])
     routeType?: string;
 
     @IsString()

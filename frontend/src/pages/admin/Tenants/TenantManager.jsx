@@ -1721,6 +1721,9 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
         schedulerLimit: 10,
         didForwardEnabled: true,
         didForwardLimit: 10,
+        voicemailEnabled: false,
+        voicemailBoxLimit: 0,
+        voicemailStorageLimitMb: 0,
     });
     const [updatingFeature, setUpdatingFeature] = useState(null);
     const [tenantUsers, setTenantUsers] = useState([]);
@@ -1964,6 +1967,14 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
     };
 
     const FEATURE_ITEMS = [
+        {
+            key: 'voicemailEnabled',
+            limitKey: 'voicemailBoxLimit',
+            title: 'Voicemail',
+            description: 'Allow company and extension mailboxes, greetings, and a private message inbox. A mailbox limit of 0 is unlimited.',
+            icon: Mail,
+            color: 'text-blue-600 bg-blue-50 border-blue-100',
+        },
         {
             key: 'recordingAllowed',
             title: 'Call Recording Permission',
@@ -2267,6 +2278,15 @@ const FeaturesTab = ({ tenant, onUpdate }) => {
                                             />
                                             <span className="text-[10px] text-gray-400 font-bold">resources</span>
                                         </div>
+                                    )}
+                                    {isEnabled && item.key === 'voicemailEnabled' && (
+                                        <label className="mt-3 flex items-center gap-2 text-xs font-bold text-gray-700">
+                                            Storage limit (MB, 0 = unlimited)
+                                            <input type="number" min="0" value={features.voicemailStorageLimitMb ?? 0}
+                                                onChange={e => setFeatures(prev => ({ ...prev, voicemailStorageLimitMb: e.target.value }))}
+                                                onBlur={e => handleLimitChange('voicemailStorageLimitMb', e.target.value || 0)}
+                                                className="w-24 px-2 py-1 border rounded" />
+                                        </label>
                                     )}
                                 </div>
                             </div>

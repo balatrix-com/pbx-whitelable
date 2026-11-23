@@ -37,6 +37,7 @@ import { CarriersModule } from './carriers/carriers.module';
 import { InboundWhitelistModule } from './inbound-whitelist/inbound-whitelist.module';
 import { AddonsModule } from './addons/addons.module';
 import { SipTraceModule } from './sip-trace/sip-trace.module';
+import { VoicemailModule } from './voicemail/voicemail.module';
 
 @Module({
   imports: [
@@ -77,6 +78,7 @@ import { SipTraceModule } from './sip-trace/sip-trace.module';
     InboundWhitelistModule,
     AddonsModule,
     SipTraceModule,
+    VoicemailModule,
   ],
   controllers: [AppController],
   providers: [

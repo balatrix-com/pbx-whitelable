@@ -10,9 +10,10 @@ import { WalletModule } from '../wallet/wallet.module';
 import { MailModule } from '../mail/mail.module';
 import { ExtensionsModule } from '../telecom/extensions/extensions.module';
 import { InternalServiceGuard } from '../auth/guards/internal-service.guard';
+import { VoicemailModule } from '../voicemail/voicemail.module';
 
 @Module({
-    imports: [FreeswitchModule, AdminModule, LookupRedisModule, WalletModule, MailModule, ExtensionsModule],
+    imports: [FreeswitchModule, AdminModule, LookupRedisModule, WalletModule, MailModule, ExtensionsModule, VoicemailModule],
     controllers: [TenantsController],
     providers: [TenantsService, PrismaService, InternalServiceGuard],
     exports: [TenantsService],

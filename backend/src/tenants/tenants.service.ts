@@ -7,6 +7,7 @@ import { LookupRedisService } from '../redis/lookup-redis.module';
 import { WalletService } from '../wallet/wallet.service';
 import { ExtensionsService } from '../telecom/extensions/extensions.service';
 import { MailService } from '../mail/mail.service';
+import { VoicemailService } from '../voicemail/voicemail.service';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -21,6 +22,7 @@ export class TenantsService {
         private walletService: WalletService,
         private extensionsService: ExtensionsService,
         private mailService: MailService,
+        private voicemail: VoicemailService,
     ) { }
 
     async listTenants(query: {
@@ -422,6 +424,9 @@ export class TenantsService {
         /** Required when enabling recordingAllowed (turning it from false → true).
          *  Must match a valid rec_rate_card.id. */
         recRateCardId?: number;
+        voicemailEnabled?: boolean;
+        voicemailBoxLimit?: number;
+        voicemailStorageLimitMb?: number;
     }) {
         const tenant = await this.prisma.tenant.findUnique({
             where: { id }
@@ -469,6 +474,9 @@ export class TenantsService {
         }
 
         const isDisablingRecording = dto.recordingAllowed === false;
+        if (dto.voicemailEnabled !== undefined && typeof dto.voicemailEnabled !== 'boolean') throw new BadRequestException('Invalid voicemail switch');
+        if (dto.voicemailBoxLimit !== undefined && (!Number.isInteger(dto.voicemailBoxLimit) || dto.voicemailBoxLimit < 0 || dto.voicemailBoxLimit > 10000)) throw new BadRequestException('Invalid mailbox limit');
+        if (dto.voicemailStorageLimitMb !== undefined && (!Number.isSafeInteger(dto.voicemailStorageLimitMb) || dto.voicemailStorageLimitMb < 0)) throw new BadRequestException('Invalid voicemail storage limit');
 
         const updatedFeatures = await this.prisma.tenantFeature.upsert({
             where: { tenantId: id },
@@ -485,6 +493,9 @@ export class TenantsService {
                 monitorEnabled: dto.monitorEnabled ?? true,
                 monitorLimit: dto.monitorLimit ?? 10,
                 recordingAllowed: dto.recordingAllowed ?? false,
+                voicemailEnabled: dto.voicemailEnabled ?? true,
+                voicemailBoxLimit: dto.voicemailBoxLimit ?? 0,
+                voicemailStorageLimitMb: dto.voicemailStorageLimitMb ?? 0,
                 recordingEnabled: false,
             },
             update: {
@@ -499,6 +510,9 @@ export class TenantsService {
                 monitorEnabled: dto.monitorEnabled,
                 monitorLimit: dto.monitorLimit,
                 recordingAllowed: dto.recordingAllowed,
+                voicemailEnabled: dto.voicemailEnabled,
+                voicemailBoxLimit: dto.voicemailBoxLimit,
+                voicemailStorageLimitMb: dto.voicemailStorageLimitMb,
                 ...(isDisablingRecording ? { recordingEnabled: false } : {}),
             }
         });
@@ -510,6 +524,9 @@ export class TenantsService {
             });
             await this.freeSwitchSync.syncAllDialplans(id);
         }
+
+        if (dto.voicemailEnabled === true) await this.voicemail.ensureDefaultBoxes(id);
+        if (dto.voicemailEnabled !== undefined) await this.freeSwitchSync.syncAllDialplans(id);
 
         return updatedFeatures;
     }
@@ -753,6 +770,8 @@ export class TenantsService {
                 }
             });
 
+            await prisma.tenantFeature.create({ data: { tenantId: tenant.id, voicemailEnabled: true } });
+
             // 2. Create Wallet
             await prisma.wallet.create({
                 data: {
@@ -820,6 +839,9 @@ export class TenantsService {
         // 7. Auto-sync and provision extensions in PBX & Kamailio
         await this.extensionsService.syncMissingExtensionsFromSubBilling(result.tenant.id).catch(err => {
             this.logger.warn(`Post-tenant creation extension sync warning: ${err.message}`);
+        });
+        await this.voicemail.ensureDefaultBoxes(result.tenant.id).catch(err => {
+            this.logger.warn(`Post-tenant creation voicemail provisioning warning: ${err.message}`);
         });
 
         // 8. Send credentials email (fire-and-forget, non-blocking)
