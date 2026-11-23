@@ -18,7 +18,7 @@ Whitelabel's existing `Plan.allowVoicemail` field remains separate from the Supe
 5. Place a spoken default greeting at `/opt/ivr_audio/system/voicemail_default.wav` and a storage-full prompt at `/opt/ivr_audio/system/voicemail_full.wav`. The beep can use the default FreeSWITCH tone or a WAV configured with `VOICEMAIL_BEEP`. FreeSWITCH must be able to read each file.
 6. Deploy `t2-kam-whitlable/t_2002.py` to the path shown by `pm2 describe fscurl` (previously `/opt/pbx_app/t_2002.py`) and restart `fscurl`. Restart the backend after its migration and build. Start the voicemail ingester only after the shared storage and database are ready.
 
-The later `20261123000000_voicemail_greeting_source` migration records which Audio Library item supplied each selected greeting. Existing custom greeting copies remain playable; select their source item once more if you want its name shown in the mailbox and selected in the dropdown.
+The later `20261123000000_voicemail_greeting_source` migration records which Audio Library item supplied each selected greeting. Existing custom greeting copies remain playable. After deployment, run `node --env-file=.env scripts/reconcile-voicemail-greetings.js` from `backend` to preview recoverable source names, then rerun with `--apply`. The script matches decoded audio without changing greeting files and skips missing or duplicate matches. For any unmatched greeting, preview it and select its source item once more in the portal.
 
 ## Verification
 
