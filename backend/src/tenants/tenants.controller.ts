@@ -102,6 +102,9 @@ export class TenantsController {
             monitorEnabled?: boolean;
             monitorLimit?: number;
             recordingAllowed?: boolean;
+            voicemailEnabled?: boolean;
+            voicemailBoxLimit?: number;
+            voicemailStorageLimitMb?: number;
         }
     ) {
         return this.tenantsService.updateTenantFeatures(id, body);

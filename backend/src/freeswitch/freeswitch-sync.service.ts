@@ -25,7 +25,7 @@ export class FreeSwitchSyncService {
         const client = tx || this.prisma;
         const ext = await client.extension.findUnique({
             where: { id: extensionId },
-            include: { tenant: true }
+            include: { tenant: { include: { tenantFeatures: true } }, voicemailBox: true }
         });
         if (!ext) return;
 
@@ -42,6 +42,8 @@ export class FreeSwitchSyncService {
         const key = this.getExtensionDialplanKey(ext);
         const customerCode = ext.tenant?.customerCode || '';
         const enableRecording = (ext as any).recordingEnabled ?? false;
+        const voicemailBox = ext.tenant.tenantFeatures?.voicemailEnabled && ext.voicemailBox?.enabled && !ext.voicemailBox.retiredAt ? ext.voicemailBox : null;
+        const voicemailKey = voicemailBox && ext.tenant.customerCode ? `vm${voicemailBox.sequenceId}_${ext.tenant.customerCode}` : undefined;
 
         let xml = '';
 
@@ -64,10 +66,11 @@ export class FreeSwitchSyncService {
                 undefined,
                 enableRecording,
                 customerCode,
-                cfnaGateway
+                cfnaGateway,
+                voicemailKey
             );
         } else {
-            xml = this.dialplanGenerator.generateSimpleExtensionXML(key, ext.extensionNumber, undefined, enableRecording, customerCode);
+            xml = this.dialplanGenerator.generateSimpleExtensionXML(key, ext.extensionNumber, undefined, enableRecording, customerCode, voicemailKey, voicemailBox?.noAnswerSeconds ?? 20);
         }
 
         await this.freeswitchDB.upsertDialplan(key, xml);
@@ -77,6 +80,25 @@ export class FreeSwitchSyncService {
         if (ext.tenant?.customerCode) {
             await this.cacheFlush.flushCustomer(ext.tenant.customerCode);
         }
+    }
+
+    async syncVoicemailBox(boxId: string): Promise<void> {
+        const box = await this.prisma.voicemailBox.findUnique({ where: { id: boxId }, include: { tenant: { include: { tenantFeatures: true } } } });
+        if (!box?.tenant.customerCode) return;
+        const key = `vm${box.sequenceId}_${box.tenant.customerCode}`;
+        if (box.enabled && !box.retiredAt && box.tenant.tenantFeatures?.voicemailEnabled && !box.tenant.serviceBlocked && box.tenant.status === 'ACTIVE') {
+            await this.freeswitchDB.upsertDialplan(key, this.dialplanGenerator.generateVoicemailXML(key, box.tenantId, box.id, box.greetingPath));
+        } else {
+            await this.freeswitchDB.deleteDialplan(key);
+        }
+        await this.cacheFlush.flushCustomer(box.tenant.customerCode);
+    }
+
+    async deleteVoicemailBox(box: { sequenceId: number; tenantId: string }): Promise<void> {
+        const tenant = await this.prisma.tenant.findUnique({ where: { id: box.tenantId } });
+        if (!tenant?.customerCode) return;
+        await this.freeswitchDB.deleteDialplan(`vm${box.sequenceId}_${tenant.customerCode}`);
+        await this.cacheFlush.flushCustomer(tenant.customerCode);
     }
 
     /**
@@ -152,11 +174,15 @@ export class FreeSwitchSyncService {
 
         // 2. Resolve target IDs to actual Dialplan Keys (e.g. ext101_1001)
         const resolvedMenu = await this.resolveMenuTargets(ivr.menu, ivr.tenantId);
+        const fallback = ivr.fallbackVoicemailBoxId
+            ? await this.resolveDialplanKey('voicemail', ivr.fallbackVoicemailBoxId, ivr.tenantId)
+            : undefined;
 
         const xmlMap = this.dialplanGenerator.generateIVRXMLs(
             baseKey,
             greeting,
-            resolvedMenu
+            resolvedMenu,
+            fallback || undefined
         );
 
         for (const [key, xml] of xmlMap.entries()) {
@@ -667,6 +693,15 @@ export class FreeSwitchSyncService {
         if (!targetId) return '';
         const client = tx || this.prisma;
 
+        if (type === 'voicemail') {
+            const box = await client.voicemailBox.findFirst({
+                where: { id: targetId, tenantId, enabled: true, retiredAt: null },
+                include: { tenant: { include: { tenantFeatures: true } } },
+            });
+            return box?.tenant.tenantFeatures?.voicemailEnabled && !box.tenant.serviceBlocked && box.tenant.status === 'ACTIVE' && box.tenant.customerCode
+                ? `vm${box.sequenceId}_${box.tenant.customerCode}` : '';
+        }
+
         if (type === 'extension') {
             const ext = await client.extension.findFirst({
                 where: { id: targetId, tenantId },
@@ -723,6 +758,8 @@ export class FreeSwitchSyncService {
      */
     async syncAllDialplans(tenantId: string): Promise<void> {
         try {
+            const boxes = await this.prisma.voicemailBox.findMany({ where: { tenantId } });
+            for (const box of boxes) await this.syncVoicemailBox(box.id);
             // 1. Sync Extensions
             const exts = await this.prisma.extension.findMany({ where: { tenantId } });
             for (const e of exts) await this.syncExtension(e.id);
@@ -772,7 +809,7 @@ export class FreeSwitchSyncService {
             const item = resolved[key];
             if (item.type === 'submenu' && item.children) {
                 item.children = await this.resolveMenuTargets(item.children, tenantId);
-            } else if (['extension', 'ring_group', 'ivr', 'schedule', 'did_forward', 'forward'].includes(item.type)) {
+            } else if (['extension', 'ring_group', 'ivr', 'schedule', 'did_forward', 'forward', 'voicemail'].includes(item.type)) {
                 if (item.target) {
                     let dialplanKey = '';
 

@@ -49,12 +49,13 @@ const layoutNodes = (nodesToLayout, edgesToLayout) => {
 };
 
 // ---------- Action Palette (CLICK instead of DRAG) ----------
-const ActionPalette = ({ onAddAction }) => {
+const ActionPalette = ({ onAddAction, voicemailBoxes = [] }) => {
   const actions = [
     { type: 'extension', label: 'Extension', icon: <PhoneForwarded size={16} />, lightBg: 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200', darkBg: 'dark:bg-blue-950/40 dark:hover:bg-blue-950/70 dark:text-blue-300 dark:border-blue-800/60' },
     { type: 'ring_group', label: 'Ring Group', icon: <PhoneForwarded size={16} />, lightBg: 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200', darkBg: 'dark:bg-indigo-950/40 dark:hover:bg-indigo-950/70 dark:text-indigo-300 dark:border-indigo-800/60' },
     { type: 'submenu', label: 'Submenu', icon: <CornerDownRight size={16} />, lightBg: 'bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200', darkBg: 'dark:bg-purple-950/40 dark:hover:bg-purple-950/70 dark:text-purple-300 dark:border-purple-800/60' },
     { type: 'ivr', label: 'Route to IVR', icon: <Link size={16} />, lightBg: 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200', darkBg: 'dark:bg-emerald-950/40 dark:hover:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800/60' },
+    ...(voicemailBoxes.length ? [{ type: 'voicemail', label: 'Voicemail', icon: <PhoneCall size={16} />, lightBg: 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200', darkBg: 'dark:bg-blue-950/40 dark:hover:bg-blue-950/70 dark:text-blue-300 dark:border-blue-800/60' }] : []),
     { type: 'did_forward', label: 'DID Forward', icon: <PhoneCall size={16} />, lightBg: 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200', darkBg: 'dark:bg-amber-950/40 dark:hover:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800/60' },
     { type: 'external', label: 'External No.', icon: <PhoneCall size={16} />, lightBg: 'bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200', darkBg: 'dark:bg-orange-950/40 dark:hover:bg-orange-950/70 dark:text-orange-300 dark:border-orange-800/60' },
     { type: 'back', label: 'Go Back', icon: <CornerDownRight size={16} className="transform rotate-180" />, lightBg: 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-200', darkBg: 'dark:bg-slate-800/70 dark:hover:bg-slate-800 dark:text-slate-300 dark:border-slate-700' },
@@ -129,6 +130,7 @@ const getActionDetails = (type) => {
     case 'ring_group': return { label: 'Ring Group', icon: <PhoneForwarded size={20} />, borderColor: 'border-indigo-400 dark:border-indigo-500/50', iconBgColor: 'bg-indigo-50 dark:bg-indigo-950/60', iconColor: 'text-indigo-600 dark:text-indigo-400' };
     case 'submenu': return { label: 'Submenu', icon: <CornerDownRight size={20} />, borderColor: 'border-purple-400 dark:border-purple-500/50', iconBgColor: 'bg-purple-50 dark:bg-purple-950/60', iconColor: 'text-purple-600 dark:text-purple-400' };
     case 'ivr': return { label: 'Route to IVR', icon: <Link size={20} />, borderColor: 'border-emerald-400 dark:border-emerald-500/50', iconBgColor: 'bg-emerald-50 dark:bg-emerald-950/60', iconColor: 'text-emerald-600 dark:text-emerald-400' };
+    case 'voicemail': return { label: 'Voicemail', icon: <PhoneCall size={20} />, borderColor: 'border-blue-400 dark:border-blue-500/50', iconBgColor: 'bg-blue-50 dark:bg-blue-950/60', iconColor: 'text-blue-600 dark:text-blue-400' };
     case 'did_forward':
     case 'forward': return { label: 'DID Forward', icon: <PhoneCall size={20} />, borderColor: 'border-amber-400 dark:border-amber-500/50', iconBgColor: 'bg-amber-50 dark:bg-amber-950/60', iconColor: 'text-amber-600 dark:text-amber-400' };
     case 'external': return { label: 'External No.', icon: <PhoneCall size={20} />, borderColor: 'border-orange-400 dark:border-orange-500/50', iconBgColor: 'bg-orange-50 dark:bg-orange-950/60', iconColor: 'text-orange-600 dark:text-orange-400' };
@@ -169,6 +171,7 @@ const InteractiveBuilderCore = ({ ivrName, resources, initialMenu, onChange }) =
       const ivr = resources.ivrs?.find(i => i.id === target);
       return ivr ? ivr.name : target || 'Unconfigured';
     }
+    if (actionType === 'voicemail') return resources.voicemailBoxes?.find(b => b.id === target)?.name || 'Unconfigured';
     if (actionType === 'external') {
       return target || 'Unconfigured';
     }
@@ -434,7 +437,7 @@ const InteractiveBuilderCore = ({ ivrName, resources, initialMenu, onChange }) =
 
         const action = { type: targetNode.data.actionType };
 
-        if (['extension', 'ring_group', 'ivr', 'external', 'did_forward', 'forward'].includes(action.type)) {
+        if (['extension', 'ring_group', 'ivr', 'external', 'did_forward', 'forward', 'voicemail'].includes(action.type)) {
           action.target = targetNode.data.target;
         }
 
@@ -454,7 +457,7 @@ const InteractiveBuilderCore = ({ ivrName, resources, initialMenu, onChange }) =
 
   return (
     <div className="flex h-[700px] bg-white dark:bg-[#07080c] border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
-      <ActionPalette onAddAction={handleAddAction} />
+      <ActionPalette onAddAction={handleAddAction} voicemailBoxes={resources.voicemailBoxes} />
 
       <div className="flex-1 relative" ref={reactFlowWrapper}>
         <ReactFlow
@@ -702,6 +705,16 @@ const InteractiveBuilderCore = ({ ivrName, resources, initialMenu, onChange }) =
                     {resources.ivrs.map(ivr => (
                       <option key={ivr.id} value={ivr.id}>{ivr.name}</option>
                     ))}
+                  </select>
+                </div>
+              )}
+
+              {selectedNode.data.actionType === 'voicemail' && (
+                <div><label className="text-xs font-bold text-gray-500">Select voicemail box</label>
+                  <select className="w-full rounded-lg border p-2" value={selectedNode.data.target || ''}
+                    onChange={e => updateNodeData(selectedNode.id, { target: e.target.value })}>
+                    <option value="">Select voicemail box...</option>
+                    {resources.voicemailBoxes?.map(box => <option key={box.id} value={box.id}>{box.name}</option>)}
                   </select>
                 </div>
               )}

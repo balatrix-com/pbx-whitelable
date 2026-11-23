@@ -10,9 +10,10 @@ import { FreeswitchModule } from '../../freeswitch/freeswitch.module';
 import { AuthModule } from '../../auth/auth.module';
 import { LookupRedisModule } from '../../redis/lookup-redis.module';
 import { EntitlementsModule } from '../../entitlements/entitlements.module';
+import { VoicemailModule } from '../../voicemail/voicemail.module';
 
 @Module({
-    imports: [PrismaModule, FreeswitchModule, AuthModule, LookupRedisModule, HttpModule, ConfigModule, EntitlementsModule],
+    imports: [PrismaModule, FreeswitchModule, AuthModule, LookupRedisModule, HttpModule, ConfigModule, EntitlementsModule, VoicemailModule],
     controllers: [ExtensionsController, InternalExtensionSyncController],
     providers: [ExtensionsService, InternalServiceGuard],
     exports: [ExtensionsService], // Export for use in other modules (e.g., Ring Groups, DIDs)

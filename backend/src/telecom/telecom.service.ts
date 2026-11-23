@@ -222,12 +222,17 @@ export class TelecomService implements OnModuleInit {
             })
         ]);
 
+        const feature = await this.prisma.tenantFeature.findUnique({ where: { tenantId } });
         return {
             extensions,
             ringGroups,
             ivrs,
             schedules,
             didForwards,
+            voicemailEnabled: !!feature?.voicemailEnabled,
+            voicemailBoxes: feature?.voicemailEnabled
+                ? await this.prisma.voicemailBox.findMany({ where: { tenantId, enabled: true, retiredAt: null }, select: { id: true, name: true } })
+                : [],
         };
     }
 
@@ -297,6 +302,13 @@ export class TelecomService implements OnModuleInit {
             case 'forward':
                 // targetId not needed for forward, used forwardNumber instead, but if passed:
                 valid = true;
+                break;
+            case 'voicemail':
+                const [box, feature] = await Promise.all([
+                    this.prisma.voicemailBox.findFirst({ where: { id: targetId, tenantId, enabled: true, retiredAt: null } }),
+                    this.prisma.tenantFeature.findUnique({ where: { tenantId } }),
+                ]);
+                valid = !!box && !!feature?.voicemailEnabled;
                 break;
             case 'did_forward':
                 const fwd = await this.prisma.dIDForward.findFirst({ where: { id: targetId, tenantId } });
