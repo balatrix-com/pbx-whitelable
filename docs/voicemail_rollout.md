@@ -18,6 +18,8 @@ Whitelabel's existing `Plan.allowVoicemail` field remains separate from the Supe
 5. Place a spoken default greeting at `/opt/ivr_audio/system/voicemail_default.wav` and a storage-full prompt at `/opt/ivr_audio/system/voicemail_full.wav`. The beep can use the default FreeSWITCH tone or a WAV configured with `VOICEMAIL_BEEP`. FreeSWITCH must be able to read each file.
 6. Deploy `t2-kam-whitlable/t_2002.py` to the path shown by `pm2 describe fscurl` (previously `/opt/pbx_app/t_2002.py`) and restart `fscurl`. Restart the backend after its migration and build. Start the voicemail ingester only after the shared storage and database are ready.
 
+The later `20261123000000_voicemail_greeting_source` migration records which Audio Library item supplied each selected greeting. Existing custom greeting copies remain playable; select their source item once more if you want its name shown in the mailbox and selected in the dropdown.
+
 ## Verification
 
 1. In Super Admin Feature Controller, enable Voicemail for an existing test tenant. Set an active mailbox quota and storage quota if required.
