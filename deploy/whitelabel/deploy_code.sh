@@ -176,6 +176,8 @@ deploy_voicemail() {
     python3 -m venv "$worker_dir/.venv"
   fi
   "$worker_dir/.venv/bin/pip" install -r "$worker_dir/requirements.txt"
+  "$VENV_PIP" install python-dotenv
+  "$VENV_PYTHON" -m py_compile "${TARGET_DIR}/t2-kam-whitlable/t_2002.py"
 
   # Keep the actual numeric group ID in the PBX environment, without changing
   # database credentials or replacing other local settings.
