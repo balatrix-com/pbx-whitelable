@@ -1,5 +1,9 @@
 # Whitelabel voicemail rollout
 
+For an existing host, use the tracked `deploy/whitelabel/*` scripts with
+`--voicemail-only` in the order shown in `deploy/whitelabel/README.md`. The
+unqualified setup script restores database dumps and is for a fresh install.
+
 ## What is in the repositories
 
 - `pbx-whitelable/backend`: tenant feature settings, mailbox and message Prisma models, migrations, authenticated mailbox/inbox API, Audio Library greeting conversion, and FreeSWITCH XML generation.
