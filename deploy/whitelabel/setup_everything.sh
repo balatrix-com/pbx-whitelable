@@ -43,16 +43,16 @@ setup_voicemail() {
     [ ! -L "$target" ] || { echo "Refusing symlinked voicemail path: $target" >&2; return 1; }
   done
 
-  getent group pbx-voicemail >/dev/null || groupadd --system pbx-voicemail
+  getent group freeswitch >/dev/null || { echo "FreeSWITCH group does not exist" >&2; return 1; }
   if ! id pbx-voicemail >/dev/null 2>&1; then
-    useradd --system --gid pbx-voicemail --home-dir "$storage_root" \
+    useradd --system --gid freeswitch --home-dir "$storage_root" \
       --no-create-home --shell /usr/sbin/nologin pbx-voicemail
   fi
-  usermod -aG pbx-voicemail freeswitch
-  usermod -aG pbx-voicemail soxuser
-  usermod -aG pbx-voicemail "$backend_user"
+  usermod -aG freeswitch pbx-voicemail
+  usermod -aG freeswitch soxuser
+  usermod -aG freeswitch "$backend_user"
 
-  install -d -o "$backend_user" -g pbx-voicemail -m 2770 "$storage_root" "$storage_root/incoming"
+  install -d -o "$backend_user" -g freeswitch -m 2770 "$storage_root" "$storage_root/incoming"
   install -d -o soxuser -g freeswitch -m 2775 /opt/ivr_audio/system
   if [ ! -e "$beep" ]; then
     sox -n -r 16000 -c 1 -b 16 -e signed-integer "$beep" synth 0.25 sine 1000
@@ -60,14 +60,13 @@ setup_voicemail() {
     chmod 0644 "$beep"
   fi
 
-  echo "Voicemail shared group GID: $(getent group pbx-voicemail | cut -d: -f3)"
+  echo "Voicemail uses FreeSWITCH's primary group: $(id -g freeswitch)"
   for prompt in voicemail_default.wav voicemail_full.wav; do
     if [ ! -r "/opt/ivr_audio/system/$prompt" ]; then
       echo "Add a spoken /opt/ivr_audio/system/$prompt before deploying voicemail." >&2
     fi
   done
-  echo "FreeSWITCH must start with -u freeswitch and without -g so its supplementary pbx-voicemail group is loaded."
-  echo "Adjust its systemd ExecStart if needed, then restart FreeSWITCH when calls are idle."
+  echo "FreeSWITCH can keep its existing -u freeswitch -g freeswitch service command."
   echo "If existing voicemail files have older permissions, follow cdr-whitelabel/voicemail_ingester/README.md before starting the worker."
 }
 
@@ -266,7 +265,7 @@ echo -e "  * Redis Password Set:    Yes"
 echo -e "  * SFTP System User:      soxuser (password supplied by SOXUSER_PASSWORD)"
 echo -e "  * Audio Directory:       /opt/ivr_audio (Writable by soxuser:freeswitch, setgid enabled)"
 echo -e "  * Python Virtualenv:     /opt/venv"
-echo -e "  * Voicemail Storage:     /var/lib/pbx-voicemail (pbx-voicemail group)"
+echo -e "  * Voicemail Storage:     /var/lib/pbx-voicemail (freeswitch group)"
 echo -e "${BLUE}======================================================================${NC}"
 echo -e "${YELLOW}Manual Steps Remaining:${NC}"
 echo -e "  1. Configure Kamailio (kamailio.cfg, kamctlrc, kamdbctl create)"

@@ -13,7 +13,7 @@ bash /opt/pbx-whitelable/deploy/whitelabel/setup_everything.sh --voicemail-only
 
 Place readable spoken prompts at `/opt/ivr_audio/system/voicemail_default.wav` and `/opt/ivr_audio/system/voicemail_full.wav`. The setup script creates `voicemail_beep.wav` if absent. Configure the existing `/opt/pbx-whitelable/backend/.env` and `/opt/pbx_app/.env`. The deploy script clones/pulls `cdr-whitelabel` and `t2-kam-whitlable`; on its first run it creates `/etc/pbx-voicemail-ingester.env` from the worker example and stops. Set the real `FS_ESL_PASSWORD` and `VOICEMAIL_DATABASE_URL` there. The worker must use the same PBX database as the backend and XML-CURL.
 
-FreeSWITCH must be restarted when calls are idle to inherit the `pbx-voicemail` group. If voicemail files already exist, follow `cdr-whitelabel/voicemail_ingester/README.md` to repair their permissions before starting the worker. Then run:
+FreeSWITCH retains its existing `-u freeswitch -g freeswitch` command and does not need a restart for voicemail permissions. If voicemail files already exist, follow `cdr-whitelabel/voicemail_ingester/README.md` to change their group to `freeswitch` before starting the worker. Remove the obsolete `VOICEMAIL_SHARED_GID` line from the backend `.env` (the deploy script also removes it). Then run:
 
 ```bash
 bash /opt/pbx-whitelable/deploy/whitelabel/deploy_code.sh --voicemail-only

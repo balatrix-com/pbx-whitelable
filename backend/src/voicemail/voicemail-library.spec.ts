@@ -34,16 +34,13 @@ describe('voicemail Audio Library selection', () => {
 });
 
 describe('voicemail permission enforcement', () => {
-  const originalGid = process.env.VOICEMAIL_SHARED_GID;
   afterEach(() => {
-    if (originalGid === undefined) delete process.env.VOICEMAIL_SHARED_GID;
-    else process.env.VOICEMAIL_SHARED_GID = originalGid;
     jest.restoreAllMocks();
   });
 
   it('reports a permission error instead of succeeding when group ownership cannot be set', async () => {
-    process.env.VOICEMAIL_SHARED_GID = '1005';
     const service = new VoicemailService({} as any, {} as any, {} as any);
+    jest.spyOn(service as any, 'getFreeSwitchGid').mockResolvedValue(996);
     jest.spyOn(fs, 'lstat').mockResolvedValue({ isSymbolicLink: () => false } as any);
     jest.spyOn(fs, 'chown').mockRejectedValue(new Error('EPERM'));
     const chmod = jest.spyOn(fs, 'chmod').mockResolvedValue(undefined);
@@ -52,13 +49,13 @@ describe('voicemail permission enforcement', () => {
   });
 
   it('sets shared-group ownership and a non-public greeting mode', async () => {
-    process.env.VOICEMAIL_SHARED_GID = '1005';
     const service = new VoicemailService({} as any, {} as any, {} as any);
+    jest.spyOn(service as any, 'getFreeSwitchGid').mockResolvedValue(996);
     jest.spyOn(fs, 'lstat').mockResolvedValue({ isSymbolicLink: () => false } as any);
     const chown = jest.spyOn(fs, 'chown').mockResolvedValue(undefined);
     const chmod = jest.spyOn(fs, 'chmod').mockResolvedValue(undefined);
     await (service as any).setPermissions('/greeting.wav', 0o640);
-    expect(chown).toHaveBeenCalledWith('/greeting.wav', -1, 1005);
+    expect(chown).toHaveBeenCalledWith('/greeting.wav', -1, 996);
     expect(chmod).toHaveBeenCalledWith('/greeting.wav', 0o640);
   });
 

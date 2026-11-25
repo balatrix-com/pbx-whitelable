@@ -93,7 +93,7 @@ deploy_voicemail() {
   local worker_dir="${TARGET_DIR}/cdr-whitelabel/voicemail_ingester"
   local worker_env="/etc/pbx-voicemail-ingester.env"
   local routing_env="/opt/pbx_app/.env"
-  local shared_gid
+  local freeswitch_gid
 
   # The generic deployment must not overwrite the existing JSON-CDR process
   # definitions. Only the voicemail worker is installed from this checkout.
@@ -105,9 +105,9 @@ deploy_voicemail() {
 
   [ -f "$backend_dir/.env" ] || { echo "Configure $backend_dir/.env before deployment" >&2; return 1; }
   [ -f "$routing_env" ] || { echo "Configure $routing_env before deployment" >&2; return 1; }
-  shared_gid=$(getent group pbx-voicemail | cut -d: -f3)
-  [ -n "$shared_gid" ] && id pbx-voicemail >/dev/null 2>&1 || {
-    echo "Run setup_everything.sh --voicemail-only to create the shared group and worker account" >&2
+  freeswitch_gid=$(id -g freeswitch) || return 1
+  id pbx-voicemail >/dev/null 2>&1 || {
+    echo "Run setup_everything.sh --voicemail-only to create the worker account" >&2
     return 1
   }
   [ -d /var/lib/pbx-voicemail/incoming ] || { echo "Voicemail storage is missing" >&2; return 1; }
@@ -153,15 +153,13 @@ deploy_voicemail() {
     if (!process.env.ROUTING_DB_PASSWORD) fail("Set ROUTING_DB_PASSWORD for XML-CURL");
   '
 
-  # FreeSWITCH's -u user -g group combination deliberately clears supplementary
-  # groups. It must start with -u freeswitch and no -g for this shared group.
-  # Never restart it automatically while calls may be active.
+  # Check the running daemon's primary group. Its existing -g freeswitch is fine.
   local fs_pid
   fs_pid=$(systemctl show freeswitch -p MainPID --value 2>/dev/null || true)
   if [ -n "$fs_pid" ] && [ "$fs_pid" != 0 ] && [ -r "/proc/$fs_pid/status" ] && \
      [ "$(awk '/^Uid:/ { print $2 }' "/proc/$fs_pid/status")" != 0 ]; then
-    if ! awk -v gid="$shared_gid" '/^Gid:/ { if ($2 == gid) found=1 } /^Groups:/ { for (i=2; i<=NF; i++) if ($i == gid) found=1 } END { exit !found }' "/proc/$fs_pid/status"; then
-      echo "FreeSWITCH lacks pbx-voicemail group. Remove -g from its ExecStart (keep -u freeswitch), restart when calls are idle, then rerun." >&2
+    if ! awk -v gid="$freeswitch_gid" '/^Gid:/ { exit !($2 == gid) }' "/proc/$fs_pid/status"; then
+      echo "Running FreeSWITCH primary GID differs from the freeswitch account; check its service configuration." >&2
       return 1
     fi
   fi
@@ -180,13 +178,8 @@ deploy_voicemail() {
   "$VENV_PIP" install python-dotenv
   "$VENV_PYTHON" -m py_compile "${TARGET_DIR}/t2-kam-whitlable/t_2002.py"
 
-  # Keep the actual numeric group ID in the PBX environment, without changing
-  # database credentials or replacing other local settings.
-  if grep -q '^VOICEMAIL_SHARED_GID=' "$backend_dir/.env"; then
-    sed -i "s/^VOICEMAIL_SHARED_GID=.*/VOICEMAIL_SHARED_GID=$shared_gid/" "$backend_dir/.env"
-  else
-    printf '\nVOICEMAIL_SHARED_GID=%s\n' "$shared_gid" >> "$backend_dir/.env"
-  fi
+  # The backend resolves the freeswitch group's ID locally; retire the old setting.
+  sed -i '/^VOICEMAIL_SHARED_GID=/d' "$backend_dir/.env"
 
   cd "$backend_dir"
   npm ci

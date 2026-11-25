@@ -6,7 +6,10 @@ import { AudioUploadService } from '../freeswitch/audio-upload.service';
 import { createReadStream, promises as fs } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { spawn } from 'child_process';
+import { execFile, spawn } from 'child_process';
+import { promisify } from 'util';
+
+const execFileAsync = promisify(execFile);
 
 type BoxInput = {
   name?: string;
@@ -21,6 +24,7 @@ type BoxInput = {
 export class VoicemailService implements OnModuleInit {
   private readonly storageRoot = process.env.VOICEMAIL_STORAGE_ROOT || '/var/lib/pbx-voicemail';
   private readonly greetingRoot = process.env.VOICEMAIL_GREETING_ROOT || '/opt/ivr_audio';
+  private freeSwitchGid?: Promise<number>;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -40,21 +44,22 @@ export class VoicemailService implements OnModuleInit {
   private async setPermissions(targetPath: string, mode: number) {
     const stat = await fs.lstat(targetPath);
     if (stat.isSymbolicLink()) throw new BadRequestException('Symbolic links are not allowed');
-    const gidStr = process.env.VOICEMAIL_SHARED_GID;
-    if (gidStr) {
-      const gid = Number(gidStr);
-      if (!Number.isInteger(gid) || gid < 0) {
-        throw new ServiceUnavailableException('Invalid VOICEMAIL_SHARED_GID');
-      }
-      try {
-        await fs.chown(targetPath, -1, gid);
-      } catch (err) {
-        throw new ServiceUnavailableException('Failed to set voicemail shared group permissions');
-      }
+    try {
+      await fs.chown(targetPath, -1, await this.getFreeSwitchGid());
       await fs.chmod(targetPath, mode);
-    } else {
-      throw new ServiceUnavailableException('VOICEMAIL_SHARED_GID must be configured');
+    } catch {
+      throw new ServiceUnavailableException('Failed to set voicemail permissions for the freeswitch group');
     }
+  }
+
+  private getFreeSwitchGid(): Promise<number> {
+    this.freeSwitchGid ??= execFileAsync('id', ['-g', 'freeswitch'], { timeout: 5000 })
+      .then(({ stdout }) => {
+        const gid = Number(stdout.trim());
+        if (!Number.isInteger(gid) || gid < 0) throw new Error('Invalid freeswitch group ID');
+        return gid;
+      });
+    return this.freeSwitchGid;
   }
 
   async capabilities(tenantId: string) {
