@@ -153,14 +153,15 @@ deploy_voicemail() {
     if (!process.env.ROUTING_DB_PASSWORD) fail("Set ROUTING_DB_PASSWORD for XML-CURL");
   '
 
-  # An already-running FreeSWITCH process keeps its old supplementary groups
-  # until restarted. Never restart it automatically while calls may be active.
+  # FreeSWITCH's -u user -g group combination deliberately clears supplementary
+  # groups. It must start with -u freeswitch and no -g for this shared group.
+  # Never restart it automatically while calls may be active.
   local fs_pid
   fs_pid=$(systemctl show freeswitch -p MainPID --value 2>/dev/null || true)
   if [ -n "$fs_pid" ] && [ "$fs_pid" != 0 ] && [ -r "/proc/$fs_pid/status" ] && \
      [ "$(awk '/^Uid:/ { print $2 }' "/proc/$fs_pid/status")" != 0 ]; then
-    if ! awk -v gid="$shared_gid" '/^Groups:/ { for (i=2; i<=NF; i++) if ($i == gid) found=1 } END { exit !found }' "/proc/$fs_pid/status"; then
-      echo "FreeSWITCH has not inherited pbx-voicemail group. Restart FreeSWITCH when calls are idle, then rerun." >&2
+    if ! awk -v gid="$shared_gid" '/^Gid:/ { if ($2 == gid) found=1 } /^Groups:/ { for (i=2; i<=NF; i++) if ($i == gid) found=1 } END { exit !found }' "/proc/$fs_pid/status"; then
+      echo "FreeSWITCH lacks pbx-voicemail group. Remove -g from its ExecStart (keep -u freeswitch), restart when calls are idle, then rerun." >&2
       return 1
     fi
   fi

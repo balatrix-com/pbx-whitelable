@@ -66,7 +66,8 @@ setup_voicemail() {
       echo "Add a spoken /opt/ivr_audio/system/$prompt before deploying voicemail." >&2
     fi
   done
-  echo "FreeSWITCH must be restarted when calls are idle to inherit its new group membership."
+  echo "FreeSWITCH must start with -u freeswitch and without -g so its supplementary pbx-voicemail group is loaded."
+  echo "Adjust its systemd ExecStart if needed, then restart FreeSWITCH when calls are idle."
   echo "If existing voicemail files have older permissions, follow cdr-whitelabel/voicemail_ingester/README.md before starting the worker."
 }
 

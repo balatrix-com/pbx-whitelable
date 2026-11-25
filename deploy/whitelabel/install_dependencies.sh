@@ -31,7 +31,7 @@ fi
 # installer also upgrades PostgreSQL, Redis, FreeSWITCH and other services.
 if [ "${1:-}" = "--voicemail-only" ]; then
   apt-get update
-  apt-get install -y ffmpeg sox python3 python3-pip python3-venv acl
+  apt-get install -y ffmpeg sox python3 python3-pip python3-venv
   command -v ffprobe >/dev/null || { echo "ffprobe is required for voicemail" >&2; exit 1; }
   echo "Voicemail media and Python dependencies are installed. Next: setup_everything.sh --voicemail-only"
   exit 0
