@@ -6,7 +6,10 @@ import { AudioUploadService } from '../freeswitch/audio-upload.service';
 import { createReadStream, promises as fs } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { spawn } from 'child_process';
+import { execFile, spawn } from 'child_process';
+import { promisify } from 'util';
+
+const execFileAsync = promisify(execFile);
 
 type BoxInput = {
   name?: string;
@@ -21,6 +24,7 @@ type BoxInput = {
 export class VoicemailService implements OnModuleInit {
   private readonly storageRoot = process.env.VOICEMAIL_STORAGE_ROOT || '/var/lib/pbx-voicemail';
   private readonly greetingRoot = process.env.VOICEMAIL_GREETING_ROOT || '/opt/ivr_audio';
+  private readonly accessPrepared = new Set<string>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -54,6 +58,16 @@ export class VoicemailService implements OnModuleInit {
       await fs.chmod(targetPath, mode);
     } else {
       throw new ServiceUnavailableException('VOICEMAIL_SHARED_GID must be configured');
+    }
+  }
+
+  private async grantFreeSwitchAccess(targetPath: string, permissions: 'r--' | 'r-x' | '--x' | 'rwx') {
+    const stat = await fs.lstat(targetPath);
+    if (stat.isSymbolicLink()) throw new BadRequestException('Symbolic links are not allowed');
+    try {
+      await execFileAsync('setfacl', ['-m', `u:freeswitch:${permissions}`, targetPath], { timeout: 5000 });
+    } catch {
+      throw new ServiceUnavailableException('Failed to grant FreeSWITCH voicemail access; check acl installation and file ownership');
     }
   }
 
@@ -97,7 +111,9 @@ export class VoicemailService implements OnModuleInit {
   async listBoxes(tenantId: string) {
     await this.assertEnabled(tenantId);
     await this.ensureDefaultBoxes(tenantId);
-    return this.prisma.voicemailBox.findMany({ where: { tenantId, retiredAt: null }, include: { extension: { select: { extensionNumber: true, name: true } }, _count: { select: { messages: true } } }, orderBy: { sequenceId: 'asc' } });
+    const boxes = await this.prisma.voicemailBox.findMany({ where: { tenantId, retiredAt: null }, include: { extension: { select: { extensionNumber: true, name: true } }, _count: { select: { messages: true } } }, orderBy: { sequenceId: 'asc' } });
+    for (const box of boxes) await this.prepareMailboxAccess(tenantId, box);
+    return boxes;
   }
 
   /** Provision one company mailbox and one mailbox for every extension, without replacing existing boxes. */
@@ -131,10 +147,25 @@ export class VoicemailService implements OnModuleInit {
     const incomingRoot = join(this.storageRoot, 'incoming');
     const tenantIncomingDir = join(incomingRoot, tenantId);
     const boxDir = join(tenantIncomingDir, boxId);
-    for (const directory of [this.storageRoot, incomingRoot, tenantIncomingDir, boxDir]) {
+    for (const [directory, access] of [
+      [this.storageRoot, '--x'], [incomingRoot, '--x'], [tenantIncomingDir, '--x'], [boxDir, 'rwx'],
+    ] as const) {
       await fs.mkdir(directory, { recursive: true, mode: 0o2770 });
       await this.setPermissions(directory, 0o2770);
+      await this.grantFreeSwitchAccess(directory, access);
     }
+  }
+
+  private async prepareMailboxAccess(tenantId: string, box: { id: string; greetingPath: string | null }) {
+    if (this.accessPrepared.has(box.id)) return;
+    await this.prepareIncomingDirectory(tenantId, box.id);
+    if (box.greetingPath) {
+      await this.prepareGreetingDirectory(tenantId, box.id);
+      const greeting = this.greetingPath(tenantId, box.id);
+      await this.setPermissions(greeting, 0o640);
+      await this.grantFreeSwitchAccess(greeting, 'r--');
+    }
+    this.accessPrepared.add(box.id);
   }
 
   async createBox(tenantId: string, input: BoxInput) {
@@ -182,6 +213,7 @@ export class VoicemailService implements OnModuleInit {
     await this.assertEnabled(tenantId);
     this.validateInput(input);
     const existing = await this.getBox(tenantId, id);
+    await this.prepareMailboxAccess(tenantId, existing);
     if (input.extensionId) {
       const ext = await this.prisma.extension.findFirst({ where: { id: input.extensionId, tenantId } });
       if (!ext) throw new BadRequestException('Extension does not belong to this tenant');
@@ -266,12 +298,16 @@ export class VoicemailService implements OnModuleInit {
     const tenantDir = join(this.greetingRoot, tenantId);
     const voicemailDir = join(tenantDir, 'voicemail');
     const boxDir = join(voicemailDir, boxId);
+    await this.grantFreeSwitchAccess(this.greetingRoot, '--x');
     await fs.mkdir(tenantDir, { recursive: true, mode: 0o2770 });
     await this.setPermissions(tenantDir, 0o2770);
+    await this.grantFreeSwitchAccess(tenantDir, 'r-x');
     await fs.mkdir(voicemailDir, { recursive: true, mode: 0o2770 });
     await this.setPermissions(voicemailDir, 0o2770);
+    await this.grantFreeSwitchAccess(voicemailDir, 'r-x');
     await fs.mkdir(boxDir, { recursive: true, mode: 0o2750 });
     await this.setPermissions(boxDir, 0o2750);
+    await this.grantFreeSwitchAccess(boxDir, 'r-x');
   }
 
   private async convertAudio(input: string, output: string) {
@@ -299,6 +335,7 @@ export class VoicemailService implements OnModuleInit {
   private async saveGreeting(tenantId: string, id: string, buffer: Buffer, maxBytes = 10 * 1024 * 1024, librarySource?: { audioFileId: string; audioName: string }) {
     if (!buffer?.length || buffer.length > maxBytes) throw new BadRequestException('Greeting exceeds size limit');
     const path = this.greetingPath(tenantId, id);
+    await this.prepareIncomingDirectory(tenantId, id);
     await this.prepareGreetingDirectory(tenantId, id);
     const source = `${path}.${randomUUID()}.upload`;
     const converted = `${path}.${randomUUID()}.wav`;
@@ -306,6 +343,7 @@ export class VoicemailService implements OnModuleInit {
       await fs.writeFile(source, buffer, { mode: 0o600 });
       await this.convertAudio(source, converted);
       await this.setPermissions(converted, 0o640);
+      await this.grantFreeSwitchAccess(converted, 'r--');
       await fs.rename(converted, path);
       await this.prisma.voicemailBox.update({ where: { id }, data: {
         greetingPath: path,

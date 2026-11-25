@@ -66,19 +66,33 @@ describe('voicemail permission enforcement', () => {
     const service = new VoicemailService({} as any, {} as any, {} as any);
     jest.spyOn(fs, 'mkdir').mockResolvedValue(undefined);
     const permissions = jest.spyOn(service as any, 'setPermissions').mockResolvedValue(undefined);
+    const acl = jest.spyOn(service as any, 'grantFreeSwitchAccess').mockResolvedValue(undefined);
     await (service as any).prepareGreetingDirectory('U1007', 'box-1');
     expect(permissions.mock.calls).toEqual([
       [join('/opt/ivr_audio', 'U1007'), 0o2770],
       [join('/opt/ivr_audio', 'U1007', 'voicemail'), 0o2770],
       [join('/opt/ivr_audio', 'U1007', 'voicemail', 'box-1'), 0o2750],
     ]);
+    expect(acl.mock.calls).toEqual([
+      ['/opt/ivr_audio', '--x'],
+      [join('/opt/ivr_audio', 'U1007'), 'r-x'],
+      [join('/opt/ivr_audio', 'U1007', 'voicemail'), 'r-x'],
+      [join('/opt/ivr_audio', 'U1007', 'voicemail', 'box-1'), 'r-x'],
+    ]);
     permissions.mockClear();
+    acl.mockClear();
     await (service as any).prepareIncomingDirectory('U1007', 'box-1');
     expect(permissions.mock.calls).toEqual([
       ['/var/lib/pbx-voicemail', 0o2770],
       [join('/var/lib/pbx-voicemail', 'incoming'), 0o2770],
       [join('/var/lib/pbx-voicemail', 'incoming', 'U1007'), 0o2770],
       [join('/var/lib/pbx-voicemail', 'incoming', 'U1007', 'box-1'), 0o2770],
+    ]);
+    expect(acl.mock.calls).toEqual([
+      ['/var/lib/pbx-voicemail', '--x'],
+      [join('/var/lib/pbx-voicemail', 'incoming'), '--x'],
+      [join('/var/lib/pbx-voicemail', 'incoming', 'U1007'), '--x'],
+      [join('/var/lib/pbx-voicemail', 'incoming', 'U1007', 'box-1'), 'rwx'],
     ]);
   });
 
@@ -91,5 +105,35 @@ describe('voicemail permission enforcement', () => {
     await expect((service as any).saveGreeting('U1007', 'box-1', Buffer.from('audio'))).rejects.toThrow('EPERM');
     expect(writeFile).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
+  });
+
+  it('does not publish a greeting when FreeSWITCH access cannot be granted', async () => {
+    const update = jest.fn();
+    const service = new VoicemailService({ voicemailBox: { update } } as any, {} as any, {} as any);
+    jest.spyOn(fs, 'mkdir').mockResolvedValue(undefined);
+    jest.spyOn(service as any, 'setPermissions').mockResolvedValue(undefined);
+    jest.spyOn(service as any, 'grantFreeSwitchAccess').mockRejectedValue({ status: 503 });
+    const writeFile = jest.spyOn(fs, 'writeFile');
+    await expect((service as any).saveGreeting('U1008', 'box-1', Buffer.from('audio'))).rejects.toMatchObject({ status: 503 });
+    expect(writeFile).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('repairs existing mailbox access when its voicemail page is opened', async () => {
+    const box = { id: 'box-1', greetingPath: '/opt/ivr_audio/U1008/voicemail/box-1/greeting.wav' };
+    const prisma = { voicemailBox: { findMany: jest.fn().mockResolvedValue([box]) } };
+    const service = new VoicemailService(prisma as any, {} as any, {} as any);
+    jest.spyOn(service, 'assertEnabled').mockResolvedValue(undefined);
+    jest.spyOn(service, 'ensureDefaultBoxes').mockResolvedValue(undefined);
+    const incoming = jest.spyOn(service as any, 'prepareIncomingDirectory').mockResolvedValue(undefined);
+    const greeting = jest.spyOn(service as any, 'prepareGreetingDirectory').mockResolvedValue(undefined);
+    const permissions = jest.spyOn(service as any, 'setPermissions').mockResolvedValue(undefined);
+    const acl = jest.spyOn(service as any, 'grantFreeSwitchAccess').mockResolvedValue(undefined);
+    await service.listBoxes('U1008');
+    await service.listBoxes('U1008');
+    expect(incoming).toHaveBeenCalledTimes(1);
+    expect(greeting).toHaveBeenCalledTimes(1);
+    expect(permissions).toHaveBeenCalledWith(join('/opt/ivr_audio', 'U1008', 'voicemail', 'box-1', 'greeting.wav'), 0o640);
+    expect(acl).toHaveBeenCalledWith(join('/opt/ivr_audio', 'U1008', 'voicemail', 'box-1', 'greeting.wav'), 'r--');
   });
 });

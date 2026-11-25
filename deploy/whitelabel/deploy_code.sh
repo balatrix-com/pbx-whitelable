@@ -115,6 +115,10 @@ deploy_voicemail() {
     echo "Run install_dependencies.sh --voicemail-only to install ffmpeg/ffprobe" >&2
     return 1
   }
+  command -v setfacl >/dev/null || {
+    echo "Run install_dependencies.sh --voicemail-only to install acl/setfacl" >&2
+    return 1
+  }
   for prompt in voicemail_default.wav voicemail_full.wav voicemail_beep.wav; do
     runuser -u freeswitch -- test -r "/opt/ivr_audio/system/$prompt" || {
       echo "FreeSWITCH cannot read /opt/ivr_audio/system/$prompt" >&2
