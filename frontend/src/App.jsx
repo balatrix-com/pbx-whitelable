@@ -168,6 +168,7 @@ function App() {
                                                     </MonitoringRoute>
                                                 } />
                                                 <Route path="/cdrs" element={<CdrsPage />} />
+                                                <Route path="/telecom/sip-traces" element={<SipTracesPage tenantMode />} />
                                                 <Route path="/subscriptions" element={<SubscriptionsPage />} />
                                                 <Route path="/plans" element={<PlansPage />} />
                                                 <Route path="/plans/new" element={<CreatePlanPage />} />
@@ -177,7 +178,6 @@ function App() {
 
                                             {/* Admin Only */}
                                             <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']} />}>
-                                                <Route path="/telecom/sip-traces" element={<SipTracesPage tenantMode />} />
                                                 <Route path="/users" element={<UserManagement />} />
                                                 <Route path="/settings" element={<BrandingSettingsPage />} />
                                             </Route>

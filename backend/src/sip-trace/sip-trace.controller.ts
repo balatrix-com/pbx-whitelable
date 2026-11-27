@@ -33,7 +33,7 @@ export class SipTraceController {
 
 @Controller('tenant/sip-traces')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN)
+@Roles(Role.ADMIN, Role.SUPPORT)
 export class TenantSipTraceController {
   constructor(private readonly traces: SipTraceService) {}
 

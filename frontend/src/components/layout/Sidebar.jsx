@@ -52,7 +52,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     const [logoError, setLogoError] = useState(false);
     const location = useLocation();
     const role = user?.role;
-
     const [voicemailEnabled, setVoicemailEnabled] = useState(false);
     useEffect(() => {
         if (!user?.tenantId || !['ADMIN', 'SUPPORT'].includes(role)) { setVoicemailEnabled(false); return; }
@@ -160,9 +159,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { name: 'Audio Library', href: '/telecom/audio', icon: Music },
                     { name: 'Voicemail', href: '/telecom/voicemail', icon: Headphones },
                     { name: 'DID Forwards', href: '/telecom/did-forwards', icon: PhoneForwarded },
-                    { name: 'Schedules', href: '/telecom/schedules', icon: Clock },
+                    ...(user?.tenantId ? [{ name: 'Operational Time', href: '/telecom/schedules', icon: Clock }] : []),
                     { name: 'Call Monitoring', href: '/monitoring', icon: Activity },
                     { name: 'Call Records', href: '/cdrs', icon: History },
+                    ...(user?.tenantId ? [{ name: 'SIP Traces', href: '/telecom/sip-traces', icon: ScrollText }] : []),
                 ];
                 break;
             default:
@@ -172,7 +172,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         if (!canMonitor) {
             items = items.filter(item => item.name !== 'Call Monitoring');
         }
-
         if (!voicemailEnabled) items = items.filter(item => item.name !== 'Voicemail');
 
         // Apply tenant feature controls if the user is not a global SUPER_ADMIN
@@ -192,7 +191,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 items = items.filter(item => item.name !== 'Ring Groups');
             }
             if (!features.schedulerEnabled) {
-                items = items.filter(item => item.name !== 'Schedules');
+                items = items.filter(item => item.href !== '/telecom/schedules');
             }
             if (!features.didForwardEnabled) {
                 items = items.filter(item => item.name !== 'DID Forwards');

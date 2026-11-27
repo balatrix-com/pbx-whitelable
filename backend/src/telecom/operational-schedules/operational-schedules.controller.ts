@@ -7,6 +7,7 @@ import {
     Body,
     Param,
     UseGuards,
+    ForbiddenException,
 } from '@nestjs/common';
 import { OperationalSchedulesService } from './operational-schedules.service';
 import { CreateScheduleDto, UpdateScheduleDto } from './dto';
@@ -25,6 +26,11 @@ export class OperationalSchedulesController {
         private readonly schedulesService: OperationalSchedulesService,
     ) { }
 
+    private tenantId(user: { tenantId?: string | null }): string {
+        if (!user?.tenantId) throw new ForbiddenException('A tenant account is required to manage operational schedules');
+        return user.tenantId;
+    }
+
     /**
      * GET /telecom/schedules
      * List all schedules for tenant
@@ -32,7 +38,7 @@ export class OperationalSchedulesController {
     @Get()
     @Roles('ADMIN', 'SUPPORT', 'SUPER_ADMIN')
     findAll(@GetUser() user: any) {
-        return this.schedulesService.findAll(user.tenantId);
+        return this.schedulesService.findAll(this.tenantId(user));
     }
 
     /**
@@ -42,7 +48,7 @@ export class OperationalSchedulesController {
     @Get(':id')
     @Roles('ADMIN', 'SUPPORT', 'SUPER_ADMIN')
     findOne(@GetUser() user: any, @Param('id') id: string) {
-        return this.schedulesService.findOne(user.tenantId, id);
+        return this.schedulesService.findOne(this.tenantId(user), id);
     }
 
     /**
@@ -52,7 +58,7 @@ export class OperationalSchedulesController {
     @Post()
     @Roles('ADMIN', 'SUPPORT', 'SUPER_ADMIN')
     create(@GetUser() user: any, @Body() dto: CreateScheduleDto) {
-        return this.schedulesService.create(user.tenantId, dto);
+        return this.schedulesService.create(this.tenantId(user), dto);
     }
 
     /**
@@ -66,7 +72,7 @@ export class OperationalSchedulesController {
         @Param('id') id: string,
         @Body() dto: UpdateScheduleDto,
     ) {
-        return this.schedulesService.update(user.tenantId, id, dto);
+        return this.schedulesService.update(this.tenantId(user), id, dto);
     }
 
     /**
@@ -76,6 +82,6 @@ export class OperationalSchedulesController {
     @Delete(':id')
     @Roles('ADMIN', 'SUPPORT', 'SUPER_ADMIN')
     remove(@GetUser() user: any, @Param('id') id: string) {
-        return this.schedulesService.remove(user.tenantId, id);
+        return this.schedulesService.remove(this.tenantId(user), id);
     }
 }
